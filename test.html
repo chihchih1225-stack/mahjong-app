@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>麻將後端測試</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, "Microsoft JhengHei", sans-serif;
+      background: #fffaf4;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .box {
+      background: white;
+      padding: 20px;
+      margin-bottom: 18px;
+      border-radius: 18px;
+      box-shadow: 0 5px 20px rgba(0,0,0,.07);
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 19px;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      margin: 6px 0;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 10px;
+      background: #b9dfcf;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: .9;
+    }
+
+    #status {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    #log {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f6f6f6;
+      padding: 14px;
+      border-radius: 10px;
+      min-height: 100px;
+      font-size: 14px;
+    }
+
+    .small {
+      color: #777;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>🀄 麻將後端測試</h1>
+
+  <div class="box">
+    <h2>① 註冊</h2>
+
+    <input
+      id="email"
+      type="email"
+      placeholder="Email"
+    >
+
+    <input
+      id="password"
+      type="password"
+      placeholder="密碼（至少 8 碼）"
+    >
+
+    <input
+      id="name"
+      type="text"
+      placeholder="你的名字，例如：之之"
+    >
+
+    <button onclick="registerUser()">
+      註冊測試帳號
+    </button>
+  </div>
+
+
+  <div class="box">
+    <h2>② 登入</h2>
+
+    <button onclick="loginUser()">
+      用上面的 Email / 密碼登入
+    </button>
+
+    <p class="small">
+      登入成功後，才能測試建立房間。
+    </p>
+  </div>
+
+
+  <div class="box">
+    <h2>③ 建立房間</h2>
+
+    <input
+      id="roomName"
+      type="text"
+      value="之之測試麻將房"
+      placeholder="房間名稱"
+    >
+
+    <button onclick="createRoom()">
+      建立測試房間
+    </button>
+  </div>
+
+
+  <div class="box">
+    <h2>測試結果</h2>
+
+    <div id="status">
+      尚未開始
+    </div>
+
+    <div id="log">
+      等待測試……
+    </div>
+  </div>
+
+</div>
+
+
+<script>
+const PB_URL =
+  "https://birmingham-factor-details-released.trycloudflare.com";
+
+let authToken = "";
+let currentUser = null;
+
+
+function showResult(status, data) {
+
+  document.getElementById("status").textContent = status;
+
+  if (typeof data === "string") {
+    document.getElementById("log").textContent = data;
+  } else {
+    document.getElementById("log").textContent =
+      JSON.stringify(data, null, 2);
+  }
+}
+
+
+async function readResponse(response) {
+
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+
+async function registerUser() {
+
+  showResult(
+    "⏳ 正在註冊……",
+    "正在連線 PocketBase"
+  );
+
+  try {
+
+    const email =
+      document.getElementById("email").value.trim();
+
+    const password =
+      document.getElementById("password").value;
+
+    const name =
+      document.getElementById("name").value.trim();
+
+
+    if (!email || !password || !name) {
+      throw new Error(
+        "Email、密碼、名字都要填寫。"
+      );
+    }
+
+
+    const response = await fetch(
+      PB_URL + "/api/collections/users/records",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          passwordConfirm: password,
+          name: name
+        })
+      }
+    );
+
+
+    const data = await readResponse(response);
+
+
+    if (!response.ok) {
+
+      showResult(
+        "❌ 註冊失敗｜HTTP " + response.status,
+        data
+      );
+
+      return;
+    }
+
+
+    showResult(
+      "✅ 註冊成功",
+      {
+        id: data.id,
+        email: data.email,
+        name: data.name
+      }
+    );
+
+
+  } catch (error) {
+
+    showResult(
+      "❌ 註冊發生錯誤",
+      error.message
+    );
+  }
+}
+
+
+
+async function loginUser() {
+
+  showResult(
+    "⏳ 正在登入……",
+    "正在驗證帳號"
+  );
+
+  try {
+
+    const email =
+      document.getElementById("email").value.trim();
+
+    const password =
+      document.getElementById("password").value;
+
+
+    if (!email || !password) {
+      throw new Error(
+        "請先填寫 Email 和密碼。"
+      );
+    }
+
+
+    const response = await fetch(
+      PB_URL +
+      "/api/collections/users/auth-with-password",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          identity: email,
+          password: password
+        })
+      }
+    );
+
+
+    const data = await readResponse(response);
+
+
+    if (!response.ok) {
+
+      showResult(
+        "❌ 登入失敗｜HTTP " + response.status,
+        data
+      );
+
+      return;
+    }
+
+
+    authToken = data.token;
+    currentUser = data.record;
+
+
+    showResult(
+      "✅ 登入成功",
+      {
+        id: currentUser.id,
+        email: currentUser.email,
+        name: currentUser.name
+      }
+    );
+
+
+  } catch (error) {
+
+    showResult(
+      "❌ 登入發生錯誤",
+      error.message
+    );
+  }
+}
+
+
+
+async function createRoom() {
+
+  showResult(
+    "⏳ 正在建立房間……",
+    "正在呼叫 rooms.pb.js"
+  );
+
+  try {
+
+    if (!authToken) {
+      throw new Error(
+        "還沒有登入，請先按「登入」。"
+      );
+    }
+
+
+    const roomName =
+      document.getElementById("roomName").value.trim();
+
+    const nickname =
+      document.getElementById("name").value.trim();
+
+
+    if (!roomName) {
+      throw new Error(
+        "請輸入房間名稱。"
+      );
+    }
+
+
+    const response = await fetch(
+      PB_URL + "/api/mahjong/rooms/create",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": authToken
+        },
+
+        body: JSON.stringify({
+          name: roomName,
+          nickname: nickname
+        })
+      }
+    );
+
+
+    const data = await readResponse(response);
+
+
+    if (!response.ok) {
+
+      showResult(
+        "❌ 建立房間失敗｜HTTP " +
+        response.status,
+        data
+      );
+
+      return;
+    }
+
+
+    showResult(
+      "🎉 建立房間成功",
+      data
+    );
+
+
+  } catch (error) {
+
+    showResult(
+      "❌ 建立房間發生錯誤",
+      error.message
+    );
+  }
+}
+
+</script>
+
+</body>
+</html>
