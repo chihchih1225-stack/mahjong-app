@@ -3,178 +3,471 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>麻將戰績</title>
+<meta name="theme-color" content="#fff9f2">
+<title>麻將日記</title>
 
 <style>
 :root{
-  --green:#0d4f3c;
-  --green2:#16765a;
-  --bg:#f4f6f3;
-  --card:#fff;
-  --text:#17221e;
-  --muted:#738079;
-  --line:#dfe6e1;
-  --red:#c74444;
+  --cream:#fff9f2;
+  --white:#ffffff;
+  --ink:#514b53;
+  --muted:#918a91;
+  --line:#eee7e5;
+
+  --mint:#cfe9dc;
+  --mint-deep:#6ca98c;
+
+  --pink:#f7d5dc;
+  --pink-deep:#c97c8e;
+
+  --yellow:#f8e7ad;
+  --yellow-deep:#b99a46;
+
+  --lavender:#ded7f4;
+  --lavender-deep:#8d80bc;
+
+  --blue:#d8eaf6;
+  --blue-deep:#6e9fbd;
+
+  --peach:#f8d9c4;
+  --peach-deep:#c88764;
+
+  --shadow:0 8px 24px rgba(104,88,82,.08);
 }
-*{box-sizing:border-box}
+
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+
 body{
   margin:0;
+  background:
+    radial-gradient(circle at 10% 0%,#fff2f5 0,transparent 26%),
+    radial-gradient(circle at 95% 10%,#eef8f3 0,transparent 28%),
+    var(--cream);
+  color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;
-  background:var(--bg);
-  color:var(--text);
 }
+
 header{
-  background:var(--green);
-  color:white;
-  padding:18px;
-  position:sticky;
-  top:0;
-  z-index:3;
+  padding:22px 18px 16px;
+  max-width:620px;
+  margin:auto;
 }
-header h1{margin:0;font-size:23px}
-header p{margin:4px 0 0;opacity:.75;font-size:13px}
-main{max-width:620px;margin:auto;padding:14px 14px 90px}
-.card{
-  background:var(--card);
-  border-radius:18px;
-  padding:16px;
-  margin-bottom:12px;
-  box-shadow:0 2px 10px #0000000a;
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
 }
-h2{font-size:18px;margin:0 0 13px}
-h3{font-size:15px;margin:14px 0 8px}
-.muted{color:var(--muted);font-size:13px}
-.big{font-size:30px;font-weight:800}
-label{
+
+.logo{
+  width:52px;
+  height:52px;
+  border-radius:17px;
+  background:var(--mint);
+  display:grid;
+  place-items:center;
+  font-size:29px;
+  box-shadow:var(--shadow);
+  transform:rotate(-3deg);
+}
+
+header h1{
+  margin:0;
+  font-size:24px;
+}
+
+header p{
+  margin:4px 0 0;
+  color:var(--muted);
   font-size:13px;
-  color:#536059;
-  display:block;
-  margin:10px 0 5px;
 }
+
+main{
+  max-width:620px;
+  margin:auto;
+  padding:0 14px 100px;
+}
+
+.card{
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(255,255,255,.8);
+  border-radius:24px;
+  padding:17px;
+  margin-bottom:13px;
+  box-shadow:var(--shadow);
+}
+
+.hero{
+  overflow:hidden;
+  position:relative;
+  background:linear-gradient(135deg,#fff,#fff7e8);
+}
+
+.hero-art{
+  text-align:center;
+  font-size:48px;
+  letter-spacing:5px;
+  padding:15px 0 4px;
+}
+
+.hero-art span{
+  display:inline-block;
+}
+
+.hero-art span:nth-child(1){transform:rotate(-10deg)}
+.hero-art span:nth-child(2){transform:translateY(-7px)}
+.hero-art span:nth-child(3){transform:rotate(10deg)}
+
+h2{
+  font-size:19px;
+  margin:0 0 13px;
+}
+
+h3{
+  font-size:14px;
+  margin:17px 0 9px;
+}
+
+.muted{
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.55;
+}
+
+.big{
+  font-size:33px;
+  font-weight:900;
+}
+
+label{
+  display:block;
+  font-size:13px;
+  color:#766f75;
+  margin:12px 0 6px;
+}
+
 input{
   width:100%;
-  font-size:16px;
-  padding:12px;
   border:1px solid var(--line);
-  border-radius:12px;
-  background:white;
+  background:#fffdfa;
+  border-radius:15px;
+  padding:13px;
+  font-size:16px;
+  color:var(--ink);
+  outline:none;
 }
-.grid2,.grid4{display:grid;gap:9px}
-.grid2{grid-template-columns:1fr 1fr}
-.grid4{grid-template-columns:repeat(4,1fr)}
+
+input:focus{
+  border-color:#a8cdbb;
+  box-shadow:0 0 0 3px #e9f5ef;
+}
+
 button{
   border:0;
-  border-radius:13px;
-  padding:13px 10px;
+  border-radius:16px;
+  padding:14px 11px;
   font-size:15px;
-  font-weight:700;
-  background:#e9efeb;
-  color:var(--text);
+  font-weight:750;
+  color:var(--ink);
+  background:#f3efed;
   cursor:pointer;
 }
-button.primary{
-  background:var(--green2);
-  color:white;
+
+button:active{
+  transform:scale(.98);
+}
+
+.primary{
   width:100%;
+  color:#476d5b;
+  background:var(--mint);
+  box-shadow:0 5px 14px rgba(108,169,140,.15);
 }
-button.active{
-  background:var(--green);
-  color:white;
+
+.finish{
+  width:100%;
+  background:var(--pink);
+  color:#9a5e6c;
 }
-.mode{
-  padding:17px 12px;
-  text-align:left;
-  border:2px solid transparent;
+
+.grid2,.grid4{
+  display:grid;
+  gap:9px;
 }
-.mode strong{
-  display:block;
-  font-size:17px;
-  margin-bottom:5px;
-}
-.mode.active{
-  border-color:var(--green2);
-  background:#eaf5f0;
-  color:var(--green);
-}
+
+.grid2{grid-template-columns:1fr 1fr}
+.grid4{grid-template-columns:repeat(4,1fr)}
+
 .hidden{display:none!important}
-.pill{
-  display:inline-block;
-  background:#edf3ef;
-  border-radius:999px;
-  padding:6px 10px;
-  font-size:12px;
-  margin:2px;
-}
-.total{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:11px 0;
-  border-bottom:1px solid var(--line);
-}
-.total:last-child{border:0}
-.money{font-size:19px;font-weight:800}
-.pos{color:#16835d}
-.neg{color:var(--red)}
-.notice{
-  border-radius:12px;
-  padding:10px 12px;
-  font-size:13px;
-  margin-top:10px;
-  background:#f1f4f2;
-}
-.notice.ok{
-  background:#e8f6ef;
-  color:#166a4e;
-}
-.notice.bad{
-  background:#fff0f0;
-  color:#a43636;
-}
-.tai{
-  font-size:34px;
-  text-align:center;
-  font-weight:900;
-  margin:10px;
-}
-.amount{
-  text-align:center;
-  font-size:18px;
-  font-weight:800;
-  margin-bottom:12px;
-}
+
 .toprow{
   display:flex;
   justify-content:space-between;
   align-items:center;
+  gap:10px;
 }
+
 .linkbtn{
-  background:none;
-  color:var(--green2);
-  padding:5px;
+  background:transparent;
+  color:#8e858c;
+  padding:6px;
 }
+
+.mode{
+  text-align:left;
+  min-height:120px;
+  padding:16px 13px;
+  border:2px solid transparent;
+}
+
+.mode:nth-child(1){background:#edf7f2}
+.mode:nth-child(2){background:#fff0f3}
+
+.mode strong{
+  display:block;
+  font-size:17px;
+  margin-bottom:7px;
+}
+
+.mode span{
+  font-size:12px;
+  line-height:1.5;
+  color:#817980;
+}
+
+.mode.active{
+  border-color:#86bba1;
+  box-shadow:0 5px 14px #8cbca020;
+}
+
+.notice{
+  margin-top:12px;
+  padding:11px 13px;
+  border-radius:15px;
+  background:#f7f4f2;
+  font-size:13px;
+  line-height:1.5;
+}
+
+.notice.ok{
+  background:#edf8f2;
+  color:#54836c;
+}
+
+.notice.bad{
+  background:#fff0f2;
+  color:#a75e6d;
+}
+
+.pill{
+  display:inline-block;
+  border-radius:999px;
+  padding:7px 11px;
+  margin:3px;
+  background:#f2f0ee;
+  font-size:12px;
+}
+
+.total{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:12px 0;
+  border-bottom:1px dashed var(--line);
+}
+
+.total:last-child{
+  border-bottom:0;
+}
+
+.money{
+  font-weight:900;
+  font-size:19px;
+}
+
+.pos{color:#5d9d7d}
+.neg{color:#c57989}
+
 .draw-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
-  gap:10px;
-  margin-top:14px;
+  gap:9px;
+  margin-top:15px;
 }
+
 .draw-tile{
-  height:100px;
+  height:105px;
+  background:linear-gradient(160deg,#bfe1d1,#dff2e9);
+  border:2px solid white;
+  box-shadow:0 5px 13px rgba(98,143,121,.15);
   font-size:38px;
-  background:var(--green);
-  color:white;
-  border-radius:17px;
 }
+
 .draw-result{
   text-align:center;
-  padding:20px 5px;
+  padding:20px 4px;
 }
+
 .draw-wind{
-  font-size:68px;
+  display:grid;
+  place-items:center;
+  width:100px;
+  height:125px;
+  margin:14px auto 20px;
+  border-radius:14px;
+  background:white;
+  border:5px solid #f2eee9;
+  box-shadow:var(--shadow);
+  font-size:56px;
   font-weight:900;
-  color:var(--green);
-  margin:10px 0 18px;
+  color:#64957d;
+}
+
+.round-card{
+  background:linear-gradient(135deg,#eef8f3,#fff);
+}
+
+.round-layout{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+}
+
+.round-name{
+  font-size:43px;
+  font-weight:900;
+  color:#6a9f85;
+}
+
+.dice{
+  font-size:39px;
+  opacity:.8;
+}
+
+.choice.active{
+  color:#765e94;
+  background:var(--lavender);
+}
+
+.player-btn.active{
+  background:var(--yellow);
+  color:#8e7638;
+}
+
+.tai-box{
+  background:#fffaf0;
+  border-radius:20px;
+  padding:13px;
+  margin-top:10px;
+}
+
+.tai{
+  text-align:center;
+  font-size:38px;
+  font-weight:900;
+  color:#ae8d3e;
+  margin:4px 0 10px;
+}
+
+.tai-btn:nth-child(1){background:#f1eeee}
+.tai-btn:nth-child(2){background:var(--mint)}
+.tai-btn:nth-child(3){background:var(--blue)}
+.tai-btn:nth-child(4){background:var(--lavender)}
+
+.amount{
+  text-align:center;
+  font-size:13px;
+  color:var(--muted);
+  margin:12px 0;
+}
+
+.section-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.mini-art{
+  width:35px;
+  height:35px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:var(--yellow);
+  font-size:19px;
+}
+
+.history-round{
+  display:inline-block;
+  min-width:42px;
+  padding:4px 7px;
+  margin-right:5px;
+  text-align:center;
+  border-radius:9px;
+  background:#eef7f2;
+  color:#639079;
+  font-weight:800;
+}
+
+.modal{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:22px;
+  background:rgba(72,62,67,.35);
+  backdrop-filter:blur(4px);
+}
+
+.modal-box{
+  width:100%;
+  max-width:420px;
+  background:#fffaf7;
+  border-radius:26px;
+  padding:22px;
+  box-shadow:0 20px 60px rgba(70,55,61,.2);
+}
+
+.modal-art{
+  font-size:48px;
+  text-align:center;
+  margin-bottom:7px;
+}
+
+.modal-box h2{
+  text-align:center;
+}
+
+.modal-box .muted{
+  text-align:center;
+}
+
+.settlement-art{
+  text-align:center;
+  font-size:50px;
+  margin:7px 0 13px;
+}
+
+.end-tag{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  background:var(--pink);
+  color:#9c6470;
+  font-size:12px;
+  font-weight:800;
+}
+
+@media(max-width:390px){
+  button{font-size:14px}
+  .draw-tile{height:90px}
 }
 </style>
 </head>
@@ -182,383 +475,480 @@ button.active{
 <body>
 
 <header>
-<h1>🀄 麻將戰績</h1>
-<p>操作原型・之後串接雲端帳號</p>
+  <div class="brand">
+    <div class="logo">🀄</div>
+    <div>
+      <h1>麻將日記</h1>
+      <p>今天誰是手氣王？</p>
+    </div>
+  </div>
 </header>
 
 <main>
 
+<!-- 首頁 -->
 <section id="home">
 
-<div class="card">
-<div class="muted">我的全部戰績</div>
-<div class="big">+$0</div>
-<div class="muted">
-之後會彙整你在所有房間的個人戰績
-</div>
-</div>
+  <div class="card hero">
 
-<button class="primary" onclick="show('setup')">
-＋ 開新牌局
-</button>
+    <div class="hero-art">
+      <span>🀄</span>
+      <span>🎲</span>
+      <span>🀄</span>
+    </div>
+
+    <div class="muted">我的全部戰績</div>
+    <div class="big">+$0</div>
+    <div class="muted">
+      之後會在這裡整理你在所有麻將房間的個人戰績 ♡
+    </div>
+
+  </div>
+
+  <button class="primary" onclick="show('setup')">
+    ＋ 開新牌局
+  </button>
 
 </section>
 
 
+<!-- 開新牌局 -->
 <section id="setup" class="hidden">
 
-<div class="card">
+  <div class="card">
 
-<div class="toprow">
-<h2>開新牌局</h2>
-<button class="linkbtn" onclick="show('home')">
-返回
-</button>
-</div>
+    <div class="toprow">
+      <div class="section-title">
+        <div class="mini-art">🎲</div>
+        <h2 style="margin:0">開新牌局</h2>
+      </div>
 
-<label>房間</label>
-<input id="room" value="之之麻將團">
+      <button class="linkbtn" onclick="show('home')">
+        返回
+      </button>
+    </div>
 
-<label>場地</label>
-<input id="place" placeholder="例如：之之家">
+    <label>房間</label>
+    <input id="room" value="之之麻將團">
 
-<div class="grid2">
+    <label>場地</label>
+    <input id="place" placeholder="例如：之之家">
 
-<div>
-<label>底</label>
-<input id="base" type="number" value="100">
-</div>
+    <div class="grid2">
 
-<div>
-<label>台</label>
-<input id="taiPrice" type="number" value="20">
-</div>
+      <div>
+        <label>底</label>
+        <input id="base" type="number" value="100">
+      </div>
 
-</div>
+      <div>
+        <label>台</label>
+        <input id="taiPrice" type="number" value="20">
+      </div>
 
-<label>四位玩家（逗號分隔）</label>
+    </div>
 
-<input
-id="players"
-value="之之,Amy,小美,小王"
->
+    <label>四位玩家（逗號分隔）</label>
 
-<h3>今天要怎麼記？</h3>
+    <input
+      id="players"
+      value="之之,Amy,小美,小王"
+    >
 
-<div class="grid2">
+    <h3>今天要怎麼記？</h3>
 
-<button
-id="detailedBtn"
-class="mode active"
-onclick="setMode('detailed')"
->
+    <div class="grid2">
 
-<strong>🀄 逐局記錄</strong>
+      <button
+        id="detailedBtn"
+        class="mode active"
+        onclick="setMode('detailed')"
+      >
+        <strong>🀄 逐局記錄</strong>
+        <span>每一把都記下來，之後可以統計胡牌、自摸、放槍。</span>
+      </button>
 
-<span>
-每把記胡牌、自摸、台數，由 App 計算
-</span>
+      <button
+        id="finalBtn"
+        class="mode"
+        onclick="setMode('final')"
+      >
+        <strong>💰 最終結算</strong>
+        <span>現場自己算，打完只輸入四個人的最後輸贏。</span>
+      </button>
 
-</button>
+    </div>
 
+    <div id="modeHint" class="notice">
+      逐局記錄會保留每一把的詳細資料。
+    </div>
 
-<button
-id="finalBtn"
-class="mode"
-onclick="setMode('final')"
->
+  </div>
 
-<strong>💰 只記最終結果</strong>
-
-<span>
-現場自己結算，打完輸入四人輸贏
-</span>
-
-</button>
-
-</div>
-
-<div id="modeHint" class="notice">
-逐局記錄會有完整的胡牌、自摸、放槍等統計。
-</div>
-
-</div>
-
-<button class="primary" onclick="startGame()">
-下一步
-</button>
+  <button class="primary" onclick="startGame()">
+    下一步 ♡
+  </button>
 
 </section>
 
 
+<!-- 選位 -->
 <section id="seat" class="hidden">
 
-<div class="card">
+  <div class="card">
 
-<div class="toprow">
+    <div class="toprow">
 
-<h2>選位</h2>
+      <div class="section-title">
+        <div class="mini-art">🀄</div>
+        <h2 style="margin:0">今天坐哪裡？</h2>
+      </div>
 
-<button class="linkbtn" onclick="show('setup')">
-返回
-</button>
+      <button class="linkbtn" onclick="show('setup')">
+        返回
+      </button>
 
-</div>
+    </div>
 
-<div class="muted">
-選擇這一局要怎麼決定東、南、西、北
-</div>
+    <div class="muted">
+      可以自己抽牌，也可以讓系統直接幫大家隨機選位。
+    </div>
 
-<div class="grid2" style="margin-top:12px">
+    <div class="grid2" style="margin-top:14px">
 
-<button onclick="startDrawSeats()">
-🀄 抽位
-</button>
+      <button style="background:var(--pink)" onclick="startDrawSeats()">
+        🀄 自己抽位
+      </button>
 
-<button onclick="randomSeats()">
-🎲 隨機選位
-</button>
+      <button style="background:var(--blue)" onclick="randomSeats()">
+        🎲 隨機選位
+      </button>
 
-</div>
+    </div>
 
-<div id="seatResult" style="margin-top:14px"></div>
+    <div id="seatResult"></div>
 
-</div>
+  </div>
 
-<button
-id="confirmSeatBtn"
-class="primary hidden"
-onclick="confirmSeats()"
->
-✓ 確認座位，開始牌局
-</button>
+  <button
+    id="confirmSeatBtn"
+    class="primary hidden"
+    onclick="confirmSeats()"
+  >
+    確認座位・開打！
+  </button>
 
 </section>
 
 
+<!-- 詳細記錄 -->
 <section id="game" class="hidden">
 
-<div class="card">
+  <div class="card round-card">
 
-<div class="toprow">
+    <div class="round-layout">
 
-<div>
-<div class="muted">目前局數</div>
-<div class="big" id="round">東1</div>
-</div>
+      <div>
+        <div class="muted">現在打到</div>
+        <div class="round-name" id="round">東1</div>
+        <div id="repeatText" class="muted">第 1 把</div>
+      </div>
 
-<div>
-<div class="muted">連莊</div>
-<div class="big" id="repeat">0</div>
-</div>
+      <div class="dice">
+        🎲 🀄
+      </div>
 
-</div>
+    </div>
 
-<div id="seatPills" style="margin-top:10px"></div>
+    <div id="seatPills" style="margin-top:12px"></div>
 
-<div class="grid2" style="margin-top:12px">
-
-<button onclick="repeatDealer()">
-流局／連莊
-</button>
-
-<button onclick="nextRound()">
-正常完成一局
-</button>
-
-</div>
-
-</div>
+  </div>
 
 
-<div class="card">
+  <div class="card">
 
-<h2 id="handTitle">
-第 1 把・誰贏？
-</h2>
+    <div class="section-title">
+      <div class="mini-art" style="background:var(--pink)">🏆</div>
+      <h2 id="handTitle" style="margin:0">
+        第 1 把・東1
+      </h2>
+    </div>
 
-<div id="winnerBtns" class="grid4"></div>
+    <h3>誰胡？</h3>
+    <div id="winnerBtns" class="grid4"></div>
 
-<h3>結果</h3>
+    <h3>這把發生什麼？</h3>
 
-<div class="grid4">
+    <div class="grid4">
 
-<button
-class="result active"
-onclick="pickResult(this,'胡牌')"
->
-🎯 胡牌
-</button>
+      <button
+        class="choice active"
+        data-result="胡牌"
+        onclick="pickResult(this,'胡牌')"
+      >
+        胡牌
+      </button>
 
-<button
-class="result"
-onclick="pickResult(this,'自摸')"
->
-✨ 自摸
-</button>
+      <button
+        class="choice"
+        data-result="自摸"
+        onclick="pickResult(this,'自摸')"
+      >
+        自摸
+      </button>
 
-<button
-class="result"
-onclick="pickResult(this,'詐胡')"
->
-💥 詐胡
-</button>
+      <button
+        class="choice"
+        data-result="詐胡"
+        onclick="pickResult(this,'詐胡')"
+      >
+        詐胡
+      </button>
 
-<button
-class="result"
-onclick="pickResult(this,'流局')"
->
-流局
-</button>
+      <button
+        class="choice"
+        data-result="流局"
+        onclick="pickResult(this,'流局')"
+      >
+        流局
+      </button>
 
-</div>
-
-
-<div id="discardBox">
-
-<h3>誰放槍？</h3>
-
-<div id="discardBtns" class="grid4"></div>
-
-</div>
-
-
-<h3>幾台？</h3>
-
-<div class="tai" id="taiNum">
-0 台
-</div>
+    </div>
 
 
-<div class="grid4">
+    <div id="discardBox">
 
-<button onclick="resetTai()">
-0台
-</button>
+      <h3>誰放槍？</h3>
 
-<button onclick="addTai(1)">
-+1
-</button>
+      <div id="discardBtns" class="grid4"></div>
 
-<button onclick="addTai(2)">
-+2
-</button>
-
-<button onclick="addTai(5)">
-+5
-</button>
-
-</div>
+    </div>
 
 
-<div
-class="amount"
-id="calcAmount"
->
-本把換算：$100
-</div>
+    <div class="tai-box">
+
+      <h3 style="margin-top:0">幾台？</h3>
+
+      <div class="tai" id="taiNum">
+        0 台
+      </div>
+
+      <div class="grid4">
+
+        <button class="tai-btn" onclick="resetTai()">
+          0台
+        </button>
+
+        <button class="tai-btn" onclick="addTai(1)">
+          +1
+        </button>
+
+        <button class="tai-btn" onclick="addTai(2)">
+          +2
+        </button>
+
+        <button class="tai-btn" onclick="addTai(5)">
+          +5
+        </button>
+
+      </div>
+
+      <div class="amount" id="calcAmount">
+        金額算法之後依你們實際規則設定
+      </div>
+
+    </div>
+
+    <button
+      class="primary"
+      onclick="saveHand()"
+    >
+      ✓ 記錄這一把
+    </button>
+
+  </div>
 
 
-<button
-class="primary"
-onclick="saveHand()"
->
-✓ 記錄這一把
-</button>
+  <div class="card">
 
-</div>
+    <div class="toprow">
+
+      <div class="section-title">
+        <div class="mini-art" style="background:var(--blue)">📖</div>
+        <h2 style="margin:0">最近紀錄</h2>
+      </div>
+
+      <button
+        class="linkbtn"
+        onclick="undoHand()"
+      >
+        ↶ 復原
+      </button>
+
+    </div>
+
+    <div id="history" class="muted" style="margin-top:10px">
+      還沒有紀錄
+    </div>
+
+  </div>
 
 
-<div class="card">
-
-<div class="toprow">
-
-<h2>最近紀錄</h2>
-
-<button
-class="linkbtn"
-onclick="undoHand()"
->
-↶ 復原上一把
-</button>
-
-</div>
-
-<div id="history" class="muted">
-還沒有紀錄
-</div>
-
-</div>
+  <button
+    class="finish"
+    onclick="askFinishGame()"
+  >
+    🏁 提前結束牌局
+  </button>
 
 </section>
 
 
+<!-- 最終結果模式 -->
 <section id="final" class="hidden">
 
-<div class="card">
+  <div class="card">
 
-<div class="toprow">
+    <div class="toprow">
 
-<h2>💰 最終結果</h2>
+      <div class="section-title">
+        <div class="mini-art" style="background:var(--yellow)">💰</div>
+        <h2 style="margin:0">最終結算</h2>
+      </div>
 
-<button
-class="linkbtn"
-onclick="show('setup')"
->
-返回
-</button>
+      <button class="linkbtn" onclick="show('setup')">
+        返回
+      </button>
 
-</div>
+    </div>
 
-<div class="muted">
-今天現場已經結算好了，只要把四個人的最後輸贏輸入進來。
-</div>
+    <div class="settlement-art">
+      🀄 ✨ 💰
+    </div>
 
-<div id="finalInputs"></div>
+    <div class="muted">
+      把今天四個人的最後輸贏填進來，四人加總應該要是 0。
+    </div>
 
-<div id="balanceNotice" class="notice">
-四人合計：$0
-</div>
+    <div id="finalInputs"></div>
 
-</div>
+    <div id="balanceNotice" class="notice">
+      四人合計：$0
+    </div>
 
-<button
-class="primary"
-onclick="saveFinal()"
->
-✓ 儲存這場戰績
-</button>
+  </div>
+
+  <button class="primary" onclick="saveFinal()">
+    ✓ 儲存這場戰績
+  </button>
 
 </section>
 
 
+<!-- 詳細模式結束 -->
+<section id="detailedDone" class="hidden">
+
+  <div class="card">
+
+    <div style="text-align:center">
+
+      <div class="settlement-art">
+        🎉 🀄 🎉
+      </div>
+
+      <span class="end-tag">
+        牌局結束
+      </span>
+
+      <h2 style="margin-top:12px">
+        今天辛苦啦！
+      </h2>
+
+      <div id="detailedDoneText" class="muted"></div>
+
+    </div>
+
+    <div id="detailedSummary" style="margin-top:15px"></div>
+
+    <div class="notice">
+      目前這一版先保留每把紀錄與台數。真正的四人金額結算，
+      下一步會依照你們實際的胡牌、自摸、莊家與連莊規則計算。
+    </div>
+
+  </div>
+
+  <button class="primary" onclick="show('home')">
+    回首頁
+  </button>
+
+</section>
+
+
+<!-- 最終模式完成 -->
 <section id="done" class="hidden">
 
-<div class="card">
+  <div class="card">
 
-<h2>
-已記錄這場戰績 ✓
-</h2>
+    <div style="text-align:center">
 
-<div id="doneSummary"></div>
+      <div class="settlement-art">
+        🎊 💰 🎊
+      </div>
 
-<div class="notice ok">
-這種「只記最終結果」的牌局會計入總輸贏與場次，
-但不會計算自摸、放槍、胡牌等詳細次數。
-</div>
+      <h2>今天結算完成！</h2>
 
-</div>
+    </div>
 
-<button
-class="primary"
-onclick="show('home')"
->
-回首頁
-</button>
+    <div id="doneSummary"></div>
+
+    <div class="notice ok">
+      這場會計入總輸贏與場次，但不會亂算胡牌、自摸或放槍次數。
+    </div>
+
+  </div>
+
+  <button class="primary" onclick="show('home')">
+    回首頁
+  </button>
 
 </section>
 
 </main>
+
+
+<!-- 提前結束確認 -->
+<div id="finishModal" class="modal hidden">
+
+  <div class="modal-box">
+
+    <div class="modal-art">
+      🏁
+    </div>
+
+    <h2>
+      要提前結束嗎？
+    </h2>
+
+    <div id="finishMessage" class="muted"></div>
+
+    <div class="grid2" style="margin-top:18px">
+
+      <button onclick="closeFinishModal()">
+        繼續打
+      </button>
+
+      <button
+        style="background:var(--pink);color:#965b68"
+        onclick="finishDetailedGame()"
+      >
+        確定結束
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
 
 
 <script>
@@ -583,891 +973,1011 @@ let drawAssignments={}
 
 function show(id){
 
-document
-.querySelectorAll('main>section')
-.forEach(x=>x.classList.add('hidden'))
+  document
+  .querySelectorAll('main>section')
+  .forEach(x=>x.classList.add('hidden'))
 
-document
-.getElementById(id)
-.classList.remove('hidden')
+  document
+  .getElementById(id)
+  .classList.remove('hidden')
+
+  window.scrollTo(0,0)
 
 }
 
 
 function setMode(m){
 
-mode=m
+  mode=m
 
-document
-.getElementById('detailedBtn')
-.classList.toggle(
-'active',
-m==='detailed'
-)
+  document
+  .getElementById('detailedBtn')
+  .classList.toggle('active',m==='detailed')
 
-document
-.getElementById('finalBtn')
-.classList.toggle(
-'active',
-m==='final'
-)
+  document
+  .getElementById('finalBtn')
+  .classList.toggle('active',m==='final')
 
-document
-.getElementById('modeHint')
-.textContent=
+  document
+  .getElementById('modeHint')
+  .textContent=
 
-m==='detailed'
+  m==='detailed'
 
-?'逐局記錄會有完整的胡牌、自摸、放槍等統計。'
+  ?'逐局記錄會保留每一把的詳細資料。'
 
-:'只記最終結果會計入「總輸贏、牌局場次」，但不會推測胡牌、自摸或放槍次數。'
+  :'最終結算只記整場輸贏，不會推測胡牌、自摸或放槍次數。'
 
 }
 
 
 function getPlayers(){
 
-return document
-.getElementById('players')
-.value
-.split(/[,，]/)
-.map(x=>x.trim())
-.filter(Boolean)
-.slice(0,4)
+  return document
+  .getElementById('players')
+  .value
+  .split(/[,，]/)
+  .map(x=>x.trim())
+  .filter(Boolean)
+  .slice(0,4)
 
 }
 
 
 function startGame(){
 
-P=getPlayers()
+  P=getPlayers()
 
-if(P.length!==4){
+  if(P.length!==4){
 
-alert('請輸入四位玩家')
+    alert('請輸入四位玩家')
 
-return
+    return
+
+  }
+
+  hands=[]
+  roundIndex=0
+  repeats=0
+  tai=0
+  winner=''
+  discarder=''
+  result='胡牌'
+
+  if(mode==='final'){
+
+    renderFinal()
+    show('final')
+
+  }else{
+
+    seats=[]
+
+    document
+    .getElementById('seatResult')
+    .innerHTML=''
+
+    document
+    .getElementById('confirmSeatBtn')
+    .classList.add('hidden')
+
+    show('seat')
+
+  }
 
 }
 
-if(mode==='final'){
 
-renderFinal()
+function getRoundName(index){
 
-show('final')
+  if(index<4){
+    return '東'+(index+1)
+  }
 
-}
-
-else{
-
-seats=[]
-
-document
-.getElementById('seatResult')
-.innerHTML=''
-
-document
-.getElementById('confirmSeatBtn')
-.classList.add('hidden')
-
-show('seat')
-
-}
+  return '南'+(index-3)
 
 }
 
 
-/* ===== 抽位 ===== */
-
+/* ======================
+   抽位
+====================== */
 
 function startDrawSeats(){
 
-drawPool=
-[...winds]
-.sort(()=>Math.random()-.5)
+  drawPool=[...winds].sort(()=>Math.random()-.5)
 
-drawTurn=0
+  drawTurn=0
+  drawAssignments={}
+  seats=[]
 
-drawAssignments={}
+  document
+  .getElementById('confirmSeatBtn')
+  .classList.add('hidden')
 
-seats=[]
-
-document
-.getElementById('confirmSeatBtn')
-.classList.add('hidden')
-
-renderDrawTable()
+  renderDrawTable()
 
 }
 
 
 function renderDrawTable(){
 
-const box=
-document.getElementById('seatResult')
+  const box=
+  document.getElementById('seatResult')
+
+  if(drawTurn>=P.length){
+
+    seats=Array(4)
+
+    P.forEach(player=>{
+
+      const wind=
+      drawAssignments[player]
+
+      const index=
+      winds.indexOf(wind)
+
+      seats[index]=player
+
+    })
+
+    box.innerHTML=`
+
+      <div class="notice ok">
+        ✨ 抽位完成！
+      </div>
+
+      ${winds.map((wind,i)=>`
+
+        <div class="total">
+
+          <b>
+            ${wind}
+          </b>
+
+          <span>
+            ${seats[i]}
+          </span>
+
+        </div>
+
+      `).join('')}
+
+      <button
+        style="width:100%;margin-top:12px;background:var(--lavender)"
+        onclick="startDrawSeats()"
+      >
+        ↻ 重新抽一次
+      </button>
+
+    `
+
+    document
+    .getElementById('confirmSeatBtn')
+    .classList.remove('hidden')
+
+    return
+
+  }
 
 
-if(drawTurn>=P.length){
-
-seats=Array(4)
-
-
-P.forEach(player=>{
-
-const wind=
-drawAssignments[player]
-
-const index=
-winds.indexOf(wind)
-
-seats[index]=player
-
-})
+  const currentPlayer=
+  P[drawTurn]
 
 
-box.innerHTML=`
+  box.innerHTML=`
 
-<div class="notice ok">
-✓ 四位玩家都抽完了
-</div>
+    <div style="text-align:center;margin-top:18px">
 
-${winds.map((wind,i)=>`
+      <div class="muted">
+        現在輪到
+      </div>
 
-<div class="total">
+      <div style="font-size:25px;font-weight:900;margin-top:3px">
+        ${currentPlayer}
+      </div>
 
-<b>
-${wind}
-</b>
+      <div class="muted" style="margin-top:5px">
+        選一張你有感覺的牌 ♡
+      </div>
 
-<span>
-${seats[i]}
-</span>
+    </div>
 
-</div>
+    <div class="draw-grid">
 
-`).join('')}
+      ${drawPool.map((wind,index)=>`
 
-<button
-style="width:100%;margin-top:12px"
-onclick="startDrawSeats()"
->
-↻ 重新抽位
-</button>
+        <button
+          class="draw-tile"
+          onclick="pickDrawTile(${index})"
+        >
+          🀄
+        </button>
 
-`
+      `).join('')}
 
+    </div>
 
-document
-.getElementById('confirmSeatBtn')
-.classList.remove('hidden')
-
-
-return
-
-}
-
-
-const currentPlayer=
-P[drawTurn]
-
-
-box.innerHTML=`
-
-<div style="text-align:center;margin-bottom:14px">
-
-<div class="muted">
-現在輪到
-</div>
-
-<div
-style="
-font-size:24px;
-font-weight:800;
-margin-top:4px
-"
->
-${currentPlayer}
-</div>
-
-<div
-class="muted"
-style="margin-top:4px"
->
-請自己選一張牌
-</div>
-
-</div>
-
-
-<div class="draw-grid">
-
-${drawPool.map((wind,index)=>`
-
-<button
-class="draw-tile"
-onclick="pickDrawTile(${index})"
->
-🀄
-</button>
-
-`).join('')}
-
-</div>
-
-
-${
-Object
-.entries(drawAssignments)
-.length
-
-?`
-
-<div style="margin-top:16px">
-
-<div class="muted">
-已完成
-</div>
-
-${Object
-.entries(drawAssignments)
-.map(([player,wind])=>`
-
-<span class="pill">
-${player}：${wind}
-</span>
-
-`)
-.join('')}
-
-</div>
-
-`
-
-:''
-}
-
-`
+  `
 
 }
 
 
 function pickDrawTile(index){
 
-const player=
-P[drawTurn]
+  const player=P[drawTurn]
+  const wind=drawPool[index]
 
-const wind=
-drawPool[index]
+  drawAssignments[player]=wind
 
+  drawPool.splice(index,1)
 
-drawAssignments[player]=wind
+  const box=
+  document.getElementById('seatResult')
 
-drawPool.splice(index,1)
+  box.innerHTML=`
 
+    <div class="draw-result">
 
-const box=
-document.getElementById('seatResult')
+      <div class="muted">
+        ${player} 抽到
+      </div>
 
+      <div class="draw-wind">
+        ${wind}
+      </div>
 
-box.innerHTML=`
+      <button
+        class="primary"
+        onclick="nextDrawer()"
+      >
 
-<div class="draw-result">
+        ${
+          drawTurn===P.length-1
+          ?'看看大家的座位'
+          :'換下一位抽'
+        }
 
-<div
-style="
-font-size:18px;
-font-weight:700
-"
->
-${player} 抽到
-</div>
+      </button>
 
-<div class="draw-wind">
-${wind}
-</div>
+    </div>
 
-<button
-class="primary"
-onclick="nextDrawer()"
->
-
-${
-drawTurn===P.length-1
-?'查看座位結果'
-:'下一位'
-}
-
-</button>
-
-</div>
-
-`
+  `
 
 }
 
 
 function nextDrawer(){
 
-drawTurn++
+  drawTurn++
 
-renderDrawTable()
+  renderDrawTable()
 
 }
 
 
-/* ===== 隨機選位 ===== */
-
+/* ======================
+   隨機選位
+====================== */
 
 function randomSeats(){
 
-seats=
-[...P]
-.sort(()=>Math.random()-.5)
+  seats=
+  [...P].sort(()=>Math.random()-.5)
 
-renderSeatResult()
+  renderSeatResult()
 
 }
 
 
 function renderSeatResult(){
 
-const box=
-document.getElementById('seatResult')
+  const box=
+  document.getElementById('seatResult')
 
+  box.innerHTML=`
 
-box.innerHTML=`
+    <div class="notice ok">
+      🎲 隨機選位完成！
+    </div>
 
-<div class="notice ok">
-✓ 已完成隨機選位
-</div>
+    ${seats.map((p,i)=>`
 
-${seats.map((p,i)=>`
+      <div class="total">
 
-<div class="total">
+        <b>
+          ${winds[i]}
+        </b>
 
-<b>
-${winds[i]}
-</b>
+        <span>
+          ${p}
+        </span>
 
-<span>
-${p}
-</span>
+      </div>
 
-</div>
+    `).join('')}
 
-`).join('')}
+    <button
+      style="width:100%;margin-top:12px;background:var(--blue)"
+      onclick="randomSeats()"
+    >
+      🎲 再隨機一次
+    </button>
 
-<button
-style="width:100%;margin-top:12px"
-onclick="randomSeats()"
->
-🎲 重新隨機
-</button>
+  `
 
-`
-
-
-document
-.getElementById('confirmSeatBtn')
-.classList.remove('hidden')
+  document
+  .getElementById('confirmSeatBtn')
+  .classList.remove('hidden')
 
 }
 
 
 function confirmSeats(){
 
-if(seats.length!==4){
+  if(seats.length!==4){
 
-alert('請先完成抽位或隨機選位')
+    alert('請先完成抽位或隨機選位')
 
-return
+    return
+
+  }
+
+  renderGame()
+
+  show('game')
 
 }
 
-renderGame()
 
-show('game')
-
-}
-
-
-/* ===== 逐局記錄 ===== */
-
+/* ======================
+   詳細記錄
+====================== */
 
 function renderGame(){
 
-document
-.getElementById('seatPills')
-.innerHTML=
+  const roundName=
+  getRoundName(roundIndex)
 
-seats.map((p,i)=>`
+  document
+  .getElementById('seatPills')
+  .innerHTML=
 
-<span class="pill">
-${winds[i]} ${p}
-</span>
+  seats.map((p,i)=>`
 
-`).join('')
+    <span class="pill">
+      ${winds[i]}・${p}
+    </span>
 
-
-document
-.getElementById('winnerBtns')
-.innerHTML=
-
-P.map(p=>`
-
-<button
-onclick="winner='${p}';renderGame()"
-class="${winner===p?'active':''}"
->
-${p}
-</button>
-
-`).join('')
+  `).join('')
 
 
-document
-.getElementById('discardBtns')
-.innerHTML=
+  document
+  .getElementById('winnerBtns')
+  .innerHTML=
 
-P.map(p=>`
+  P.map(p=>`
 
-<button
-onclick="discarder='${p}';renderGame()"
-class="${discarder===p?'active':''}"
->
-${p}
-</button>
+    <button
+      class="player-btn ${winner===p?'active':''}"
+      onclick="winner='${p}';renderGame()"
+    >
+      ${p}
+    </button>
 
-`).join('')
-
-
-document
-.getElementById('discardBox')
-.classList
-.toggle(
-'hidden',
-result!=='胡牌'
-)
+  `).join('')
 
 
-document
-.getElementById('round')
-.textContent=
+  document
+  .getElementById('discardBtns')
+  .innerHTML=
 
-(roundIndex<4?'東':'南')
-+(roundIndex%4+1)
+  P.map(p=>`
 
+    <button
+      class="player-btn ${discarder===p?'active':''}"
+      onclick="discarder='${p}';renderGame()"
+    >
+      ${p}
+    </button>
 
-document
-.getElementById('repeat')
-.textContent=
-repeats
-
-
-document
-.getElementById('handTitle')
-.textContent=
-
-`第 ${hands.length+1} 把・誰贏？`
+  `).join('')
 
 
-updateTai()
+  document
+  .getElementById('discardBox')
+  .classList
+  .toggle(
+    'hidden',
+    result!=='胡牌'
+  )
 
-renderHistory()
+
+  document
+  .getElementById('round')
+  .textContent=
+  roundName
+
+
+  document
+  .getElementById('repeatText')
+  .textContent=
+
+  repeats>0
+
+  ?`第 ${hands.length+1} 把・連莊 ${repeats}`
+
+  :`第 ${hands.length+1} 把`
+
+
+  document
+  .getElementById('handTitle')
+  .textContent=
+
+  `第 ${hands.length+1} 把・${roundName}`
+  +(repeats>0?`・連莊 ${repeats}`:'')
+
+
+  updateTai()
+
+  renderHistory()
 
 }
 
 
 function pickResult(el,r){
 
-result=r
+  result=r
 
-document
-.querySelectorAll('.result')
-.forEach(
-b=>b.classList.remove('active')
-)
+  document
+  .querySelectorAll('.choice')
+  .forEach(
+    b=>b.classList.remove('active')
+  )
 
-el.classList.add('active')
+  el.classList.add('active')
 
-document
-.getElementById('discardBox')
-.classList
-.toggle(
-'hidden',
-r!=='胡牌'
-)
+  if(r!=='胡牌'){
+    discarder=''
+  }
+
+  document
+  .getElementById('discardBox')
+  .classList
+  .toggle(
+    'hidden',
+    r!=='胡牌'
+  )
 
 }
 
 
 function addTai(n){
 
-tai=tai+n
+  tai+=n
 
-updateTai()
+  updateTai()
 
 }
 
 
 function resetTai(){
 
-tai=0
+  tai=0
 
-updateTai()
+  updateTai()
 
 }
 
 
 function updateTai(){
 
-document
-.getElementById('taiNum')
-.textContent=
-tai+' 台'
-
-
-let a=
-
-(+document
-.getElementById('base')
-.value||0)
-
-+
-
-(+document
-.getElementById('taiPrice')
-.value||0)
-
-*tai
-
-
-document
-.getElementById('calcAmount')
-.textContent=
-
-'本把換算：$'
-+a.toLocaleString()
+  document
+  .getElementById('taiNum')
+  .textContent=
+  tai+' 台'
 
 }
 
 
 function saveHand(){
 
-if(
-result!=='流局'
-&&
-!winner
-){
+  if(
+    result!=='流局'
+    &&
+    !winner
+  ){
 
-alert('請先選擇玩家')
+    alert('請先選擇玩家')
 
-return
+    return
+
+  }
+
+
+  if(
+    result==='胡牌'
+    &&
+    !discarder
+  ){
+
+    alert('請選擇放槍的人')
+
+    return
+
+  }
+
+
+  if(
+    result==='胡牌'
+    &&
+    winner===discarder
+  ){
+
+    alert('胡牌的人不能同時是放槍的人')
+
+    return
+
+  }
+
+
+  const currentRound=
+  getRoundName(roundIndex)
+
+
+  hands.push({
+
+    winner,
+    result,
+    discarder,
+    tai,
+    round:currentRound,
+    roundIndex,
+    repeats
+
+  })
+
+
+  /*
+  目前版本：
+  流局 = 停在原局 + 連莊
+  其他結果 = 自動下一局
+
+  真正莊家胡牌/自摸是否連莊，
+  等確認你們規則後再加入。
+  */
+
+  if(result==='流局'){
+
+    repeats++
+
+  }else{
+
+    if(roundIndex<7){
+      roundIndex++
+    }
+
+    repeats=0
+
+  }
+
+
+  tai=0
+  winner=''
+  discarder=''
+  result='胡牌'
+
+  syncResultButtons()
+
+  renderGame()
 
 }
 
 
-if(
-result==='胡牌'
-&&
-!discarder
-){
+function syncResultButtons(){
 
-alert('請選擇放槍的人')
+  document
+  .querySelectorAll('.choice')
+  .forEach(b=>{
 
-return
+    b.classList.toggle(
+      'active',
+      b.dataset.result===result
+    )
 
-}
-
-
-if(
-result==='胡牌'
-&&
-winner===discarder
-){
-
-alert('胡牌的人不能同時是放槍的人')
-
-return
-
-}
-
-
-let a=
-
-(+document
-.getElementById('base')
-.value||0)
-
-+
-
-(+document
-.getElementById('taiPrice')
-.value||0)
-
-*tai
-
-
-hands.push({
-
-winner,
-result,
-discarder,
-tai,
-a
-
-})
-
-
-tai=0
-winner=''
-discarder=''
-
-renderGame()
+  })
 
 }
 
 
 function undoHand(){
 
-if(!hands.length){
+  if(!hands.length){
 
-alert('目前沒有可以復原的紀錄')
+    alert('目前沒有可以復原的紀錄')
 
-return
+    return
 
-}
+  }
 
-hands.pop()
+  const last=
+  hands.pop()
 
-renderGame()
+  roundIndex=
+  last.roundIndex
+
+  repeats=
+  last.repeats
+
+  tai=
+  last.tai
+
+  winner=
+  last.winner
+
+  discarder=
+  last.discarder
+
+  result=
+  last.result
+
+  syncResultButtons()
+
+  renderGame()
 
 }
 
 
 function renderHistory(){
 
-let e=
-document.getElementById('history')
+  const e=
+  document.getElementById('history')
+
+  if(!hands.length){
+
+    e.innerHTML=
+    '還沒有紀錄，第一把從東1開始 ✨'
+
+    return
+
+  }
 
 
-if(!hands.length){
+  e.innerHTML=
 
-e.innerHTML=
-'還沒有紀錄'
+  [...hands]
+  .reverse()
+  .map((h,j)=>`
 
-return
+    <div class="total">
 
-}
+      <div>
 
+        <span class="history-round">
+          ${h.round}
+        </span>
 
-e.innerHTML=
+        ${
+          h.repeats>0
+          ?`<span class="pill">連${h.repeats}</span>`
+          :''
+        }
 
-[...hands]
-.reverse()
-.map((h,j)=>`
+        <div style="margin-top:6px">
 
-<div class="total">
+          ${
+            h.result==='流局'
 
-<span>
+            ?'流局'
 
-第 ${hands.length-j} 把　
+            :`${h.winner}・${h.result}`
+            +(h.discarder
+              ?` ← ${h.discarder}`
+              :'')
+          }
 
-${
-h.result==='流局'
+        </div>
 
-?'流局'
+      </div>
 
-:h.winner
-+' '
-+h.result
-+(h.discarder
-?' ← '+h.discarder
-:'')
-}
+      <b>
+        ${
+          h.result==='流局'
+          ?'—'
+          :h.tai+' 台'
+        }
+      </b>
 
-</span>
+    </div>
 
-<b>
-${h.tai}台　
-$${h.a}
-</b>
-
-</div>
-
-`)
-.join('')
-
-}
-
-
-function repeatDealer(){
-
-repeats++
-
-renderGame()
-
-}
-
-
-function nextRound(){
-
-roundIndex=
-(roundIndex+1)%8
-
-repeats=0
-
-renderGame()
+  `)
+  .join('')
 
 }
 
 
-/* ===== 最終結果 ===== */
+/* ======================
+   提前結束
+====================== */
 
+function askFinishGame(){
+
+  const round=
+  getRoundName(roundIndex)
+
+  document
+  .getElementById('finishMessage')
+  .innerHTML=
+
+  `目前已經記錄 <b>${hands.length}</b> 把，
+   現在進行到 <b>${round}</b>。<br><br>
+   確定要把這場牌局結束嗎？`
+
+  document
+  .getElementById('finishModal')
+  .classList.remove('hidden')
+
+}
+
+
+function closeFinishModal(){
+
+  document
+  .getElementById('finishModal')
+  .classList.add('hidden')
+
+}
+
+
+function finishDetailedGame(){
+
+  closeFinishModal()
+
+  const lastRound=
+  hands.length
+  ?hands[hands.length-1].round
+  :'尚未開始'
+
+
+  document
+  .getElementById('detailedDoneText')
+  .innerHTML=
+
+  `這場共記錄 <b>${hands.length}</b> 把，
+   最後紀錄到 <b>${lastRound}</b>。`
+
+
+  const stats={}
+
+  P.forEach(p=>{
+
+    stats[p]={
+      win:0,
+      self:0,
+      discard:0,
+      falseWin:0
+    }
+
+  })
+
+
+  hands.forEach(h=>{
+
+    if(
+      h.result==='胡牌'
+      &&
+      h.winner
+    ){
+      stats[h.winner].win++
+    }
+
+    if(
+      h.result==='自摸'
+      &&
+      h.winner
+    ){
+      stats[h.winner].self++
+    }
+
+    if(
+      h.result==='胡牌'
+      &&
+      h.discarder
+    ){
+      stats[h.discarder].discard++
+    }
+
+    if(
+      h.result==='詐胡'
+      &&
+      h.winner
+    ){
+      stats[h.winner].falseWin++
+    }
+
+  })
+
+
+  document
+  .getElementById('detailedSummary')
+  .innerHTML=
+
+  P.map(p=>`
+
+    <div class="total">
+
+      <b>
+        ${p}
+      </b>
+
+      <span class="muted">
+        胡 ${stats[p].win}・
+        自摸 ${stats[p].self}・
+        放槍 ${stats[p].discard}
+        ${
+          stats[p].falseWin
+          ?`・詐胡 ${stats[p].falseWin}`
+          :''
+        }
+      </span>
+
+    </div>
+
+  `).join('')
+
+
+  show('detailedDone')
+
+}
+
+
+/* ======================
+   只記最終結果
+====================== */
 
 function renderFinal(){
 
-let box=
-document
-.getElementById('finalInputs')
+  const box=
+  document
+  .getElementById('finalInputs')
 
 
-box.innerHTML=
+  box.innerHTML=
 
-P.map((p,i)=>`
+  P.map((p,i)=>`
 
-<label>
-${p} 的最終輸贏
-</label>
+    <label>
+      ${p} 的最終輸贏
+    </label>
 
-<input
-class="finalMoney"
-data-i="${i}"
-type="number"
-inputmode="numeric"
-value="0"
-oninput="checkBalance()"
->
+    <input
+      class="finalMoney"
+      data-i="${i}"
+      type="number"
+      inputmode="numeric"
+      value="0"
+      oninput="checkBalance()"
+    >
 
-`).join('')
+  `).join('')
 
 
-checkBalance()
+  checkBalance()
 
 }
 
 
 function checkBalance(){
 
-let vals=
+  const vals=
 
-[...document
-.querySelectorAll('.finalMoney')]
+  [...document
+  .querySelectorAll('.finalMoney')]
 
-.map(
-x=>+x.value||0
-)
-
-
-let sum=
-
-vals.reduce(
-(a,b)=>a+b,
-0
-)
+  .map(
+    x=>+x.value||0
+  )
 
 
-let n=
+  const sum=
 
-document
-.getElementById('balanceNotice')
-
-
-n.textContent=
-
-`四人合計：${sum>=0?'+':''}$${sum.toLocaleString()}`
+  vals.reduce(
+    (a,b)=>a+b,
+    0
+  )
 
 
-n.className=
+  const n=
 
-'notice '
-+(sum===0
-?'ok'
-:'bad')
+  document
+  .getElementById('balanceNotice')
 
 
-n.innerHTML+=
+  n.textContent=
 
-sum===0
+  `四人合計：${sum>=0?'+':''}$${sum.toLocaleString()}`
 
-?'　✓ 金額平衡'
 
-:'　⚠️ 輸贏合計應為 0，請再檢查一次'
+  n.className=
+
+  'notice '
+  +(sum===0
+    ?'ok'
+    :'bad')
+
+
+  n.innerHTML+=
+
+  sum===0
+
+  ?'　✓ 金額平衡'
+
+  :'　⚠️ 輸贏合計應為 0'
 
 }
 
 
 function saveFinal(){
 
-let vals=
+  const vals=
 
-[...document
-.querySelectorAll('.finalMoney')]
+  [...document
+  .querySelectorAll('.finalMoney')]
 
-.map(
-x=>+x.value||0
-)
-
-
-let sum=
-
-vals.reduce(
-(a,b)=>a+b,
-0
-)
+  .map(
+    x=>+x.value||0
+  )
 
 
-if(sum!==0){
+  const sum=
 
-alert(
-'四人的輸贏合計不是 0，請先檢查金額'
-)
-
-return
-
-}
+  vals.reduce(
+    (a,b)=>a+b,
+    0
+  )
 
 
-document
-.getElementById('doneSummary')
-.innerHTML=
+  if(sum!==0){
 
-P.map((p,i)=>`
+    alert(
+      '四人的輸贏合計不是 0，請先檢查金額'
+    )
 
-<div class="total">
+    return
 
-<b>
-${p}
-</b>
-
-<span
-class="
-money
-${vals[i]>=0?'pos':'neg'}
-"
->
-
-${vals[i]>=0?'+':''}
-$${vals[i].toLocaleString()}
-
-</span>
-
-</div>
-
-`).join('')
+  }
 
 
-show('done')
+  document
+  .getElementById('doneSummary')
+  .innerHTML=
+
+  P.map((p,i)=>`
+
+    <div class="total">
+
+      <b>
+        ${p}
+      </b>
+
+      <span
+        class="
+          money
+          ${vals[i]>=0?'pos':'neg'}
+        "
+      >
+
+        ${vals[i]>=0?'+':''}
+        $${vals[i].toLocaleString()}
+
+      </span>
+
+    </div>
+
+  `).join('')
+
+
+  show('done')
 
 }
 
