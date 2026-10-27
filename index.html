@@ -3,23 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#fff9f2">
+<meta name="theme-color" content="#fffaf5">
 <title>麻將日記</title>
 
 <style>
 :root{
-  --cream:#fff9f2;
-  --white:#ffffff;
-  --ink:#514b53;
-  --muted:#918a91;
-  --line:#eee7e5;
-  --mint:#cfe9dc;
-  --pink:#f7d5dc;
-  --yellow:#f8e7ad;
-  --lavender:#ded7f4;
-  --blue:#d8eaf6;
-  --peach:#f8d9c4;
-  --shadow:0 8px 24px rgba(104,88,82,.08);
+  --bg:#fffaf5;
+  --card:#fff;
+  --ink:#514b52;
+  --muted:#958d92;
+  --line:#eee8e5;
+  --mint:#dcefe5;
+  --mint2:#9dcbb5;
+  --pink:#f7dfe4;
+  --pink2:#d995a5;
+  --yellow:#f7ebbd;
+  --blue:#dcecf6;
+  --lav:#e8e1f4;
+  --green:#6caa8b;
+  --red:#cf7f91;
+  --shadow:0 12px 32px rgba(89,75,75,.08);
 }
 
 *{
@@ -29,18 +32,32 @@
 
 body{
   margin:0;
-  color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;
+  color:var(--ink);
   background:
-    radial-gradient(circle at 10% 0%,#fff2f5 0,transparent 26%),
-    radial-gradient(circle at 95% 10%,#eef8f3 0,transparent 28%),
-    var(--cream);
+    radial-gradient(circle at 0 0,#fff1f4 0,transparent 28%),
+    radial-gradient(circle at 100% 0,#eef8f2 0,transparent 28%),
+    var(--bg);
+}
+
+button,input{
+  font-family:inherit;
+}
+
+button{
+  border:0;
+  cursor:pointer;
+  color:var(--ink);
+}
+
+button:active{
+  transform:scale(.98);
 }
 
 header{
-  padding:22px 18px 16px;
-  max-width:620px;
+  max-width:1100px;
   margin:auto;
+  padding:22px 16px 15px;
 }
 
 .brand{
@@ -53,498 +70,677 @@ header{
   width:52px;
   height:52px;
   border-radius:17px;
-  background:var(--mint);
   display:grid;
   place-items:center;
-  font-size:29px;
-  box-shadow:var(--shadow);
-  transform:rotate(-3deg);
-}
-
-header h1{
-  margin:0;
-  font-size:24px;
-}
-
-header p{
-  margin:4px 0 0;
-  color:var(--muted);
-  font-size:13px;
-}
-
-main{
-  max-width:620px;
-  margin:auto;
-  padding:0 14px 100px;
-}
-
-.card{
-  background:rgba(255,255,255,.94);
-  border:1px solid rgba(255,255,255,.8);
-  border-radius:24px;
-  padding:17px;
-  margin-bottom:13px;
+  background:white;
   box-shadow:var(--shadow);
 }
 
-.hero{
-  background:linear-gradient(135deg,#fff,#fff7e8);
-  overflow:hidden;
-}
-
-.hero-art{
-  text-align:center;
-  font-size:39px;
-  letter-spacing:2px;
-  padding:15px 0 6px;
-}
-
-.hero-art span{
-  display:inline-block;
-}
-
-.hero-art span:nth-child(odd){
-  transform:rotate(-7deg);
-}
-
-.hero-art span:nth-child(even){
-  transform:translateY(-5px) rotate(5deg);
-}
-
-h2{
-  font-size:19px;
-  margin:0 0 13px;
-}
-
-h3{
-  font-size:14px;
-  margin:17px 0 9px;
-}
-
-.muted{
-  color:var(--muted);
-  font-size:13px;
-  line-height:1.55;
-}
-
-.big{
-  font-size:33px;
+.logo-tile{
+  width:31px;
+  height:39px;
+  border:2px solid #8ebba6;
+  border-radius:6px;
+  display:grid;
+  place-items:center;
+  color:#78a58f;
   font-weight:900;
 }
 
-label{
-  display:block;
-  font-size:13px;
-  color:#766f75;
-  margin:12px 0 6px;
+.brand h1{
+  margin:0;
+  font-size:23px;
 }
 
-input{
-  width:100%;
-  border:1px solid var(--line);
-  background:#fffdfa;
-  border-radius:15px;
-  padding:13px;
-  font-size:16px;
-  color:var(--ink);
-  outline:none;
+.brand p{
+  margin:3px 0 0;
+  font-size:12px;
+  color:var(--muted);
 }
 
-button{
-  border:0;
-  border-radius:16px;
-  padding:14px 10px;
-  font-size:14px;
-  font-weight:750;
-  color:var(--ink);
-  background:#f3efed;
-  cursor:pointer;
-}
-
-button:active{
-  transform:scale(.98);
-}
-
-.primary{
-  width:100%;
-  background:var(--mint);
-  color:#476d5b;
-}
-
-.finish{
-  width:100%;
-  background:var(--pink);
-  color:#9a5e6c;
-}
-
-.grid2,.grid4{
-  display:grid;
-  gap:9px;
-}
-
-.grid2{
-  grid-template-columns:1fr 1fr;
-}
-
-.grid4{
-  grid-template-columns:repeat(4,1fr);
+main{
+  max-width:760px;
+  margin:auto;
+  padding:0 13px 100px;
 }
 
 .hidden{
   display:none!important;
 }
 
-.toprow{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
+.card{
+  background:rgba(255,255,255,.96);
+  border-radius:25px;
+  padding:17px;
+  margin-bottom:13px;
+  box-shadow:var(--shadow);
 }
 
-.linkbtn{
+h2{
+  margin:0 0 13px;
+  font-size:19px;
+}
+
+h3{
+  margin:17px 0 9px;
+  font-size:14px;
+}
+
+.muted{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.55;
+}
+
+.primary,
+.secondary,
+.finish{
+  width:100%;
+  border-radius:17px;
+  padding:15px;
+  font-weight:800;
+  font-size:15px;
+}
+
+.primary{
+  background:var(--mint);
+  color:#527c68;
+}
+
+.secondary{
+  background:#f3efed;
+}
+
+.finish{
+  background:var(--pink);
+  color:#9b6270;
+}
+
+.link{
   background:transparent;
-  color:#8e858c;
+  color:var(--muted);
   padding:6px;
 }
 
-.mode{
-  text-align:left;
-  min-height:120px;
-  padding:16px 13px;
-  border:2px solid transparent;
+.toprow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
 }
 
-.mode:nth-child(1){
-  background:#edf7f2;
+.grid2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
 }
 
-.mode:nth-child(2){
-  background:#fff0f3;
+.grid4{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
 }
 
-.mode strong{
+label{
   display:block;
-  font-size:17px;
-  margin-bottom:7px;
+  font-size:13px;
+  margin:12px 0 6px;
+  color:#776f74;
 }
 
-.mode span{
-  font-size:12px;
-  line-height:1.5;
-  color:#817980;
-}
-
-.mode.active{
-  border-color:#86bba1;
+input{
+  width:100%;
+  padding:13px;
+  border-radius:15px;
+  border:1px solid var(--line);
+  background:#fffdfa;
+  outline:none;
+  font-size:16px;
+  color:var(--ink);
 }
 
 .notice{
-  margin-top:12px;
   padding:11px 13px;
   border-radius:15px;
+  margin-top:11px;
   background:#f7f4f2;
-  font-size:13px;
+  font-size:12px;
   line-height:1.55;
 }
 
 .notice.ok{
-  background:#edf8f2;
-  color:#54836c;
+  background:#eef8f2;
+  color:#56806b;
 }
 
 .notice.bad{
   background:#fff0f2;
-  color:#a75e6d;
+  color:#a35f6d;
 }
 
-.pill{
-  display:inline-block;
-  border-radius:999px;
-  padding:7px 10px;
-  margin:3px;
-  background:#f2f0ee;
-  font-size:12px;
-}
 
-.total{
+/* 麻將視覺 */
+
+.tile-row{
   display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-  padding:12px 0;
-  border-bottom:1px dashed var(--line);
+  justify-content:center;
+  gap:7px;
+  margin:18px 0;
 }
 
-.total:last-child{
-  border-bottom:0;
-}
-
-.money{
-  font-weight:900;
-  font-size:19px;
-}
-
-.pos{
-  color:#5d9d7d;
-}
-
-.neg{
-  color:#c57989;
-}
-
-.section-title{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-
-.mini-art{
-  width:35px;
-  height:35px;
+.tile{
+  width:43px;
+  height:55px;
+  background:white;
+  border:2px solid #ebe5df;
+  border-bottom-width:5px;
+  border-radius:8px;
   display:grid;
   place-items:center;
-  border-radius:12px;
-  background:var(--yellow);
-  font-size:19px;
+  font-size:17px;
+  font-weight:900;
+  box-shadow:0 5px 10px rgba(88,75,70,.06);
 }
 
-/* 規則選擇 */
+.tile.mint{color:#6b9f85}
+.tile.pink{color:#c47d8e}
+.tile.blue{color:#739fb8}
+.tile.yellow{color:#b8953e}
+.tile.lav{color:#967db7}
 
-.rule-options{
+.hero{
+  text-align:center;
+  background:linear-gradient(145deg,#fff,#fffaf2);
+}
+
+.hero-title{
+  font-size:28px;
+  font-weight:900;
+}
+
+.hero-sub{
+  color:var(--muted);
+  margin-top:6px;
+  font-size:13px;
+}
+
+
+/* 玩法 */
+
+.stake-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(2,1fr);
   gap:9px;
-  margin-top:8px;
+}
+
+.stake{
+  padding:14px 8px;
+  border-radius:16px;
+  background:#f6f2ef;
+  border:2px solid transparent;
+}
+
+.stake strong{
+  display:block;
+  font-size:18px;
+}
+
+.stake span{
+  font-size:11px;
+  color:var(--muted);
+}
+
+.stake.active{
+  background:var(--yellow);
+  border-color:#e6d58e;
 }
 
 .rule-btn{
-  background:#f7f4f2;
+  padding:13px 8px;
+  border-radius:15px;
+  background:#f5f1ef;
   border:2px solid transparent;
-  min-height:65px;
 }
 
 .rule-btn.active{
-  background:var(--yellow);
-  border-color:#e7d488;
+  background:var(--lav);
+  border-color:#c9b8df;
 }
 
-/* 抽位 */
+.mode{
+  padding:15px 10px;
+  min-height:110px;
+  text-align:left;
+  border-radius:18px;
+  border:2px solid transparent;
+}
+
+.mode:first-child{background:#eef8f2}
+.mode:last-child{background:#fff1f3}
+
+.mode.active{
+  border-color:#8fbea6;
+}
+
+.mode strong{
+  display:block;
+  margin-bottom:6px;
+  font-size:16px;
+}
+
+.mode span{
+  color:#847b81;
+  font-size:11px;
+  line-height:1.5;
+}
+
+
+/* 座位 */
+
+.seat-list{
+  margin-top:13px;
+}
+
+.seat-line{
+  display:flex;
+  justify-content:space-between;
+  padding:12px 3px;
+  border-bottom:1px dashed var(--line);
+}
+
+.wind{
+  font-weight:900;
+  color:#739d88;
+}
 
 .draw-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
-  gap:9px;
+  gap:8px;
   margin-top:15px;
 }
 
-.draw-tile{
-  height:105px;
-  background:linear-gradient(160deg,#bfe1d1,#dff2e9);
-  border:2px solid white;
-  box-shadow:0 5px 13px rgba(98,143,121,.15);
-  font-size:38px;
+.draw-card{
+  height:95px;
+  border-radius:13px;
+  background:linear-gradient(145deg,#c8e6d7,#e6f5ed);
+  border:3px solid white;
+  box-shadow:0 7px 14px rgba(92,140,115,.12);
 }
 
-.draw-result{
-  text-align:center;
-  padding:20px 4px;
-}
-
-.draw-wind{
-  display:grid;
-  place-items:center;
-  width:100px;
-  height:125px;
-  margin:14px auto 20px;
-  border-radius:14px;
-  background:white;
-  border:5px solid #f2eee9;
-  box-shadow:var(--shadow);
-  font-size:56px;
-  font-weight:900;
-  color:#64957d;
-}
 
 /* 莊家 */
 
 .dealer-choice{
   width:100%;
-  margin-bottom:9px;
-  background:#fff;
-  border:2px solid #f0e9e4;
+  padding:14px;
+  border-radius:15px;
+  margin-bottom:8px;
   text-align:left;
+  background:#faf7f5;
+  border:2px solid transparent;
 }
 
 .dealer-choice.active{
   background:var(--yellow);
-  border-color:#e8d58c;
+  border-color:#e3cf7f;
 }
 
-/* 遊戲 */
 
-.round-card{
-  background:linear-gradient(135deg,#eef8f3,#fff);
+/* 即時戰況 */
+
+.live-card{
+  background:linear-gradient(145deg,#f5fbf7,#fff);
 }
 
-.round-layout{
+.live-head{
   display:flex;
-  align-items:center;
   justify-content:space-between;
-  gap:15px;
+  align-items:flex-start;
+  gap:12px;
 }
 
-.round-name{
-  font-size:43px;
-  font-weight:900;
-  color:#6a9f85;
+.round-big{
+  font-size:38px;
+  font-weight:950;
+  color:#66977e;
 }
 
-.dealer{
-  margin-top:5px;
+.dealer-pill{
   display:inline-block;
-  background:var(--yellow);
+  margin-top:5px;
   border-radius:999px;
-  padding:7px 11px;
-  font-size:13px;
+  padding:6px 10px;
+  background:var(--yellow);
+  font-size:12px;
   font-weight:800;
 }
 
-.choice.active{
-  background:var(--lavender);
+.player-stats{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:9px;
+  margin-top:14px;
+}
+
+.player-card{
+  position:relative;
+  min-height:160px;
+  border-radius:20px;
+  overflow:hidden;
+  background:#faf8f6;
+  border:1px solid #f1ece8;
+}
+
+.player-card.leader{
+  box-shadow:0 0 0 2px #e8d47e inset;
+}
+
+.water{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:50%;
+  transition:height .8s cubic-bezier(.2,.8,.2,1);
+}
+
+.water.high{
+  background:linear-gradient(180deg,rgba(191,231,210,.42),rgba(158,210,182,.62));
+}
+
+.water.low{
+  background:linear-gradient(180deg,rgba(244,207,216,.40),rgba(233,176,190,.58));
+}
+
+.player-content{
+  position:relative;
+  z-index:2;
+  padding:14px;
+}
+
+.player-name{
+  font-size:15px;
+  font-weight:900;
+}
+
+.current-money{
+  margin-top:7px;
+  font-size:25px;
+  font-weight:950;
+}
+
+.net{
+  font-size:13px;
+  font-weight:800;
+  margin-top:3px;
+}
+
+.net.pos{color:var(--green)}
+.net.neg{color:var(--red)}
+
+.water-label{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:700;
+}
+
+.winrate{
+  margin-top:5px;
+  font-size:11px;
+  color:#756e73;
+}
+
+
+/* 圓餅 */
+
+.chart-wrap{
+  display:grid;
+  grid-template-columns:145px 1fr;
+  gap:16px;
+  align-items:center;
+}
+
+.pie{
+  width:140px;
+  height:140px;
+  border-radius:50%;
+  position:relative;
+  transition:background .6s ease;
+}
+
+.pie:after{
+  content:"";
+  position:absolute;
+  width:70px;
+  height:70px;
+  border-radius:50%;
+  background:white;
+  left:35px;
+  top:35px;
+}
+
+.legend-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:7px 0;
+  font-size:12px;
+}
+
+.legend-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+}
+
+
+/* 輸入 */
+
+.choice,
+.player-btn,
+.tai-btn,
+.fraud-type{
+  border-radius:14px;
+  padding:12px 6px;
+  background:#f3efed;
+  font-weight:750;
+}
+
+.choice.active,
+.fraud-type.active{
+  background:var(--lav);
   color:#765e94;
 }
 
 .player-btn.active{
   background:var(--yellow);
-  color:#8e7638;
+  color:#8a7135;
 }
 
 .tai-box{
   background:#fffaf0;
-  border-radius:20px;
   padding:13px;
-  margin-top:10px;
+  border-radius:18px;
 }
 
-.tai{
+.tai-number{
   text-align:center;
-  font-size:38px;
-  font-weight:900;
-  color:#ae8d3e;
-  margin:4px 0 10px;
+  font-size:36px;
+  font-weight:950;
+  color:#b08c37;
+  margin:5px 0 10px;
 }
 
-.tai-btn:nth-child(1){
-  background:#f1eeee;
+.tai-btn:nth-child(1){background:#f1eeee}
+.tai-btn:nth-child(2){background:var(--mint)}
+.tai-btn:nth-child(3){background:var(--blue)}
+.tai-btn:nth-child(4){background:var(--lav)}
+
+
+/* 自摸詐胡 */
+
+.fraud-panel{
+  padding:13px;
+  margin-top:13px;
+  border-radius:19px;
+  background:#f8f4fb;
 }
 
-.tai-btn:nth-child(2){
-  background:var(--mint);
+.fraud-victim{
+  padding:12px 0;
+  border-bottom:1px dashed #e8e0ed;
 }
 
-.tai-btn:nth-child(3){
-  background:var(--blue);
+.fraud-victim:last-child{
+  border-bottom:0;
 }
 
-.tai-btn:nth-child(4){
-  background:var(--lavender);
+.fraud-victim-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
 }
+
+.fraud-tai-buttons{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:6px;
+}
+
+.fraud-tai-buttons button{
+  padding:9px 4px;
+  border-radius:11px;
+  background:white;
+  font-weight:800;
+}
+
+.fraud-tai-buttons button.active{
+  background:var(--pink);
+  color:#9b6170;
+}
+
 
 /* 特殊牌型 */
 
 .pattern-box{
   margin-top:13px;
   padding:13px;
-  border-radius:20px;
-  background:linear-gradient(135deg,#fff3f6,#f7f3ff);
+  border-radius:18px;
+  background:#fbf5f8;
 }
 
 .pattern-toggle{
-  width:100%;
   background:transparent;
-  padding:5px;
+  padding:4px;
+  width:100%;
   text-align:left;
+  font-weight:800;
 }
 
-.patterns{
+.pattern-list{
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
-  margin-top:12px;
+  gap:7px;
+  margin-top:10px;
 }
 
 .pattern{
-  padding:10px 13px;
   border-radius:999px;
-  background:#fff;
-  border:1px solid #eee5ec;
-  font-size:13px;
+  padding:9px 12px;
+  background:white;
+  border:1px solid #eadfe4;
+  font-size:12px;
 }
 
 .pattern.active{
   background:var(--pink);
-  border-color:#e7b8c3;
-  color:#975c69;
+  border-color:#ddb3be;
+}
+
+
+/* 歷史 */
+
+.history-item{
+  padding:12px 0;
+  border-bottom:1px dashed var(--line);
+}
+
+.history-item:last-child{
+  border-bottom:0;
+}
+
+.history-top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
 }
 
 .history-round{
   display:inline-block;
-  min-width:42px;
   padding:4px 7px;
-  margin-right:5px;
-  text-align:center;
-  border-radius:9px;
+  border-radius:8px;
   background:#eef7f2;
-  color:#639079;
-  font-weight:800;
+  color:#638f78;
+  font-size:11px;
+  font-weight:900;
 }
 
-/* modal */
+
+/* Modal */
 
 .modal{
   position:fixed;
   inset:0;
-  z-index:50;
+  z-index:100;
   display:flex;
-  align-items:center;
   justify-content:center;
-  padding:22px;
-  background:rgba(72,62,67,.35);
-  backdrop-filter:blur(4px);
+  align-items:center;
+  padding:20px;
+  background:rgba(69,60,64,.35);
+  backdrop-filter:blur(5px);
 }
 
 .modal-box{
   width:100%;
   max-width:420px;
-  background:#fffaf7;
-  border-radius:26px;
   padding:22px;
-  box-shadow:0 20px 60px rgba(70,55,61,.2);
+  border-radius:25px;
+  background:#fffaf7;
+  box-shadow:0 20px 60px rgba(65,50,58,.2);
 }
 
-.modal-art{
-  font-size:48px;
-  text-align:center;
-  margin-bottom:7px;
-}
+@media(min-width:700px){
+  main{max-width:1100px}
 
-.modal-box h2{
-  text-align:center;
-}
+  .player-stats{
+    grid-template-columns:repeat(4,1fr);
+  }
 
-.modal-box .muted{
-  text-align:center;
-}
+  .player-card{
+    min-height:190px;
+  }
 
-.settlement-art{
-  text-align:center;
-  font-size:45px;
-  margin:7px 0 13px;
-}
+  .current-money{
+    font-size:30px;
+  }
 
-@media(max-width:390px){
-  button{font-size:13px}
-  .draw-tile{height:90px}
+  .chart-wrap{
+    grid-template-columns:210px 1fr;
+  }
+
+  .pie{
+    width:190px;
+    height:190px;
+  }
+
+  .pie:after{
+    width:94px;
+    height:94px;
+    left:48px;
+    top:48px;
+  }
 }
 </style>
 </head>
@@ -553,11 +749,12 @@ button:active{
 
 <header>
   <div class="brand">
-    <div class="logo">🀇</div>
-
+    <div class="logo">
+      <div class="logo-tile">發</div>
+    </div>
     <div>
       <h1>麻將日記</h1>
-      <p>今天誰是手氣王？</p>
+      <p>今晚的戰況，全部記下來</p>
     </div>
   </div>
 </header>
@@ -570,21 +767,16 @@ button:active{
 
   <div class="card hero">
 
-    <div class="hero-art">
-      <span>🀇</span>
-      <span>🀙</span>
-      <span>🀐</span>
-      <span>🀄</span>
-      <span>🀅</span>
-      <span>🎲</span>
+    <div class="tile-row">
+      <div class="tile mint">一萬</div>
+      <div class="tile pink">五筒</div>
+      <div class="tile blue">八條</div>
+      <div class="tile yellow">東</div>
+      <div class="tile lav">發</div>
     </div>
 
-    <div class="muted">我的全部戰績</div>
-    <div class="big">+$0</div>
-
-    <div class="muted">
-      之後會整理你在所有麻將房間的個人戰績 ♡
-    </div>
+    <div class="hero-title">麻將日記</div>
+    <div class="hero-sub">記錄每一場，也記錄每一次逆轉</div>
 
   </div>
 
@@ -595,23 +787,15 @@ button:active{
 </section>
 
 
-<!-- 開新牌局 -->
+<!-- 開局 -->
 
 <section id="setup" class="hidden">
 
   <div class="card">
 
     <div class="toprow">
-
-      <div class="section-title">
-        <div class="mini-art">🀙</div>
-        <h2 style="margin:0">開新牌局</h2>
-      </div>
-
-      <button class="linkbtn" onclick="show('home')">
-        返回
-      </button>
-
+      <h2>開新牌局</h2>
+      <button class="link" onclick="show('home')">返回</button>
     </div>
 
     <label>房間</label>
@@ -620,441 +804,324 @@ button:active{
     <label>場地</label>
     <input id="place" placeholder="例如：之之家">
 
-    <div class="grid2">
-
-      <div>
-        <label>底</label>
-        <input id="base" type="number" value="100">
-      </div>
-
-      <div>
-        <label>台</label>
-        <input id="taiPrice" type="number" value="20">
-      </div>
-
-    </div>
-
     <label>四位玩家（逗號分隔）</label>
     <input id="players" value="之之,Amy,小美,小王">
 
-    <h3>詐胡之後怎麼處理莊家？</h3>
+    <h3>今天打多少？</h3>
 
-    <div class="rule-options">
+    <div class="stake-grid">
 
-      <button
-        id="fraudStayBtn"
-        class="rule-btn active"
-        onclick="setFraudRule('stay')"
-      >
-        👑 原莊連莊
+      <button class="stake active" onclick="setStake('100/20',this)">
+        <strong>100 / 20</strong>
+        <span>標準水位 $2,000</span>
       </button>
 
-      <button
-        id="fraudNextBtn"
-        class="rule-btn"
-        onclick="setFraudRule('next')"
-      >
-        🔄 換下一家
+      <button class="stake" onclick="setStake('100/50',this)">
+        <strong>100 / 50</strong>
+        <span>標準水位 $5,000</span>
+      </button>
+
+      <button class="stake" onclick="setStake('200/50',this)">
+        <strong>200 / 50</strong>
+        <span>標準水位 $5,000</span>
+      </button>
+
+      <button class="stake" onclick="setStake('300/50',this)">
+        <strong>300 / 50</strong>
+        <span>標準水位 $5,000</span>
+      </button>
+
+      <button class="stake" onclick="setStake('300/100',this)">
+        <strong>300 / 100</strong>
+        <span>標準水位 $10,000</span>
       </button>
 
     </div>
 
-    <div class="notice">
-      這個設定只套用在今天這一場。之後每個麻將房間可以保存自己的預設規則。
+    <div id="stakeInfo" class="notice ok">
+      底 $100・台 $20・標準水位 $2,000
     </div>
 
-    <h3>今天要怎麼記？</h3>
+    <h3>詐胡後莊家</h3>
+
+    <div class="grid2">
+      <button id="fraudStayBtn" class="rule-btn active" onclick="setFraudRule('stay')">
+        原莊連莊
+      </button>
+
+      <button id="fraudNextBtn" class="rule-btn" onclick="setFraudRule('next')">
+        換下一家
+      </button>
+    </div>
+
+    <h3>記錄方式</h3>
 
     <div class="grid2">
 
-      <button
-        id="detailedBtn"
-        class="mode active"
-        onclick="setMode('detailed')"
-      >
-        <strong>🀄 逐局記錄</strong>
-        <span>
-          每一把都記錄，可統計胡牌、自摸、放槍與特殊牌型。
-        </span>
+      <button id="detailedBtn" class="mode active" onclick="setMode('detailed')">
+        <strong>逐局記錄</strong>
+        <span>每一把即時計算金額、水位、勝率與戰況。</span>
       </button>
 
-      <button
-        id="finalBtn"
-        class="mode"
-        onclick="setMode('final')"
-      >
-        <strong>💰 最終結算</strong>
-        <span>
-          現場自己算，打完只輸入四個人的最後輸贏。
-        </span>
+      <button id="finalBtn" class="mode" onclick="setMode('final')">
+        <strong>最終結算</strong>
+        <span>不記每一把，只輸入最後四人的輸贏。</span>
       </button>
 
-    </div>
-
-    <div id="modeHint" class="notice">
-      逐局記錄會保留每一把的詳細資料。
     </div>
 
   </div>
 
-  <button class="primary" onclick="startGame()">
-    下一步 ♡
-  </button>
+  <button class="primary" onclick="startGame()">下一步</button>
 
 </section>
 
 
-<!-- 選位 -->
+<!-- 座位 -->
 
 <section id="seat" class="hidden">
 
   <div class="card">
 
     <div class="toprow">
-
-      <div class="section-title">
-        <div class="mini-art">🀀</div>
-        <h2 style="margin:0">今天坐哪裡？</h2>
-      </div>
-
-      <button class="linkbtn" onclick="show('setup')">
-        返回
-      </button>
-
+      <h2>今天坐哪裡？</h2>
+      <button class="link" onclick="show('setup')">返回</button>
     </div>
 
-    <div class="hero-art" style="font-size:34px">
-      <span>🀀</span>
-      <span>🀁</span>
-      <span>🀂</span>
-      <span>🀃</span>
+    <div class="tile-row">
+      <div class="tile mint">東</div>
+      <div class="tile pink">南</div>
+      <div class="tile blue">西</div>
+      <div class="tile yellow">北</div>
     </div>
 
     <div class="grid2">
-
-      <button
-        style="background:var(--pink)"
-        onclick="startDrawSeats()"
-      >
-        🀄 自己抽位
-      </button>
-
-      <button
-        style="background:var(--blue)"
-        onclick="randomSeats()"
-      >
-        🎲 隨機選位
-      </button>
-
+      <button class="rule-btn" onclick="startDrawSeats()">自己抽位</button>
+      <button class="rule-btn" onclick="randomSeats()">隨機選位</button>
     </div>
 
     <div id="seatResult"></div>
 
   </div>
 
-  <button
-    id="confirmSeatBtn"
-    class="primary hidden"
-    onclick="goDealer()"
-  >
-    座位確定・骰莊家
+  <button id="confirmSeatBtn" class="primary hidden" onclick="goDealer()">
+    座位確定・選第一位莊家
   </button>
 
 </section>
 
 
-<!-- 選第一位莊家 -->
+<!-- 第一莊 -->
 
 <section id="dealerSetup" class="hidden">
 
   <div class="card">
 
-    <div class="section-title">
-      <div class="mini-art">🎲</div>
-      <h2 style="margin:0">骰完了，誰先當莊？</h2>
-    </div>
-
-    <div class="hero-art" style="font-size:36px">
-      <span>🎲</span>
-      <span>🀇</span>
-      <span>🀚</span>
-      <span>🀑</span>
-    </div>
+    <h2>誰先當莊？</h2>
 
     <div class="muted">
-      選出骰子決定的第一位莊家。東1會從這位開始。
+      骰子照你們平常方式擲，擲完直接選第一位莊家。
     </div>
 
     <div id="dealerChoices" style="margin-top:15px"></div>
 
     <div class="notice">
-      👑 莊家胡牌／自摸 → 連莊<br>
-      🤝 流局 → 連莊<br>
-      🀄 閒家胡牌／自摸 → 換下家
+      莊家胡牌／自摸 → 連莊<br>
+      流局 → 連莊<br>
+      閒家胡牌／自摸 → 換下一家
     </div>
 
   </div>
 
-  <button
-    class="primary"
-    onclick="confirmDealer()"
-  >
-    👑 確認莊家・開打
+  <button class="primary" onclick="confirmDealer()">
+    確認莊家・開打
   </button>
 
 </section>
 
 
-<!-- 詳細記錄 -->
+<!-- 遊戲 -->
 
 <section id="game" class="hidden">
 
-  <div class="card round-card">
+  <!-- LIVE -->
 
-    <div class="round-layout">
+  <div class="card live-card">
+
+    <div class="live-head">
 
       <div>
-
-        <div class="muted">
-          現在打到
-        </div>
-
-        <div
-          class="round-name"
-          id="round"
-        >
-          東1
-        </div>
-
-        <div
-          id="dealerDisplay"
-          class="dealer"
-        >
-          👑 莊家：
-        </div>
-
-        <div
-          id="repeatText"
-          class="muted"
-          style="margin-top:7px"
-        >
-          第 1 把
-        </div>
-
+        <div class="muted">LIVE</div>
+        <div id="round" class="round-big">東1</div>
+        <div id="dealerDisplay" class="dealer-pill">莊家</div>
       </div>
 
-      <div style="font-size:35px">
-        🀇 🀙 🎲
+      <div style="text-align:right">
+        <div id="handCounter" style="font-size:15px;font-weight:900">第 1 把</div>
+        <div id="stakeDisplay" class="muted" style="margin-top:4px"></div>
       </div>
 
     </div>
 
-    <div
-      id="seatPills"
-      style="margin-top:12px"
-    ></div>
+    <div id="playerStats" class="player-stats"></div>
 
   </div>
 
 
+  <!-- 金額圓餅 -->
+
   <div class="card">
 
-    <div class="section-title">
-
-      <div
-        class="mini-art"
-        style="background:var(--pink)"
-      >
-        🏆
-      </div>
-
-      <h2
-        id="handTitle"
-        style="margin:0"
-      >
-        第 1 把・東1
-      </h2>
-
+    <div class="toprow">
+      <h2>目前金額分布</h2>
+      <div id="totalTableMoney" class="muted"></div>
     </div>
 
+    <div class="chart-wrap">
+      <div id="moneyPie" class="pie"></div>
+      <div id="moneyLegend"></div>
+    </div>
 
-    <h3>誰？</h3>
-
-    <div
-      id="winnerBtns"
-      class="grid4"
-    ></div>
+  </div>
 
 
-    <h3>這把發生什麼？</h3>
+  <!-- 記錄 -->
+
+  <div class="card">
+
+    <h2 id="entryTitle">記錄這一把</h2>
+
+    <h3 id="personQuestion">誰胡？</h3>
+    <div id="winnerBtns" class="grid4"></div>
+
+    <h3>結果</h3>
 
     <div class="grid4">
 
-      <button
-        class="choice active"
-        data-result="胡牌"
-        onclick="pickResult(this,'胡牌')"
-      >
+      <button class="choice active" data-result="胡牌" onclick="pickResult(this,'胡牌')">
         胡牌
       </button>
 
-      <button
-        class="choice"
-        data-result="自摸"
-        onclick="pickResult(this,'自摸')"
-      >
+      <button class="choice" data-result="自摸" onclick="pickResult(this,'自摸')">
         自摸
       </button>
 
-      <button
-        class="choice"
-        data-result="詐胡"
-        onclick="pickResult(this,'詐胡')"
-      >
+      <button class="choice" data-result="詐胡" onclick="pickResult(this,'詐胡')">
         詐胡
       </button>
 
-      <button
-        class="choice"
-        data-result="流局"
-        onclick="pickResult(this,'流局')"
-      >
+      <button class="choice" data-result="流局" onclick="pickResult(this,'流局')">
         流局
       </button>
 
     </div>
 
 
+    <!-- 一般胡牌 -->
+
     <div id="discardBox">
 
       <h3>誰放槍？</h3>
-
-      <div
-        id="discardBtns"
-        class="grid4"
-      ></div>
+      <div id="discardBtns" class="grid4"></div>
 
     </div>
 
 
-    <div
-      id="taiBox"
-      class="tai-box"
-    >
+    <!-- 詐胡類型 -->
 
-      <h3 style="margin-top:0">
-        幾台？
-      </h3>
+    <div id="fraudTypeBox" class="hidden">
 
-      <div
-        class="tai"
-        id="taiNum"
-      >
-        0 台
+      <h3>哪一種詐胡？</h3>
+
+      <div class="grid2">
+
+        <button id="normalFraudBtn" class="fraud-type active" onclick="setFraudType('normal')">
+          一般詐胡
+        </button>
+
+        <button id="selfFraudBtn" class="fraud-type" onclick="setFraudType('self')">
+          自摸詐胡
+        </button>
+
       </div>
+
+    </div>
+
+
+    <!-- 一般詐胡對象 -->
+
+    <div id="fraudVictimBox" class="hidden">
+
+      <h3>詐胡誰？</h3>
+      <div id="fraudVictimBtns" class="grid4"></div>
+
+    </div>
+
+
+    <!-- 一般台數 -->
+
+    <div id="taiBox" class="tai-box" style="margin-top:14px">
+
+      <h3 style="margin-top:0">幾台？</h3>
+
+      <div id="taiNum" class="tai-number">0 台</div>
 
       <div class="grid4">
-
-        <button
-          class="tai-btn"
-          onclick="resetTai()"
-        >
-          0台
-        </button>
-
-        <button
-          class="tai-btn"
-          onclick="addTai(1)"
-        >
-          +1
-        </button>
-
-        <button
-          class="tai-btn"
-          onclick="addTai(2)"
-        >
-          +2
-        </button>
-
-        <button
-          class="tai-btn"
-          onclick="addTai(5)"
-        >
-          +5
-        </button>
-
+        <button class="tai-btn" onclick="resetTai()">0台</button>
+        <button class="tai-btn" onclick="addTai(1)">+1</button>
+        <button class="tai-btn" onclick="addTai(2)">+2</button>
+        <button class="tai-btn" onclick="addTai(5)">+5</button>
       </div>
+
+    </div>
+
+
+    <!-- 自摸詐胡個別台數 -->
+
+    <div id="selfFraudBox" class="fraud-panel hidden">
+
+      <h3 style="margin-top:0">其他三家各幾台？</h3>
+
+      <div class="muted">
+        每一家牌面不同，所以分開設定。詐胡的人會分別賠給三家。
+      </div>
+
+      <div id="selfFraudVictims"></div>
 
     </div>
 
 
     <!-- 特殊牌型 -->
 
-    <div
-      id="patternBox"
-      class="pattern-box"
-    >
+    <div id="patternBox" class="pattern-box">
 
-      <button
-        class="pattern-toggle"
-        onclick="togglePatterns()"
-      >
-        ✨ 特殊牌型（選填）
+      <button class="pattern-toggle" onclick="togglePatterns()">
+        ＋ 特殊牌型（選填）
         <span id="patternArrow">⌄</span>
       </button>
 
-      <div
-        id="patternArea"
-        class="hidden"
-      >
+      <div id="patternArea" class="hidden">
 
-        <div
-          class="muted"
-          style="margin:8px 0"
-        >
-          有特殊牌型再選就好，可以複選。
-        </div>
+        <div class="pattern-list">
 
-        <div class="patterns">
-
-          <button
-            class="pattern"
-            data-pattern="碰碰胡"
-            onclick="togglePattern(this,'碰碰胡')"
-          >
-            🧱 碰碰胡
+          <button class="pattern" data-pattern="碰碰胡" onclick="togglePattern(this,'碰碰胡')">
+            碰碰胡
           </button>
 
-          <button
-            class="pattern"
-            data-pattern="混一色"
-            onclick="togglePattern(this,'混一色')"
-          >
-            🎨 混一色
+          <button class="pattern" data-pattern="混一色" onclick="togglePattern(this,'混一色')">
+            混一色
           </button>
 
-          <button
-            class="pattern"
-            data-pattern="清一色"
-            onclick="togglePattern(this,'清一色')"
-          >
-            ✨ 清一色
+          <button class="pattern" data-pattern="清一色" onclick="togglePattern(this,'清一色')">
+            清一色
           </button>
 
-          <button
-            class="pattern"
-            data-pattern="小三元"
-            onclick="togglePattern(this,'小三元')"
-          >
-            🐉 小三元
+          <button class="pattern" data-pattern="小三元" onclick="togglePattern(this,'小三元')">
+            小三元
           </button>
 
-          <button
-            class="pattern"
-            data-pattern="大三元"
-            onclick="togglePattern(this,'大三元')"
-          >
-            🐲 大三元
+          <button class="pattern" data-pattern="大三元" onclick="togglePattern(this,'大三元')">
+            大三元
           </button>
 
         </div>
@@ -1064,172 +1131,77 @@ button:active{
     </div>
 
 
-    <div class="notice">
-      💰 金額算法目前先不亂算。等底、台、自摸、莊家與連莊金額規則確認後再接上。
+    <div id="calculationPreview" class="notice">
+      選好結果後會顯示這一把的金額。
     </div>
 
-
-    <button
-      class="primary"
-      onclick="saveHand()"
-    >
-      ✓ 記錄這一把
+    <button class="primary" style="margin-top:13px" onclick="saveHand()">
+      記錄這一把
     </button>
 
   </div>
 
 
+  <!-- 歷史 -->
+
   <div class="card">
 
     <div class="toprow">
-
-      <div class="section-title">
-
-        <div
-          class="mini-art"
-          style="background:var(--blue)"
-        >
-          📖
-        </div>
-
-        <h2 style="margin:0">
-          最近紀錄
-        </h2>
-
-      </div>
-
-      <button
-        class="linkbtn"
-        onclick="undoHand()"
-      >
-        ↶ 復原
-      </button>
-
+      <h2>最近紀錄</h2>
+      <button class="link" onclick="undoHand()">復原上一把</button>
     </div>
 
-    <div
-      id="history"
-      class="muted"
-      style="margin-top:10px"
-    >
+    <div id="history" class="muted">
       還沒有紀錄
     </div>
 
   </div>
 
-
-  <button
-    class="finish"
-    onclick="askFinishGame()"
-  >
-    🏁 提前結束牌局
+  <button class="finish" onclick="askFinishGame()">
+    提前結束牌局
   </button>
 
 </section>
 
 
-<!-- 最終結算模式 -->
+<!-- 最終結算 -->
 
 <section id="final" class="hidden">
 
   <div class="card">
 
-    <div class="section-title">
-      <div class="mini-art">💰</div>
-      <h2 style="margin:0">最終結算</h2>
-    </div>
-
-    <div class="settlement-art">
-      🀇 🀙 🀐 ✨
-    </div>
+    <h2>最終結算</h2>
 
     <div class="muted">
-      輸入四個人的最後輸贏，四人加總應該是 0。
+      輸入四人的最後輸贏，合計必須為 0。
     </div>
 
     <div id="finalInputs"></div>
 
-    <div
-      id="balanceNotice"
-      class="notice"
-    >
-      四人合計：$0
-    </div>
+    <div id="balanceNotice" class="notice"></div>
 
   </div>
 
-  <button
-    class="primary"
-    onclick="saveFinal()"
-  >
-    ✓ 儲存這場戰績
+  <button class="primary" onclick="saveFinal()">
+    儲存這場戰績
   </button>
 
 </section>
 
 
-<!-- 詳細記錄完成 -->
-
-<section id="detailedDone" class="hidden">
-
-  <div class="card">
-
-    <div style="text-align:center">
-
-      <div class="settlement-art">
-        🀇 🎉 🀙 🎉 🀐
-      </div>
-
-      <h2>
-        今天牌局結束！
-      </h2>
-
-      <div
-        id="detailedDoneText"
-        class="muted"
-      ></div>
-
-    </div>
-
-    <div
-      id="detailedSummary"
-      style="margin-top:15px"
-    ></div>
-
-  </div>
-
-  <button
-    class="primary"
-    onclick="show('home')"
-  >
-    回首頁
-  </button>
-
-</section>
-
-
-<!-- 最終結算完成 -->
+<!-- 完成 -->
 
 <section id="done" class="hidden">
 
   <div class="card">
 
-    <div class="settlement-art">
-      🎊 💰 🀄 🎊
-    </div>
-
-    <h2 style="text-align:center">
-      今天結算完成！
-    </h2>
+    <h2 style="text-align:center">本場結束</h2>
 
     <div id="doneSummary"></div>
 
   </div>
 
-  <button
-    class="primary"
-    onclick="show('home')"
-  >
+  <button class="primary" onclick="show('home')">
     回首頁
   </button>
 
@@ -1238,43 +1210,23 @@ button:active{
 </main>
 
 
-<!-- 提前結束確認 -->
+<!-- 提前結束 -->
 
-<div
-  id="finishModal"
-  class="modal hidden"
->
+<div id="finishModal" class="modal hidden">
 
   <div class="modal-box">
 
-    <div class="modal-art">
-      🏁
-    </div>
+    <h2 style="text-align:center">確定結束這場？</h2>
 
-    <h2>
-      要提前結束嗎？
-    </h2>
+    <div id="finishMessage" class="muted" style="text-align:center"></div>
 
-    <div
-      id="finishMessage"
-      class="muted"
-    ></div>
+    <div class="grid2" style="margin-top:18px">
 
-    <div
-      class="grid2"
-      style="margin-top:18px"
-    >
-
-      <button
-        onclick="closeFinishModal()"
-      >
+      <button class="secondary" onclick="closeFinishModal()">
         繼續打
       </button>
 
-      <button
-        style="background:var(--pink)"
-        onclick="finishDetailedGame()"
-      >
+      <button class="finish" onclick="finishDetailedGame()">
         確定結束
       </button>
 
@@ -1296,10 +1248,28 @@ let mode='detailed'
 let P=[]
 let seats=[]
 
+let selectedStake='100/20'
+
+const stakeRules={
+  '100/20':{base:100,tai:20,water:2000},
+  '100/50':{base:100,tai:50,water:5000},
+  '200/50':{base:200,tai:50,water:5000},
+  '300/50':{base:300,tai:50,water:5000},
+  '300/100':{base:300,tai:100,water:10000}
+}
+
+let currentRule=stakeRules[selectedStake]
+
+let balances={}
+
 let tai=0
 let winner=''
 let result='胡牌'
 let discarder=''
+
+let fraudType='normal'
+let fraudVictim=''
+let selfFraudTai={}
 
 let hands=[]
 
@@ -1309,13 +1279,9 @@ let repeats=0
 let dealer=''
 let dealerSeatIndex=0
 
-let selectedPatterns=[]
-
-/*
-  stay = 詐胡後原莊連莊
-  next = 詐胡後換下一家
-*/
 let fraudDealerRule='stay'
+
+let selectedPatterns=[]
 
 const winds=['東','南','西','北']
 
@@ -1330,13 +1296,10 @@ let drawAssignments={}
 
 function show(id){
 
-  document
-    .querySelectorAll('main>section')
-    .forEach(x=>x.classList.add('hidden'))
+  document.querySelectorAll('main>section')
+    .forEach(section=>section.classList.add('hidden'))
 
-  document
-    .getElementById(id)
-    .classList.remove('hidden')
+  document.getElementById(id).classList.remove('hidden')
 
   window.scrollTo(0,0)
 
@@ -1344,55 +1307,60 @@ function show(id){
 
 
 /* ==============================
-   開局設定
+   玩法
 ============================== */
 
-function setMode(m){
+function setStake(value,element){
 
-  mode=m
+  selectedStake=value
+  currentRule=stakeRules[value]
 
-  document
-    .getElementById('detailedBtn')
-    .classList.toggle('active',m==='detailed')
+  document.querySelectorAll('.stake')
+    .forEach(x=>x.classList.remove('active'))
 
-  document
-    .getElementById('finalBtn')
-    .classList.toggle('active',m==='final')
+  element.classList.add('active')
 
-  document
-    .getElementById('modeHint')
-    .textContent=
-
-      m==='detailed'
-
-      ?'逐局記錄會保留每一把的詳細資料。'
-
-      :'最終結算只記整場輸贏，不會推測胡牌、自摸、放槍或特殊牌型。'
+  document.getElementById('stakeInfo').innerHTML=
+    `底 $${currentRule.base.toLocaleString()}
+    ・台 $${currentRule.tai.toLocaleString()}
+    ・標準水位 $${currentRule.water.toLocaleString()}`
 
 }
 
 
-function setFraudRule(rule){
+function setMode(value){
 
-  fraudDealerRule=rule
+  mode=value
 
-  document
-    .getElementById('fraudStayBtn')
-    .classList
-    .toggle('active',rule==='stay')
+  document.getElementById('detailedBtn')
+    .classList.toggle('active',value==='detailed')
 
-  document
-    .getElementById('fraudNextBtn')
-    .classList
-    .toggle('active',rule==='next')
+  document.getElementById('finalBtn')
+    .classList.toggle('active',value==='final')
 
 }
 
+
+function setFraudRule(value){
+
+  fraudDealerRule=value
+
+  document.getElementById('fraudStayBtn')
+    .classList.toggle('active',value==='stay')
+
+  document.getElementById('fraudNextBtn')
+    .classList.toggle('active',value==='next')
+
+}
+
+
+/* ==============================
+   玩家
+============================== */
 
 function getPlayers(){
 
-  return document
-    .getElementById('players')
+  return document.getElementById('players')
     .value
     .split(/[,，]/)
     .map(x=>x.trim())
@@ -1402,30 +1370,42 @@ function getPlayers(){
 }
 
 
+/* ==============================
+   開始
+============================== */
+
 function startGame(){
 
   P=getPlayers()
 
   if(P.length!==4){
-
     alert('請輸入四位玩家')
-
     return
-
   }
 
-  hands=[]
+  currentRule=stakeRules[selectedStake]
 
+  balances={}
+
+  P.forEach(player=>{
+    balances[player]=currentRule.water
+  })
+
+  hands=[]
   roundIndex=0
   repeats=0
+
+  dealer=''
+  dealerSeatIndex=0
 
   tai=0
   winner=''
   discarder=''
   result='胡牌'
 
-  dealer=''
-  dealerSeatIndex=0
+  fraudType='normal'
+  fraudVictim=''
+  selfFraudTai={}
 
   selectedPatterns=[]
 
@@ -1438,13 +1418,8 @@ function startGame(){
 
     seats=[]
 
-    document
-      .getElementById('seatResult')
-      .innerHTML=''
-
-    document
-      .getElementById('confirmSeatBtn')
-      .classList.add('hidden')
+    document.getElementById('seatResult').innerHTML=''
+    document.getElementById('confirmSeatBtn').classList.add('hidden')
 
     show('seat')
 
@@ -1454,15 +1429,13 @@ function startGame(){
 
 
 /* ==============================
-   東南局
+   局名
 ============================== */
 
 function getRoundName(index){
 
   if(index<4){
-
     return '東'+(index+1)
-
   }
 
   return '南'+(index-3)
@@ -1476,17 +1449,13 @@ function getRoundName(index){
 
 function startDrawSeats(){
 
-  drawPool=
-    [...winds]
-    .sort(()=>Math.random()-.5)
+  drawPool=[...winds].sort(()=>Math.random()-.5)
 
   drawTurn=0
   drawAssignments={}
   seats=[]
 
-  document
-    .getElementById('confirmSeatBtn')
-    .classList.add('hidden')
+  document.getElementById('confirmSeatBtn').classList.add('hidden')
 
   renderDrawTable()
 
@@ -1495,161 +1464,101 @@ function startDrawSeats(){
 
 function renderDrawTable(){
 
-  const seatResult=
-    document.getElementById('seatResult')
+  const container=document.getElementById('seatResult')
 
-  if(drawTurn>=P.length){
+  if(drawTurn>=4){
 
     seats=Array(4)
 
     P.forEach(player=>{
 
-      const index=
-        winds.indexOf(
-          drawAssignments[player]
-        )
+      const wind=drawAssignments[player]
+      const index=winds.indexOf(wind)
 
       seats[index]=player
 
     })
 
-    seatResult.innerHTML=`
+    container.innerHTML=`
+      <div class="notice ok">抽位完成</div>
 
-      <div class="notice ok">
-        ✨ 抽位完成！
+      <div class="seat-list">
+        ${winds.map((wind,index)=>`
+          <div class="seat-line">
+            <span class="wind">${wind}</span>
+            <b>${seats[index]}</b>
+          </div>
+        `).join('')}
       </div>
 
-      ${winds.map((w,i)=>`
-
-        <div class="total">
-
-          <b>${w}</b>
-
-          <span>
-            ${seats[i]}
-          </span>
-
-        </div>
-
-      `).join('')}
-
-      <button
-        style="
-          width:100%;
-          margin-top:12px;
-          background:var(--lavender)
-        "
-        onclick="startDrawSeats()"
-      >
-        ↻ 重新抽一次
+      <button class="secondary" style="margin-top:12px" onclick="startDrawSeats()">
+        重新抽位
       </button>
-
     `
 
-    document
-      .getElementById('confirmSeatBtn')
-      .classList.remove('hidden')
+    document.getElementById('confirmSeatBtn').classList.remove('hidden')
 
     return
-
   }
 
+  const player=P[drawTurn]
 
-  const current=
-    P[drawTurn]
+  container.innerHTML=`
+    <div style="text-align:center;margin-top:18px">
 
+      <div class="muted">現在輪到</div>
 
-  seatResult.innerHTML=`
-
-    <div
-      style="
-        text-align:center;
-        margin-top:18px
-      "
-    >
-
-      <div class="muted">
-        現在輪到
+      <div style="font-size:23px;font-weight:900;margin-top:3px">
+        ${player}
       </div>
 
-      <div
-        style="
-          font-size:25px;
-          font-weight:900
-        "
-      >
-        ${current}
-      </div>
-
-      <div class="muted">
-        選一張牌 ♡
+      <div class="muted" style="margin-top:4px">
+        選一張牌
       </div>
 
     </div>
-
 
     <div class="draw-grid">
-
-      ${drawPool.map((w,i)=>`
-
-        <button
-          class="draw-tile"
-          onclick="pickDrawTile(${i})"
-        >
-          🀫
-        </button>
-
+      ${drawPool.map((_,index)=>`
+        <button class="draw-card" onclick="pickDrawTile(${index})"></button>
       `).join('')}
-
     </div>
-
   `
 
 }
 
 
-function pickDrawTile(i){
+function pickDrawTile(index){
 
-  const player=
-    P[drawTurn]
-
-  const wind=
-    drawPool[i]
+  const player=P[drawTurn]
+  const wind=drawPool[index]
 
   drawAssignments[player]=wind
 
-  drawPool.splice(i,1)
+  drawPool.splice(index,1)
 
-  document
-    .getElementById('seatResult')
-    .innerHTML=`
+  document.getElementById('seatResult').innerHTML=`
+    <div style="text-align:center;margin-top:22px">
 
-      <div class="draw-result">
+      <div class="muted">${player} 抽到</div>
 
-        <div class="muted">
-          ${player} 抽到
-        </div>
-
-        <div class="draw-wind">
-          ${wind}
-        </div>
-
-        <button
-          class="primary"
-          onclick="nextDrawer()"
-        >
-
-          ${
-            drawTurn===P.length-1
-            ?'看看大家的座位'
-            :'換下一位抽'
-          }
-
-        </button>
-
+      <div class="tile"
+        style="
+          width:90px;
+          height:115px;
+          margin:14px auto;
+          font-size:43px;
+          color:#6c9b83
+        ">
+        ${wind}
       </div>
 
-    `
+      <button class="primary" onclick="nextDrawer()">
+        ${drawTurn===3?'查看座位':'換下一位'}
+      </button>
+
+    </div>
+  `
 
 }
 
@@ -1657,70 +1566,37 @@ function pickDrawTile(i){
 function nextDrawer(){
 
   drawTurn++
-
   renderDrawTable()
 
 }
 
 
 /* ==============================
-   隨機選位
+   隨機座位
 ============================== */
 
 function randomSeats(){
 
-  seats=
-    [...P]
-    .sort(()=>Math.random()-.5)
+  seats=[...P].sort(()=>Math.random()-.5)
 
-  renderSeatResult()
+  document.getElementById('seatResult').innerHTML=`
+    <div class="notice ok">隨機選位完成</div>
 
-}
-
-
-function renderSeatResult(){
-
-  const seatResult=
-    document.getElementById('seatResult')
-
-  seatResult.innerHTML=`
-
-    <div class="notice ok">
-      🎲 隨機選位完成！
+    <div class="seat-list">
+      ${seats.map((player,index)=>`
+        <div class="seat-line">
+          <span class="wind">${winds[index]}</span>
+          <b>${player}</b>
+        </div>
+      `).join('')}
     </div>
 
-    ${seats.map((p,i)=>`
-
-      <div class="total">
-
-        <b>
-          ${winds[i]}
-        </b>
-
-        <span>
-          ${p}
-        </span>
-
-      </div>
-
-    `).join('')}
-
-    <button
-      style="
-        width:100%;
-        margin-top:12px;
-        background:var(--blue)
-      "
-      onclick="randomSeats()"
-    >
-      🎲 再隨機一次
+    <button class="secondary" style="margin-top:12px" onclick="randomSeats()">
+      再隨機一次
     </button>
-
   `
 
-  document
-    .getElementById('confirmSeatBtn')
-    .classList.remove('hidden')
+  document.getElementById('confirmSeatBtn').classList.remove('hidden')
 
 }
 
@@ -1732,61 +1608,36 @@ function renderSeatResult(){
 function goDealer(){
 
   if(seats.length!==4){
-
     alert('請先完成選位')
-
     return
-
   }
 
   dealer=''
 
-  document
-    .getElementById('dealerChoices')
-    .innerHTML=
-
-      seats.map((p,i)=>`
-
-        <button
-          class="dealer-choice"
-          onclick="selectDealer(
-            '${p}',
-            ${i},
-            this
-          )"
-        >
-
-          <b>
-            ${winds[i]}位・${p}
-          </b>
-
-        </button>
-
-      `).join('')
+  document.getElementById('dealerChoices').innerHTML=
+    seats.map((player,index)=>`
+      <button
+        class="dealer-choice"
+        onclick="selectDealer('${player}',${index},this)"
+      >
+        <b>${winds[index]}位</b>・${player}
+      </button>
+    `).join('')
 
   show('dealerSetup')
 
 }
 
 
-function selectDealer(
-  player,
-  index,
-  element
-){
+function selectDealer(player,index,element){
 
   dealer=player
   dealerSeatIndex=index
 
-  document
-    .querySelectorAll('.dealer-choice')
-    .forEach(
-      x=>x.classList.remove('active')
-    )
+  document.querySelectorAll('.dealer-choice')
+    .forEach(x=>x.classList.remove('active'))
 
-  element
-    .classList
-    .add('active')
+  element.classList.add('active')
 
 }
 
@@ -1794,67 +1645,438 @@ function selectDealer(
 function confirmDealer(){
 
   if(!dealer){
-
     alert('請先選擇第一位莊家')
-
     return
-
   }
 
   renderGame()
-
   show('game')
 
 }
 
 
 /* ==============================
-   莊家輪替
+   莊家台
+
+   初莊 = 1台
+   連1拉1 = 3台
+   連2拉2 = 5台
+   連3拉3 = 7台
 ============================== */
 
-function nextDealer(){
+function getDealerBonusTai(){
 
-  dealerSeatIndex=
-    (dealerSeatIndex+1)%4
-
-  dealer=
-    seats[dealerSeatIndex]
+  return 1+(repeats*2)
 
 }
 
 
-/*
-  換莊：
-  - 莊家換下家
-  - 局數 +1
-  - 連莊歸零
-*/
+/* ==============================
+   金額
+============================== */
 
-function changeDealer(){
+function amountForTai(taiCount){
 
-  nextDealer()
+  return currentRule.base
+    +(currentRule.tai*taiCount)
 
-  if(roundIndex<7){
+}
 
-    roundIndex++
 
+function amountForTaiWithDealer(taiCount){
+
+  return currentRule.base
+    +(currentRule.tai*taiCount)
+    +(currentRule.tai*getDealerBonusTai())
+
+}
+
+
+function normalAmount(){
+
+  return amountForTai(tai)
+
+}
+
+
+function dealerAmount(){
+
+  return amountForTaiWithDealer(tai)
+
+}
+
+
+/* ==============================
+   詐胡種類
+============================== */
+
+function setFraudType(type){
+
+  fraudType=type
+
+  fraudVictim=''
+  selfFraudTai={}
+
+  document.getElementById('normalFraudBtn')
+    .classList.toggle('active',type==='normal')
+
+  document.getElementById('selfFraudBtn')
+    .classList.toggle('active',type==='self')
+
+  renderGame()
+
+}
+
+
+/* ==============================
+   自摸詐胡每家台數
+============================== */
+
+function setSelfFraudTai(player,value){
+
+  selfFraudTai[player]=value
+
+  renderSelfFraudVictims()
+  renderPaymentPreview()
+
+}
+
+
+function renderSelfFraudVictims(){
+
+  const container=document.getElementById('selfFraudVictims')
+
+  if(!winner){
+
+    container.innerHTML=`
+      <div class="notice">
+        請先選擇誰自摸詐胡。
+      </div>
+    `
+
+    return
   }
 
-  repeats=0
+  const victims=P.filter(p=>p!==winner)
+
+  container.innerHTML=
+    victims.map(player=>{
+
+      const current=selfFraudTai[player] ?? 0
+
+      return `
+        <div class="fraud-victim">
+
+          <div class="fraud-victim-head">
+            <b>${player}</b>
+            <span>${current} 台</span>
+          </div>
+
+          <div class="fraud-tai-buttons">
+
+            <button
+              class="${current===0?'active':''}"
+              onclick="setSelfFraudTai('${player}',0)"
+            >
+              0台
+            </button>
+
+            <button onclick="changeSelfFraudTai('${player}',1)">
+              +1
+            </button>
+
+            <button onclick="changeSelfFraudTai('${player}',2)">
+              +2
+            </button>
+
+            <button onclick="changeSelfFraudTai('${player}',5)">
+              +5
+            </button>
+
+          </div>
+
+        </div>
+      `
+
+    }).join('')
 
 }
 
 
-/*
-  連莊：
-  - 莊家不變
-  - 局數不變
-  - 連莊 +1
-*/
+function changeSelfFraudTai(player,add){
 
-function continueDealer(){
+  const current=selfFraudTai[player] ?? 0
 
-  repeats++
+  selfFraudTai[player]=current+add
+
+  renderSelfFraudVictims()
+  renderPaymentPreview()
+
+}
+
+
+/* ==============================
+   一般詐胡對象
+============================== */
+
+function selectFraudVictim(player){
+
+  fraudVictim=player
+
+  renderGame()
+
+}
+
+
+/* ==============================
+   計算本把金流
+============================== */
+
+function calculateHandPayments(){
+
+  const changes={}
+
+  P.forEach(player=>{
+    changes[player]=0
+  })
+
+
+  /* 流局 */
+
+  if(result==='流局'){
+    return changes
+  }
+
+
+  /* 一般胡牌 */
+
+  if(result==='胡牌'){
+
+    let amount=normalAmount()
+
+    if(
+      winner===dealer
+      ||
+      discarder===dealer
+    ){
+      amount=dealerAmount()
+    }
+
+    changes[winner]+=amount
+    changes[discarder]-=amount
+
+    return changes
+  }
+
+
+  /* 自摸 */
+
+  if(result==='自摸'){
+
+    P.forEach(payer=>{
+
+      if(payer===winner){
+        return
+      }
+
+      let amount=normalAmount()
+
+      if(
+        winner===dealer
+        ||
+        payer===dealer
+      ){
+        amount=dealerAmount()
+      }
+
+      changes[payer]-=amount
+      changes[winner]+=amount
+
+    })
+
+    return changes
+  }
+
+
+  /* =========================
+     一般詐胡
+
+     詐胡的人賠被詐胡的人
+  ========================= */
+
+  if(
+    result==='詐胡'
+    &&
+    fraudType==='normal'
+  ){
+
+    if(!winner || !fraudVictim){
+      return changes
+    }
+
+    let amount=normalAmount()
+
+    /*
+      詐胡者或被詐胡者
+      其中一個是莊家，
+      才加入莊家台。
+    */
+
+    if(
+      winner===dealer
+      ||
+      fraudVictim===dealer
+    ){
+      amount=dealerAmount()
+    }
+
+    changes[winner]-=amount
+    changes[fraudVictim]+=amount
+
+    return changes
+  }
+
+
+  /* =========================
+     自摸詐胡
+
+     詐胡者分別賠其他三家
+     每家台數不同
+  ========================= */
+
+  if(
+    result==='詐胡'
+    &&
+    fraudType==='self'
+  ){
+
+    if(!winner){
+      return changes
+    }
+
+    P.forEach(victim=>{
+
+      if(victim===winner){
+        return
+      }
+
+      const victimTai=
+        selfFraudTai[victim] ?? 0
+
+      let amount=
+        amountForTai(victimTai)
+
+      /*
+        詐胡者或收錢者
+        其中一個是莊家，
+        這一筆加入莊家台。
+      */
+
+      if(
+        winner===dealer
+        ||
+        victim===dealer
+      ){
+
+        amount=
+          amountForTaiWithDealer(
+            victimTai
+          )
+
+      }
+
+      changes[winner]-=amount
+      changes[victim]+=amount
+
+    })
+
+    return changes
+  }
+
+
+  return changes
+
+}
+
+
+/* ==============================
+   金額預覽
+============================== */
+
+function renderPaymentPreview(){
+
+  const box=document.getElementById('calculationPreview')
+
+
+  if(result==='流局'){
+
+    box.innerHTML=
+      `流局不產生金額變動，原莊連莊。`
+
+    return
+  }
+
+
+  if(!winner){
+
+    box.innerHTML=
+      result==='詐胡'
+      ?'請先選擇誰詐胡。'
+      :'請先選擇胡牌的人。'
+
+    return
+  }
+
+
+  if(
+    result==='胡牌'
+    &&
+    !discarder
+  ){
+
+    box.innerHTML='請選擇放槍的人。'
+    return
+  }
+
+
+  if(
+    result==='詐胡'
+    &&
+    fraudType==='normal'
+    &&
+    !fraudVictim
+  ){
+
+    box.innerHTML='請選擇詐胡誰。'
+    return
+  }
+
+
+  const changes=calculateHandPayments()
+
+  const lines=P
+    .filter(player=>changes[player]!==0)
+    .map(player=>{
+
+      const amount=changes[player]
+
+      return `
+        <div style="display:flex;justify-content:space-between;margin:6px 0">
+
+          <span>${player}</span>
+
+          <b style="color:${amount>0?'#6caa8b':'#cf7f91'}">
+            ${amount>0?'+':''}$${amount.toLocaleString()}
+          </b>
+
+        </div>
+      `
+
+    }).join('')
+
+
+  box.innerHTML=
+    lines || '這一把目前沒有金額變動。'
 
 }
 
@@ -1865,147 +2087,163 @@ function continueDealer(){
 
 function renderGame(){
 
-  const roundName=
-    getRoundName(roundIndex)
+  const roundName=getRoundName(roundIndex)
+
+  document.getElementById('round').textContent=roundName
+
+  document.getElementById('dealerDisplay').textContent=
+    `莊家 ${dealer}`
+    +(repeats>0?`・連${repeats}`:'')
+
+  document.getElementById('handCounter').textContent=
+    `第 ${hands.length+1} 把`
+
+  document.getElementById('stakeDisplay').textContent=
+    `${selectedStake}・水位 $${currentRule.water.toLocaleString()}`
+
+  document.getElementById('entryTitle').textContent=
+    `第 ${hands.length+1} 把・${roundName}`
+    +(repeats>0?`・連${repeats}`:'')
 
 
-  document
-    .getElementById('seatPills')
-    .innerHTML=
+  /* 問題名稱 */
 
-      seats.map((p,i)=>`
+  if(result==='詐胡'){
 
-        <span class="pill">
+    document.getElementById('personQuestion').textContent=
+      fraudType==='self'
+      ?'誰自摸詐胡？'
+      :'誰詐胡？'
 
-          ${winds[i]}・${p}
+  }else{
 
-          ${
-            p===dealer
-            ?' 👑'
-            :''
-          }
+    document.getElementById('personQuestion').textContent='誰胡？'
 
-        </span>
-
-      `).join('')
+  }
 
 
-  document
-    .getElementById('winnerBtns')
-    .innerHTML=
+  /* 玩家按鈕 */
 
-      P.map(p=>`
-
-        <button
-          class="
-            player-btn
-            ${winner===p?'active':''}
-          "
-          onclick="
-            winner='${p}';
-            renderGame()
-          "
-        >
-          ${p}
-        </button>
-
-      `).join('')
+  document.getElementById('winnerBtns').innerHTML=
+    P.map(player=>`
+      <button
+        class="player-btn ${winner===player?'active':''}"
+        onclick="selectWinner('${player}')"
+      >
+        ${player}
+      </button>
+    `).join('')
 
 
-  document
-    .getElementById('discardBtns')
-    .innerHTML=
-
-      P.map(p=>`
-
-        <button
-          class="
-            player-btn
-            ${discarder===p?'active':''}
-          "
-          onclick="
-            discarder='${p}';
-            renderGame()
-          "
-        >
-          ${p}
-        </button>
-
-      `).join('')
+  document.getElementById('discardBtns').innerHTML=
+    P.map(player=>`
+      <button
+        class="player-btn ${discarder===player?'active':''}"
+        onclick="selectDiscarder('${player}')"
+      >
+        ${player}
+      </button>
+    `).join('')
 
 
-  document
-    .getElementById('discardBox')
-    .classList
-    .toggle(
+  document.getElementById('fraudVictimBtns').innerHTML=
+    P
+    .filter(player=>player!==winner)
+    .map(player=>`
+      <button
+        class="player-btn ${fraudVictim===player?'active':''}"
+        onclick="selectFraudVictim('${player}')"
+      >
+        ${player}
+      </button>
+    `).join('')
+
+
+  const isDraw=result==='流局'
+  const isFraud=result==='詐胡'
+  const isNormalFraud=isFraud && fraudType==='normal'
+  const isSelfFraud=isFraud && fraudType==='self'
+
+
+  document.getElementById('winnerBtns')
+    .classList.toggle('hidden',isDraw)
+
+  document.getElementById('discardBox')
+    .classList.toggle('hidden',result!=='胡牌')
+
+  document.getElementById('fraudTypeBox')
+    .classList.toggle('hidden',!isFraud)
+
+  document.getElementById('fraudVictimBox')
+    .classList.toggle('hidden',!isNormalFraud)
+
+  document.getElementById('selfFraudBox')
+    .classList.toggle('hidden',!isSelfFraud)
+
+  /*
+    台數：
+    胡牌、自摸、一般詐胡 使用共同台數。
+    自摸詐胡使用三家個別台數。
+  */
+
+  document.getElementById('taiBox')
+    .classList.toggle(
       'hidden',
-      result!=='胡牌'
+      isDraw || isSelfFraud
+    )
+
+  /*
+    特殊牌型只有真正胡牌/自摸才記
+  */
+
+  document.getElementById('patternBox')
+    .classList.toggle(
+      'hidden',
+      isDraw || isFraud
     )
 
 
-  /*
-    流局不需要選人、台數、特殊牌型
-  */
-
-  const isDraw=
-    result==='流局'
-
-  document
-    .getElementById('winnerBtns')
-    .classList
-    .toggle('hidden',isDraw)
-
-  document
-    .getElementById('taiBox')
-    .classList
-    .toggle('hidden',isDraw)
-
-  document
-    .getElementById('patternBox')
-    .classList
-    .toggle('hidden',isDraw)
-
-
-  document
-    .getElementById('round')
-    .textContent=
-      roundName
-
-
-  document
-    .getElementById('dealerDisplay')
-    .textContent=
-      '👑 莊家：'+dealer
-
-
-  document
-    .getElementById('repeatText')
-    .textContent=
-
-      repeats>0
-
-      ?`第 ${hands.length+1} 把・連莊 ${repeats}`
-
-      :`第 ${hands.length+1} 把`
-
-
-  document
-    .getElementById('handTitle')
-    .textContent=
-
-      `第 ${hands.length+1} 把・${roundName}`
-
-      +(repeats>0
-        ?`・連莊 ${repeats}`
-        :''
-      )
-
+  if(isSelfFraud){
+    renderSelfFraudVictims()
+  }
 
   updateTai()
-
   syncPatterns()
 
+  renderLiveStats()
   renderHistory()
+  renderPaymentPreview()
+
+}
+
+
+/* ==============================
+   選玩家
+============================== */
+
+function selectWinner(player){
+
+  winner=player
+
+  /*
+    換詐胡者時，
+    舊的自摸詐胡三家台數清掉
+  */
+
+  if(result==='詐胡'){
+    fraudVictim=''
+    selfFraudTai={}
+  }
+
+  renderGame()
+
+}
+
+
+function selectDiscarder(player){
+
+  discarder=player
+  renderGame()
 
 }
 
@@ -2014,30 +2252,18 @@ function renderGame(){
    結果
 ============================== */
 
-function pickResult(
-  element,
-  newResult
-){
+function pickResult(element,value){
 
-  result=newResult
+  result=value
 
-  document
-    .querySelectorAll('.choice')
-    .forEach(
-      b=>b.classList.remove('active')
-    )
+  document.querySelectorAll('.choice')
+    .forEach(button=>button.classList.remove('active'))
 
-  element
-    .classList
-    .add('active')
+  element.classList.add('active')
 
-
-  if(result!=='胡牌'){
-
-    discarder=''
-
-  }
-
+  discarder=''
+  fraudVictim=''
+  selfFraudTai={}
 
   if(result==='流局'){
 
@@ -2047,10 +2273,18 @@ function pickResult(
 
   }
 
+  if(result==='詐胡'){
+
+    fraudType='normal'
+    tai=0
+    selectedPatterns=[]
+
+    document.getElementById('normalFraudBtn').classList.add('active')
+    document.getElementById('selfFraudBtn').classList.remove('active')
+
+  }
 
   renderGame()
-
-  syncResultButtons()
 
 }
 
@@ -2059,11 +2293,11 @@ function pickResult(
    台數
 ============================== */
 
-function addTai(n){
+function addTai(value){
 
-  tai+=n
-
+  tai+=value
   updateTai()
+  renderPaymentPreview()
 
 }
 
@@ -2071,18 +2305,16 @@ function addTai(n){
 function resetTai(){
 
   tai=0
-
   updateTai()
+  renderPaymentPreview()
 
 }
 
 
 function updateTai(){
 
-  document
-    .getElementById('taiNum')
-    .textContent=
-      tai+' 台'
+  document.getElementById('taiNum').textContent=
+    tai+' 台'
 
 }
 
@@ -2093,36 +2325,22 @@ function updateTai(){
 
 function togglePatterns(){
 
-  const area=
-    document.getElementById('patternArea')
+  const area=document.getElementById('patternArea')
 
-  area
-    .classList
-    .toggle('hidden')
+  area.classList.toggle('hidden')
 
-  document
-    .getElementById('patternArrow')
-    .textContent=
-
-      area.classList.contains('hidden')
-      ?'⌄'
-      :'⌃'
+  document.getElementById('patternArrow').textContent=
+    area.classList.contains('hidden')?'⌄':'⌃'
 
 }
 
 
-function togglePattern(
-  element,
-  name
-){
+function togglePattern(element,name){
 
-  if(
-    selectedPatterns.includes(name)
-  ){
+  if(selectedPatterns.includes(name)){
 
     selectedPatterns=
-      selectedPatterns
-      .filter(x=>x!==name)
+      selectedPatterns.filter(x=>x!==name)
 
   }else{
 
@@ -2137,38 +2355,234 @@ function togglePattern(
 
 function syncPatterns(){
 
-  document
-    .querySelectorAll('.pattern')
+  document.querySelectorAll('.pattern')
     .forEach(element=>{
 
-      element
-        .classList
-        .toggle(
-          'active',
-          selectedPatterns.includes(
-            element.dataset.pattern
-          )
-        )
+      element.classList.toggle(
+        'active',
+        selectedPatterns.includes(element.dataset.pattern)
+      )
 
     })
 
 }
 
 
-function clearPatterns(){
+/* ==============================
+   即時統計
+============================== */
 
-  selectedPatterns=[]
+function getPlayerStats(player){
 
-  syncPatterns()
+  let wins=0
+  let decisiveHands=0
 
-  document
-    .getElementById('patternArea')
-    .classList
-    .add('hidden')
+  hands.forEach(hand=>{
 
-  document
-    .getElementById('patternArrow')
-    .textContent='⌄'
+    if(
+      hand.result==='胡牌'
+      ||
+      hand.result==='自摸'
+    ){
+
+      decisiveHands++
+
+      if(hand.winner===player){
+        wins++
+      }
+
+    }
+
+  })
+
+  return{
+    wins,
+    winRate:
+      decisiveHands
+      ?wins/decisiveHands*100
+      :0
+  }
+
+}
+
+
+function getWaterHeight(amount){
+
+  const base=currentRule.water
+  const ratio=(amount-base)/base
+
+  let height=50+(ratio*40)
+
+  if(height>92)height=92
+  if(height<8)height=8
+
+  return height
+
+}
+
+
+function renderLiveStats(){
+
+  const maxBalance=
+    Math.max(...P.map(p=>balances[p]))
+
+  document.getElementById('playerStats').innerHTML=
+    P.map(player=>{
+
+      const amount=balances[player]
+      const net=amount-currentRule.water
+      const stats=getPlayerStats(player)
+      const height=getWaterHeight(amount)
+
+      return `
+        <div class="player-card ${amount===maxBalance?'leader':''}">
+
+          <div
+            class="water ${net>=0?'high':'low'}"
+            style="height:${height}%"
+          ></div>
+
+          <div class="player-content">
+
+            <div class="player-name">
+              ${player}${player===dealer?'・莊':''}
+            </div>
+
+            <div class="current-money">
+              $${amount.toLocaleString()}
+            </div>
+
+            <div class="net ${net>=0?'pos':'neg'}">
+              本場 ${net>=0?'+':''}$${net.toLocaleString()}
+            </div>
+
+            <div class="water-label">
+              ${
+                net>0
+                ?`高水位 +$${net.toLocaleString()}`
+                :net<0
+                ?`下水位 -$${Math.abs(net).toLocaleString()}`
+                :'標準水位'
+              }
+            </div>
+
+            <div class="winrate">
+              胡牌率 ${stats.winRate.toFixed(1)}%・勝 ${stats.wins} 把
+            </div>
+
+          </div>
+
+        </div>
+      `
+
+    }).join('')
+
+  renderMoneyPie()
+
+}
+
+
+/* ==============================
+   圓餅圖
+============================== */
+
+function renderMoneyPie(){
+
+  const colors=[
+    '#9fcdb6',
+    '#e4aab7',
+    '#91bcd3',
+    '#b7a1d1'
+  ]
+
+  const values=P.map(player=>Math.max(balances[player],0))
+
+  const total=values.reduce((a,b)=>a+b,0)
+
+  document.getElementById('totalTableMoney').textContent=
+    `桌上 $${total.toLocaleString()}`
+
+  if(total<=0){
+
+    document.getElementById('moneyPie').style.background='#eee'
+    return
+
+  }
+
+  let cursor=0
+  const pieces=[]
+
+  values.forEach((value,index)=>{
+
+    const start=cursor
+    const percent=value/total*100
+
+    cursor+=percent
+
+    pieces.push(
+      `${colors[index]} ${start}% ${cursor}%`
+    )
+
+  })
+
+  document.getElementById('moneyPie').style.background=
+    `conic-gradient(${pieces.join(',')})`
+
+  document.getElementById('moneyLegend').innerHTML=
+    P.map((player,index)=>{
+
+      const percent=values[index]/total*100
+
+      return `
+        <div class="legend-item">
+
+          <span
+            class="legend-dot"
+            style="background:${colors[index]}"
+          ></span>
+
+          <span>
+            <b>${player}</b>
+            ・$${balances[player].toLocaleString()}
+            ・${percent.toFixed(1)}%
+          </span>
+
+        </div>
+      `
+
+    }).join('')
+
+}
+
+
+/* ==============================
+   換莊
+============================== */
+
+function nextDealer(){
+
+  dealerSeatIndex=(dealerSeatIndex+1)%4
+  dealer=seats[dealerSeatIndex]
+
+}
+
+
+function changeDealer(){
+
+  nextDealer()
+
+  if(roundIndex<7){
+    roundIndex++
+  }
+
+  repeats=0
+
+}
+
+
+function continueDealer(){
+
+  repeats++
 
 }
 
@@ -2179,37 +2593,23 @@ function clearPatterns(){
 
 function saveHand(){
 
-  /*
-    流局不需要選玩家
-  */
-
   if(
     result!=='流局'
     &&
     !winner
   ){
-
     alert('請先選擇玩家')
-
     return
-
   }
 
-
-  /*
-    胡牌才需要放槍者
-  */
 
   if(
     result==='胡牌'
     &&
     !discarder
   ){
-
     alert('請選擇放槍的人')
-
     return
-
   }
 
 
@@ -2218,74 +2618,90 @@ function saveHand(){
     &&
     winner===discarder
   ){
-
-    alert(
-      '胡牌的人不能同時是放槍的人'
-    )
-
+    alert('胡牌者不能同時是放槍者')
     return
-
   }
 
 
-  const currentRound=
-    getRoundName(roundIndex)
+  if(
+    result==='詐胡'
+    &&
+    fraudType==='normal'
+    &&
+    !fraudVictim
+  ){
+    alert('請選擇詐胡誰')
+    return
+  }
 
 
-  /*
-    先保存「這一把發生時」的狀態
-  */
+  if(
+    result==='詐胡'
+    &&
+    fraudType==='normal'
+    &&
+    winner===fraudVictim
+  ){
+    alert('詐胡者不能選自己')
+    return
+  }
 
-  hands.push({
+
+  const beforeBalances={...balances}
+
+  const changes=calculateHandPayments()
+
+
+  P.forEach(player=>{
+    balances[player]+=changes[player]
+  })
+
+
+  const hand={
 
     winner,
     result,
     discarder,
     tai,
 
-    patterns:
-      [...selectedPatterns],
+    fraudType:
+      result==='詐胡'
+      ?fraudType
+      :null,
 
-    round:
-      currentRound,
+    fraudVictim:
+      result==='詐胡'
+      && fraudType==='normal'
+      ?fraudVictim
+      :null,
 
+    selfFraudTai:
+      result==='詐胡'
+      && fraudType==='self'
+      ?{...selfFraudTai}
+      :{},
+
+    patterns:[...selectedPatterns],
+
+    round:getRoundName(roundIndex),
     roundIndex,
-
     repeats,
 
     dealer,
-
     dealerSeatIndex,
+
+    changes:{...changes},
+    balancesBefore:beforeBalances,
 
     fraudDealerRule
 
-  })
+  }
 
 
-  /*
-    ==================================
-    莊家規則
-    ==================================
+  hands.push(hand)
 
-    1. 流局
-       → 原莊連莊
 
-    2. 莊家胡牌
-       → 原莊連莊
-
-    3. 莊家自摸
-       → 原莊連莊
-
-    4. 閒家胡牌
-       → 換下一家
-
-    5. 閒家自摸
-       → 換下一家
-
-    6. 詐胡
-       → 看這場設定
-  */
-
+  /* 莊家規則 */
 
   if(result==='流局'){
 
@@ -2293,21 +2709,15 @@ function saveHand(){
 
   }
 
-
   else if(result==='詐胡'){
 
     if(fraudDealerRule==='stay'){
-
       continueDealer()
-
     }else{
-
       changeDealer()
-
     }
 
   }
-
 
   else if(
     winner===dealer
@@ -2319,14 +2729,9 @@ function saveHand(){
     )
   ){
 
-    /*
-      莊家胡牌 / 自摸
-    */
-
     continueDealer()
 
   }
-
 
   else if(
     result==='胡牌'
@@ -2334,49 +2739,46 @@ function saveHand(){
     result==='自摸'
   ){
 
-    /*
-      閒家胡牌 / 自摸
-    */
-
     changeDealer()
 
   }
 
 
-  /*
-    清空下一把輸入
-  */
+  /* 下一把 */
 
   tai=0
   winner=''
   discarder=''
   result='胡牌'
 
-  clearPatterns()
+  fraudType='normal'
+  fraudVictim=''
+  selfFraudTai={}
+
+  selectedPatterns=[]
+
+  document.getElementById('patternArea').classList.add('hidden')
+  document.getElementById('patternArrow').textContent='⌄'
 
   syncResultButtons()
-
   renderGame()
 
 }
 
 
 /* ==============================
-   結果按鈕同步
+   同步結果
 ============================== */
 
 function syncResultButtons(){
 
-  document
-    .querySelectorAll('.choice')
+  document.querySelectorAll('.choice')
     .forEach(button=>{
 
-      button
-        .classList
-        .toggle(
-          'active',
-          button.dataset.result===result
-        )
+      button.classList.toggle(
+        'active',
+        button.dataset.result===result
+      )
 
     })
 
@@ -2384,203 +2786,208 @@ function syncResultButtons(){
 
 
 /* ==============================
-   復原上一把
+   復原
 ============================== */
 
 function undoHand(){
 
   if(!hands.length){
-
-    alert(
-      '目前沒有可以復原的紀錄'
-    )
-
+    alert('目前沒有可以復原的紀錄')
     return
-
   }
 
+  const last=hands.pop()
 
-  const last=
-    hands.pop()
+  balances={...last.balancesBefore}
 
+  roundIndex=last.roundIndex
+  repeats=last.repeats
 
-  /*
-    完整恢復上一把開始前狀態
-  */
+  dealer=last.dealer
+  dealerSeatIndex=last.dealerSeatIndex
 
-  roundIndex=
-    last.roundIndex
+  tai=last.tai
+  winner=last.winner
+  discarder=last.discarder
+  result=last.result
 
-  repeats=
-    last.repeats
+  fraudType=last.fraudType || 'normal'
+  fraudVictim=last.fraudVictim || ''
+  selfFraudTai={...(last.selfFraudTai||{})}
 
-  dealer=
-    last.dealer
-
-  dealerSeatIndex=
-    last.dealerSeatIndex
-
-  tai=
-    last.tai
-
-  winner=
-    last.winner
-
-  discarder=
-    last.discarder
-
-  result=
-    last.result
-
-  selectedPatterns=
-    [...(last.patterns||[])]
-
+  selectedPatterns=[...(last.patterns||[])]
 
   syncResultButtons()
-
   renderGame()
-
-
-  if(
-    selectedPatterns.length
-  ){
-
-    document
-      .getElementById('patternArea')
-      .classList
-      .remove('hidden')
-
-    document
-      .getElementById('patternArrow')
-      .textContent='⌃'
-
-  }
 
 }
 
 
 /* ==============================
-   最近紀錄
+   歷史
 ============================== */
 
 function renderHistory(){
 
-  const history=
-    document.getElementById('history')
-
+  const container=document.getElementById('history')
 
   if(!hands.length){
 
-    history.innerHTML=
-      '還沒有紀錄，第一把從東1開始 ✨'
-
+    container.innerHTML='還沒有紀錄'
     return
 
   }
 
 
-  history.innerHTML=
-
+  container.innerHTML=
     [...hands]
     .reverse()
-    .map(h=>`
+    .slice(0,8)
+    .map(hand=>{
 
-      <div class="total">
+      const changeLines=
+        P
+        .filter(p=>hand.changes[p]!==0)
+        .map(p=>{
 
-        <div>
+          const amount=hand.changes[p]
 
-          <div>
+          return `${p} ${amount>0?'+':''}$${amount.toLocaleString()}`
 
-            <span class="history-round">
-              ${h.round}
+        })
+        .join('・')
+
+
+      let title=''
+
+
+      if(hand.result==='流局'){
+
+        title='流局'
+
+      }
+
+      else if(hand.result==='詐胡'){
+
+        if(hand.fraudType==='self'){
+
+          title=`${hand.winner} 自摸詐胡`
+
+        }else{
+
+          title=`${hand.winner} 詐胡 ${hand.fraudVictim}`
+
+        }
+
+      }
+
+      else{
+
+        title=`${hand.winner} ${hand.result}`
+
+      }
+
+
+      let fraudDetail=''
+
+
+      if(
+        hand.result==='詐胡'
+        &&
+        hand.fraudType==='self'
+      ){
+
+        fraudDetail=
+          Object.entries(hand.selfFraudTai)
+          .map(([player,taiCount])=>
+            `${player} ${taiCount}台`
+          )
+          .join('・')
+
+      }
+
+
+      return `
+        <div class="history-item">
+
+          <div class="history-top">
+
+            <div>
+              <span class="history-round">
+                ${hand.round}
+              </span>
+
+              <b>${title}</b>
+            </div>
+
+            <span>
+              ${
+                hand.result==='流局'
+                ?'—'
+                :hand.result==='詐胡' && hand.fraudType==='self'
+                ?'個別台數'
+                :hand.tai+'台'
+              }
             </span>
 
-            <span class="pill">
-              👑 ${h.dealer}
-            </span>
+          </div>
+
+
+          <div class="muted" style="margin-top:6px">
+
+            莊家 ${hand.dealer}
 
             ${
-              h.repeats>0
+              hand.repeats>0
+              ?`・連${hand.repeats}`
+              :''
+            }
 
-              ?`
-                <span class="pill">
-                  連${h.repeats}
-                </span>
-              `
-
+            ${
+              hand.discarder
+              ?`・${hand.discarder} 放槍`
               :''
             }
 
           </div>
 
 
-          <div
-            style="
-              margin-top:7px;
-              font-weight:700
-            "
-          >
-
-            ${
-              h.result==='流局'
-
-              ?'🤝 流局'
-
-              :h.result==='詐胡'
-
-              ?`⚠️ ${h.winner}・詐胡`
-
-              :`${h.winner}・${h.result}`
-                +(
-                  h.discarder
-                  ?` ← ${h.discarder}`
-                  :''
-                )
-            }
-
-          </div>
+          ${
+            fraudDetail
+            ?`
+              <div class="muted" style="margin-top:4px">
+                ${fraudDetail}
+              </div>
+            `
+            :''
+          }
 
 
           ${
-            h.patterns
-            &&
-            h.patterns.length
-
+            changeLines
             ?`
-
-              <div
-                style="
-                  margin-top:5px;
-                  color:#b46d80
-                "
-              >
-                ✨ ${h.patterns.join('・')}
+              <div style="margin-top:5px;font-size:12px;font-weight:700">
+                ${changeLines}
               </div>
-
             `
+            :''
+          }
 
+
+          ${
+            hand.patterns.length
+            ?`
+              <div style="margin-top:5px;font-size:11px;color:#b36f80">
+                ${hand.patterns.join('・')}
+              </div>
+            `
             :''
           }
 
         </div>
+      `
 
-
-        <b>
-
-          ${
-            h.result==='流局'
-
-            ?'—'
-
-            :h.tai+' 台'
-          }
-
-        </b>
-
-      </div>
-
-    `)
-    .join('')
+    }).join('')
 
 }
 
@@ -2591,49 +2998,23 @@ function renderHistory(){
 
 function askFinishGame(){
 
-  document
-    .getElementById('finishMessage')
-    .innerHTML=
+  document.getElementById('finishMessage').innerHTML=`
+    已記錄 <b>${hands.length}</b> 把
+    <br><br>
+    現在 <b>${getRoundName(roundIndex)}</b>
+    ${repeats>0?`・連${repeats}`:''}
+    <br>
+    莊家 <b>${dealer}</b>
+  `
 
-      `
-      目前已記錄
-      <b>${hands.length}</b>
-      把。<br><br>
-
-      現在是
-      <b>${getRoundName(roundIndex)}</b>
-
-      ${
-        repeats>0
-        ?`・連莊 <b>${repeats}</b>`
-        :''
-      }
-
-      <br>
-
-      👑 莊家：
-      <b>${dealer}</b>
-
-      <br><br>
-
-      確定要把這場牌局結束嗎？
-      `
-
-
-  document
-    .getElementById('finishModal')
-    .classList
-    .remove('hidden')
+  document.getElementById('finishModal').classList.remove('hidden')
 
 }
 
 
 function closeFinishModal(){
 
-  document
-    .getElementById('finishModal')
-    .classList
-    .add('hidden')
+  document.getElementById('finishModal').classList.add('hidden')
 
 }
 
@@ -2646,208 +3027,70 @@ function finishDetailedGame(){
 
   closeFinishModal()
 
+  const ranking=
+    [...P].sort(
+      (a,b)=>balances[b]-balances[a]
+    )
 
-  document
-    .getElementById('detailedDoneText')
-    .innerHTML=
+  document.getElementById('doneSummary').innerHTML=
+    ranking.map(player=>{
 
-      `
-      這場共記錄
-      <b>${hands.length}</b>
-      把。
-      `
+      const net=
+        balances[player]-currentRule.water
 
+      return `
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          padding:14px 0;
+          border-bottom:1px dashed var(--line)
+        ">
 
-  const stats={}
+          <b>${player}</b>
 
+          <div style="text-align:right">
 
-  P.forEach(p=>{
-
-    stats[p]={
-
-      win:0,
-      self:0,
-      discard:0,
-      falseWin:0,
-      dealerWins:0,
-      patterns:[]
-
-    }
-
-  })
-
-
-  hands.forEach(h=>{
-
-    if(
-      h.result==='胡牌'
-      &&
-      h.winner
-    ){
-
-      stats[h.winner].win++
-
-    }
-
-
-    if(
-      h.result==='自摸'
-      &&
-      h.winner
-    ){
-
-      stats[h.winner].self++
-
-    }
-
-
-    if(
-      h.result==='胡牌'
-      &&
-      h.discarder
-    ){
-
-      stats[h.discarder].discard++
-
-    }
-
-
-    if(
-      h.result==='詐胡'
-      &&
-      h.winner
-    ){
-
-      stats[h.winner].falseWin++
-
-    }
-
-
-    if(
-      h.winner===h.dealer
-      &&
-      (
-        h.result==='胡牌'
-        ||
-        h.result==='自摸'
-      )
-    ){
-
-      stats[h.winner].dealerWins++
-
-    }
-
-
-    if(
-      h.winner
-      &&
-      h.patterns
-      &&
-      h.patterns.length
-    ){
-
-      stats[h.winner]
-        .patterns
-        .push(...h.patterns)
-
-    }
-
-  })
-
-
-  document
-    .getElementById('detailedSummary')
-    .innerHTML=
-
-      P.map(p=>`
-
-        <div class="total">
-
-          <div>
-
-            <b>
-              ${p}
+            <b style="
+              font-size:19px;
+              color:${net>=0?'#6caa8b':'#cf7f91'}
+            ">
+              ${net>=0?'+':''}$${net.toLocaleString()}
             </b>
 
-            ${
-              stats[p].patterns.length
-
-              ?`
-
-                <div
-                  class="muted"
-                  style="margin-top:5px"
-                >
-                  ✨
-                  ${stats[p].patterns.join('・')}
-                </div>
-
-              `
-
-              :''
-            }
+            <div class="muted">
+              水位 $${balances[player].toLocaleString()}
+            </div>
 
           </div>
 
-
-          <span
-            class="muted"
-            style="text-align:right"
-          >
-
-            胡 ${stats[p].win}
-            ・自摸 ${stats[p].self}
-
-            <br>
-
-            放槍 ${stats[p].discard}
-
-            ${
-              stats[p].falseWin
-              ?`・詐胡 ${stats[p].falseWin}`
-              :''
-            }
-
-          </span>
-
         </div>
+      `
 
-      `)
-      .join('')
+    }).join('')
 
-
-  show('detailedDone')
+  show('done')
 
 }
 
 
 /* ==============================
-   只記最終結果
+   最終模式
 ============================== */
 
 function renderFinal(){
 
-  document
-    .getElementById('finalInputs')
-    .innerHTML=
+  document.getElementById('finalInputs').innerHTML=
+    P.map(player=>`
+      <label>${player}</label>
 
-      P.map((p,i)=>`
-
-        <label>
-          ${p} 的最終輸贏
-        </label>
-
-        <input
-          class="finalMoney"
-          data-i="${i}"
-          type="number"
-          inputmode="numeric"
-          value="0"
-          oninput="checkBalance()"
-        >
-
-      `).join('')
-
+      <input
+        class="finalMoney"
+        type="number"
+        inputmode="numeric"
+        value="0"
+        oninput="checkBalance()"
+      >
+    `).join('')
 
   checkBalance()
 
@@ -2856,145 +3099,68 @@ function renderFinal(){
 
 function checkBalance(){
 
-  const vals=
+  const values=[
+    ...document.querySelectorAll('.finalMoney')
+  ].map(input=>Number(input.value)||0)
 
-    [...document
-      .querySelectorAll('.finalMoney')
-    ]
+  const total=
+    values.reduce((a,b)=>a+b,0)
 
-    .map(
-      x=>+x.value||0
-    )
+  const box=
+    document.getElementById('balanceNotice')
 
+  box.className=
+    'notice '+(total===0?'ok':'bad')
 
-  const sum=
-
-    vals.reduce(
-      (a,b)=>a+b,
-      0
-    )
-
-
-  const notice=
-    document.getElementById(
-      'balanceNotice'
-    )
-
-
-  notice.textContent=
-
-    `四人合計：`
-
-    +(
-      sum>=0
-      ?'+'
-      :''
-    )
-
-    +'$'
-
-    +sum.toLocaleString()
-
-    +' '
-
-    +(
-      sum===0
-
-      ?'✓ 金額平衡'
-
-      :'⚠️ 輸贏合計應為 0'
-    )
-
-
-  notice.className=
-
-    'notice '
-
-    +(
-      sum===0
-      ?'ok'
-      :'bad'
-    )
+  box.textContent=
+    `四人合計 ${total>=0?'+':''}$${total.toLocaleString()}`
+    +(total===0?'・金額平衡':'・請檢查金額')
 
 }
 
 
-/* ==============================
-   儲存最終結果
-============================== */
-
 function saveFinal(){
 
-  const vals=
+  const values=[
+    ...document.querySelectorAll('.finalMoney')
+  ].map(input=>Number(input.value)||0)
 
-    [...document
-      .querySelectorAll('.finalMoney')
-    ]
+  const total=
+    values.reduce((a,b)=>a+b,0)
 
-    .map(
-      x=>+x.value||0
-    )
+  if(total!==0){
 
-
-  const sum=
-
-    vals.reduce(
-      (a,b)=>a+b,
-      0
-    )
-
-
-  if(sum!==0){
-
-    alert(
-      '四人的輸贏合計不是 0，請先檢查金額'
-    )
-
+    alert('四人的輸贏合計必須是 0')
     return
 
   }
 
+  document.getElementById('doneSummary').innerHTML=
+    P.map((player,index)=>{
 
-  document
-    .getElementById('doneSummary')
-    .innerHTML=
+      const amount=values[index]
 
-      P.map((p,i)=>`
+      return `
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          padding:14px 0;
+          border-bottom:1px dashed var(--line)
+        ">
 
-        <div class="total">
+          <b>${player}</b>
 
-          <b>
-            ${p}
+          <b style="
+            font-size:19px;
+            color:${amount>=0?'#6caa8b':'#cf7f91'}
+          ">
+            ${amount>=0?'+':''}$${amount.toLocaleString()}
           </b>
 
-          <span
-            class="
-              money
-              ${
-                vals[i]>=0
-                ?'pos'
-                :'neg'
-              }
-            "
-          >
-
-            ${
-              vals[i]>=0
-              ?'+'
-              :''
-            }
-
-            $
-
-            ${vals[i].toLocaleString()}
-
-          </span>
-
         </div>
+      `
 
-      `)
-      .join('')
-
+    }).join('')
 
   show('done')
 
