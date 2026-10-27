@@ -1,10 +1,746 @@
-<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta name='theme-color' content='#12372a'><link rel='manifest' href='manifest.json'><title>麻將戰績</title><style>
-:root{font-family:system-ui,-apple-system,'Noto Sans TC',sans-serif;color:#18221d;background:#f4f1e8}body{margin:0}.app{max-width:520px;margin:auto;min-height:100vh;background:#faf8f1}.top{background:#12372a;color:white;padding:24px 18px 18px}.top h1{margin:0 0 4px}.sub{opacity:.8;font-size:14px}.content{padding:16px}.card{background:white;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 4px 18px #00000010}.row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}.btn{border:0;border-radius:14px;padding:14px 16px;font-weight:700;font-size:16px;background:#12372a;color:white;cursor:pointer}.btn.alt{background:#e9e4d5;color:#18221d}.btn.gold{background:#c7922e}.btn.wide{width:100%}.players{display:grid;grid-template-columns:1fr 1fr;gap:10px}.player{padding:16px 8px;border:2px solid #e5e1d7;border-radius:16px;background:#fff;font-size:17px;font-weight:700}.player.sel{border-color:#12372a;background:#eaf1ed}.tabs{display:flex;gap:8px;margin:12px 0}.tab{flex:1;padding:10px;border:0;border-radius:12px}.counter{font-size:48px;font-weight:800;text-align:center;margin:12px}.counterBtns{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}.counterBtns button{padding:15px 4px;border:0;border-radius:14px;font-size:18px;font-weight:800}.history{font-size:14px;padding:10px 0;border-bottom:1px solid #eee}.money{font-size:26px;font-weight:800}.pos{color:#087a4b}.neg{color:#b33}.hidden{display:none}.badge{display:inline-block;background:#f2ead8;border-radius:999px;padding:6px 10px;margin:3px;font-size:13px}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:12px;font-size:16px;margin:5px 0 10px}.small{font-size:13px;color:#68736c}.seatTiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.seatTile{height:110px;border:2px solid #d9d3c4;border-radius:18px;background:#f5f0e3;font-size:34px;font-weight:900;color:#12372a}.seatTile.revealed{background:white;border-color:#12372a}.seatResult{padding:10px 0;border-bottom:1px solid #eee;font-size:17px}.seatMode{display:grid;grid-template-columns:1fr 1fr;gap:10px}.title{font-size:18px;font-weight:800;margin-bottom:10px}</style></head><body><div class='app'>
-<div class='top'><h1>🀄 麻將戰績</h1><div class='sub'>V1 可操作原型・資料先儲存在這台裝置</div></div><div class='content'>
-<section id='home'><div class='card'><div class='small'>我的全部戰績</div><div class='money pos' id='allMoney'>+$0</div><div class='small'>之後會串接房間與雲端帳號</div></div><button class='btn wide' onclick='show("setup")'>＋ 開新牌局</button><div class='card' style='margin-top:14px'><div class='title'>V1 已納入</div><span class='badge'>多房間</span><span class='badge'>底／台</span><span class='badge'>抓位</span><span class='badge'>胡／自摸</span><span class='badge'>連莊</span><span class='badge'>詐胡</span><span class='badge'>復原</span><span class='badge'>誰胡誰</span><span class='badge'>連勝</span><span class='badge'>成就</span></div></section>
-<section id='setup' class='hidden'><div class='card'><div class='title'>開新牌局</div><label>房間</label><input id='room' value='之之麻將團'><label>場地</label><input id='place' placeholder='例如：之之家'><div class='row'><div style='flex:1'><label>底</label><input id='base' type='number' value='100'></div><div style='flex:1'><label>台</label><input id='taiPrice' type='number' value='20'></div></div><label>四位玩家（逗號分隔）</label><input id='names' value='之之,Amy,小美,小王'><div class='small'>本原型先用「底＋每台×台數」示範。莊家／連莊／詐胡算法下一步做成房間規則。</div></div><button class='btn wide' onclick='goSeat()'>下一步：選位</button><button class='btn alt wide' style='margin-top:8px' onclick='show("home")'>返回</button></section>
-<section id='seat' class='hidden'><div class='card'><div class='title'>選位</div><div class='small'>選擇這一局要怎麼決定東、南、西、北</div><div class='seatMode' style='margin-top:14px'><button class='btn' onclick='startDrawSeats()'>🀄 抽位</button><button class='btn gold' onclick='randomSeatOnly()'>🎲 隨機選位</button></div></div><div id='drawArea' class='card hidden'><div class='title' id='drawPrompt'>請抽一張牌</div><div class='small'>每個人依序點一張蓋牌，翻開後就是座位。</div><div id='seatTiles' class='seatTiles'></div></div><div id='seatResultCard' class='card hidden'><div class='title'>座位結果</div><div id='seatResults'></div><button class='btn wide' style='margin-top:14px' onclick='confirmSeats()'>✓ 確認座位，開始牌局</button><button class='btn alt wide' style='margin-top:8px' onclick='resetSeatChoice()'>重新選位</button></div><button class='btn alt wide' onclick='show("setup")'>返回設定</button></section>
-<section id='game' class='hidden'><div class='card'><div class='row between'><div><div class='small'>目前局數</div><div class='money' id='roundLabel'>東1</div></div><div style='text-align:right'><div class='small'>連莊</div><b id='repeatLabel'>0</b></div></div><div class='row' style='margin-top:12px'><button class='btn alt' style='flex:1' onclick='drawHand()'>流局</button><button class='btn gold' style='flex:1' onclick='repeatDealer()'>連莊</button></div><div class='small' style='margin-top:8px'>流局、連莊都會維持目前局數；正常完成一局後才會進到下一局。</div></div><div class='card'><div class='row between'><div><b id='gameRoom'></b><div class='small' id='gameInfo'></div></div><button class='btn alt' onclick='show("home")'>首頁</button></div></div><div class='card'><div class='title'>第 <span id='handNo'>1</span> 把・誰贏？</div><div id='players' class='players'></div><div id='modeBox' class='hidden'><div class='tabs'><button class='tab btn' onclick='setMode("胡牌")'>🎯 胡牌</button><button class='tab btn gold' onclick='setMode("自摸")'>✨ 自摸</button><button class='tab btn alt' onclick='setMode("詐胡")'>💥 詐胡</button></div></div><div id='loserBox' class='hidden'><div class='title'>誰放槍？</div><div id='losers' class='players'></div></div><div id='taiBox' class='hidden'><div class='title'>幾台？</div><div class='counter'><span id='tai'>0</span> 台</div><div class='counterBtns'><button onclick='addTai(-1)'>−1</button><button onclick='addTai(1)'>+1</button><button onclick='addTai(2)'>+2</button><button onclick='addTai(5)'>+5</button></div><p style='text-align:center'>本把換算：<b id='calc'>$100</b></p><button class='btn wide' onclick='saveHand()'>✓ 記錄這一把</button></div></div><div class='card'><div class='row between'><div class='title'>最近紀錄</div><button class='btn alt' onclick='undo()'>↶ 復原上一把</button></div><div id='history'><div class='small'>還沒有紀錄</div></div></div></section>
-</div></div><script>
-let state={players:[],hands:[],winner:null,loser:null,mode:null,tai:0,base:100,price:20,seats:{},roundWind:'東',roundNo:1,repeat:0};function show(id){['home','setup','seat','game'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id))}function loadSetup(){state.players=document.getElementById('names').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,4);if(state.players.length!==4){alert('請輸入四位玩家');return false}state.base=+document.getElementById('base').value||0;state.price=+document.getElementById('taiPrice').value||0;return true}function goSeat(){if(!loadSetup())return;state.seats={};resetSeatChoice();show('seat')}let drawOrder=[],drawIndex=0,drawTiles=[];function shuffle(a){return [...a].sort(()=>Math.random()-.5)}function startDrawSeats(){state.seats={};drawOrder=[...state.players];drawIndex=0;drawTiles=shuffle(['東','南','西','北']).map((seat,i)=>({seat,picked:false,id:i}));document.getElementById('seatResultCard').classList.add('hidden');document.getElementById('drawArea').classList.remove('hidden');renderDraw()}function renderDraw(){document.getElementById('drawPrompt').textContent=drawIndex<4?`${drawOrder[drawIndex]}，請抽一張牌`:'抽位完成！';document.getElementById('seatTiles').innerHTML=drawTiles.map((t,i)=>`<button class='seatTile ${t.picked?'revealed':''}' ${t.picked?'disabled':''} onclick='pickSeatTile(${i})'>${t.picked?t.seat:'🀄'}</button>`).join('')}function pickSeatTile(i){if(drawIndex>=4||drawTiles[i].picked)return;let player=drawOrder[drawIndex];drawTiles[i].picked=true;state.seats[player]=drawTiles[i].seat;drawIndex++;renderDraw();if(drawIndex===4)setTimeout(showSeatResults,350)}function randomSeatOnly(){state.seats={};let seats=shuffle(['東','南','西','北']);state.players.forEach((p,i)=>state.seats[p]=seats[i]);document.getElementById('drawArea').classList.add('hidden');showSeatResults()}function showSeatResults(){document.getElementById('seatResultCard').classList.remove('hidden');document.getElementById('seatResults').innerHTML=['東','南','西','北'].map(seat=>{let p=state.players.find(x=>state.seats[x]===seat);return `<div class='seatResult'><b>${seat}</b>　${p||''}</div>`}).join('')}function resetSeatChoice(){state.seats={};drawIndex=0;drawTiles=[];document.getElementById('drawArea').classList.add('hidden');document.getElementById('seatResultCard').classList.add('hidden')}function roundText(){return state.roundWind+state.roundNo}function renderRound(){let a=document.getElementById('roundLabel'),b=document.getElementById('repeatLabel');if(a)a.textContent=roundText();if(b)b.textContent=state.repeat}function advanceRound(){state.repeat=0;state.roundNo++;if(state.roundNo>4){state.roundNo=1;state.roundWind=state.roundWind==='東'?'南':state.roundWind==='南'?'西':state.roundWind==='西'?'北':'東'}renderRound()}function drawHand(){state.hands.push({mode:'流局',round:roundText(),repeat:state.repeat});resetEntry();renderHistory();renderRound()}function repeatDealer(){state.repeat++;state.hands.push({mode:'連莊',round:roundText(),repeat:state.repeat});resetEntry();renderHistory();renderRound()}function confirmSeats(){if(Object.keys(state.seats).length!==4){alert('請先完成選位');return}document.getElementById('gameRoom').textContent=document.getElementById('room').value;document.getElementById('gameInfo').textContent=`${document.getElementById('place').value||'未填場地'}｜底 $${state.base}／台 $${state.price}｜`+['東','南','西','北'].map(seat=>`${seat} ${state.players.find(p=>state.seats[p]===seat)}`).join('・');state.roundWind='東';state.roundNo=1;state.repeat=0;renderPlayers();show('game');renderRound()}function renderPlayers(){document.getElementById('players').innerHTML=state.players.map(p=>`<button class='player ${state.winner===p?'sel':''}' onclick='pickWinner(${JSON.stringify(p)})'>${state.seats[p]}・${p}</button>`).join('');document.getElementById('losers').innerHTML=state.players.filter(p=>p!==state.winner).map(p=>`<button class='player ${state.loser===p?'sel':''}' onclick='pickLoser(${JSON.stringify(p)})'>${p}</button>`).join('')}function pickWinner(p){state.winner=p;state.mode=null;state.loser=null;state.tai=0;renderPlayers();document.getElementById('modeBox').classList.remove('hidden');document.getElementById('loserBox').classList.add('hidden');document.getElementById('taiBox').classList.add('hidden')}function setMode(m){state.mode=m;if(m==='胡牌'){renderPlayers();document.getElementById('loserBox').classList.remove('hidden');document.getElementById('taiBox').classList.add('hidden')}else{state.loser=null;document.getElementById('loserBox').classList.add('hidden');document.getElementById('taiBox').classList.remove('hidden');updateCalc()}}function pickLoser(p){state.loser=p;renderPlayers();document.getElementById('taiBox').classList.remove('hidden');updateCalc()}function addTai(n){state.tai=Math.max(0,state.tai+n);document.getElementById('tai').textContent=state.tai;updateCalc()}function updateCalc(){document.getElementById('calc').textContent='$'+(state.base+state.price*state.tai)}function saveHand(){if(!state.winner||!state.mode||(state.mode==='胡牌'&&!state.loser)){alert('資料還沒選完整');return}state.hands.push({winner:state.winner,loser:state.loser,mode:state.mode,tai:state.tai,amount:state.base+state.price*state.tai,round:roundText(),repeat:state.repeat});advanceRound();resetEntry();renderHistory()}function resetEntry(){state.winner=state.loser=state.mode=null;state.tai=0;document.getElementById('tai').textContent=0;document.getElementById('modeBox').classList.add('hidden');document.getElementById('loserBox').classList.add('hidden');document.getElementById('taiBox').classList.add('hidden');document.getElementById('handNo').textContent=state.hands.length+1;renderPlayers()}function undo(){if(!state.hands.length)return;state.hands.pop();resetEntry();renderHistory()}function renderHistory(){let el=document.getElementById('history');if(!state.hands.length){el.innerHTML='<div class="small">還沒有紀錄</div>';return}el.innerHTML=state.hands.slice().reverse().map((h,i)=>`<div class='history'><b>${h.round||('第 '+(state.hands.length-i)+' 把')}</b>　${h.mode==='流局'?'流局':h.mode==='連莊'?('連莊（'+h.repeat+'）'):(h.winner+' '+h.mode+(h.loser?' '+h.loser:'')+'　'+h.tai+'台　$'+h.amount)}</div>`).join('')}if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
-</script></body></html>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>麻將戰績</title>
+<style>
+:root{--green:#0d4f3c;--green2:#16765a;--bg:#f4f6f3;--card:#fff;--text:#17221e;--muted:#738079;--line:#dfe6e1;--red:#c74444}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;background:var(--bg);color:var(--text)}
+header{background:var(--green);color:white;padding:18px;position:sticky;top:0;z-index:3}
+header h1{margin:0;font-size:23px}
+header p{margin:4px 0 0;opacity:.75;font-size:13px}
+main{max-width:620px;margin:auto;padding:14px 14px 90px}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0000000a}
+h2{font-size:18px;margin:0 0 13px}
+h3{font-size:15px;margin:14px 0 8px}
+.muted{color:var(--muted);font-size:13px}
+.big{font-size:30px;font-weight:800}
+label{font-size:13px;color:#536059;display:block;margin:10px 0 5px}
+input{width:100%;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:white}
+.grid2,.grid4{display:grid;gap:9px}
+.grid2{grid-template-columns:1fr 1fr}
+.grid4{grid-template-columns:repeat(4,1fr)}
+button{border:0;border-radius:13px;padding:13px 10px;font-size:15px;font-weight:700;background:#e9efeb;color:var(--text)}
+button.primary{background:var(--green2);color:white;width:100%}
+button.active{background:var(--green);color:white}
+.mode{padding:17px 12px;text-align:left;border:2px solid transparent}
+.mode strong{display:block;font-size:17px;margin-bottom:5px}
+.mode.active{border-color:var(--green2);background:#eaf5f0;color:var(--green)}
+.hidden{display:none!important}
+.pill{display:inline-block;background:#edf3ef;border-radius:999px;padding:6px 10px;font-size:12px;margin:2px}
+.total{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.total:last-child{border:0}
+.money{font-size:19px;font-weight:800}
+.pos{color:#16835d}
+.neg{color:var(--red)}
+.notice{border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px;background:#f1f4f2}
+.notice.ok{background:#e8f6ef;color:#166a4e}
+.notice.bad{background:#fff0f0;color:#a43636}
+.tai{font-size:34px;text-align:center;font-weight:900;margin:10px}
+.amount{text-align:center;font-size:18px;font-weight:800;margin-bottom:12px}
+.toprow{display:flex;justify-content:space-between;align-items:center}
+.linkbtn{background:none;color:var(--green2);padding:5px}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>🀄 麻將戰績</h1>
+<p>操作原型・之後串接雲端帳號</p>
+</header>
+
+<main>
+
+<section id="home">
+
+<div class="card">
+<div class="muted">我的全部戰績</div>
+<div class="big">+$0</div>
+<div class="muted">之後會彙整你在所有房間的個人戰績</div>
+</div>
+
+<button class="primary" onclick="show('setup')">
+＋ 開新牌局
+</button>
+
+</section>
+
+<section id="setup" class="hidden">
+
+<div class="card">
+
+<div class="toprow">
+<h2>開新牌局</h2>
+<button class="linkbtn" onclick="show('home')">返回</button>
+</div>
+
+<label>房間</label>
+<input id="room" value="之之麻將團">
+
+<label>場地</label>
+<input id="place" placeholder="例如：之之家">
+
+<div class="grid2">
+
+<div>
+<label>底</label>
+<input id="base" type="number" value="100">
+</div>
+
+<div>
+<label>台</label>
+<input id="taiPrice" type="number" value="20">
+</div>
+
+</div>
+
+<label>四位玩家（逗號分隔）</label>
+<input id="players" value="之之,Amy,小美,小王">
+
+<h3>今天要怎麼記？</h3>
+
+<div class="grid2">
+
+<button id="detailedBtn"
+class="mode active"
+onclick="setMode('detailed')">
+
+<strong>🀄 逐局記錄</strong>
+
+<span>
+每把記胡牌、自摸、台數，由 App 計算
+</span>
+
+</button>
+
+<button id="finalBtn"
+class="mode"
+onclick="setMode('final')">
+
+<strong>💰 只記最終結果</strong>
+
+<span>
+現場自己結算，打完輸入四人輸贏
+</span>
+
+</button>
+
+</div>
+
+<div id="modeHint" class="notice">
+逐局記錄會有完整的胡牌、自摸、放槍等統計。
+</div>
+
+</div>
+
+<button class="primary" onclick="startGame()">
+下一步
+</button>
+
+</section>
+
+<section id="seat" class="hidden">
+
+<div class="card">
+
+<div class="toprow">
+
+<h2>選位</h2>
+
+<button class="linkbtn" onclick="show('setup')">
+返回
+</button>
+
+</div>
+
+<div class="muted">
+選擇這一局要怎麼決定東、南、西、北
+</div>
+
+<div class="grid2" style="margin-top:12px">
+
+<button onclick="drawSeats()">
+🀄 抽位
+</button>
+
+<button onclick="randomSeats()">
+🎲 隨機選位
+</button>
+
+</div>
+
+<div id="seatResult" style="margin-top:14px"></div>
+
+</div>
+
+<button class="primary" onclick="confirmSeats()">
+✓ 確認座位，開始牌局
+</button>
+
+</section>
+
+<section id="game" class="hidden">
+
+<div class="card">
+
+<div class="toprow">
+
+<div>
+<div class="muted">目前局數</div>
+<div class="big" id="round">東1</div>
+</div>
+
+<div>
+<div class="muted">連莊</div>
+<div class="big" id="repeat">0</div>
+</div>
+
+</div>
+
+<div id="seatPills" style="margin-top:10px"></div>
+
+<div class="grid2" style="margin-top:12px">
+
+<button onclick="repeatDealer()">
+流局／連莊
+</button>
+
+<button onclick="nextRound()">
+正常完成一局
+</button>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h2 id="handTitle">
+第 1 把・誰贏？
+</h2>
+
+<div id="winnerBtns" class="grid4"></div>
+
+<h3>結果</h3>
+
+<div class="grid4">
+
+<button class="result active"
+onclick="pickResult(this,'胡牌')">
+🎯 胡牌
+</button>
+
+<button class="result"
+onclick="pickResult(this,'自摸')">
+✨ 自摸
+</button>
+
+<button class="result"
+onclick="pickResult(this,'詐胡')">
+💥 詐胡
+</button>
+
+<button class="result"
+onclick="pickResult(this,'流局')">
+流局
+</button>
+
+</div>
+
+<div id="discardBox">
+
+<h3>誰放槍？</h3>
+
+<div id="discardBtns" class="grid4"></div>
+
+</div>
+
+<h3>幾台？</h3>
+
+<div class="tai" id="taiNum">
+0 台
+</div>
+
+<div class="grid4">
+
+<button onclick="addTai(-1)">−1</button>
+<button onclick="addTai(1)">+1</button>
+<button onclick="addTai(2)">+2</button>
+<button onclick="addTai(5)">+5</button>
+
+</div>
+
+<div class="amount" id="calcAmount">
+本把換算：$100
+</div>
+
+<button class="primary" onclick="saveHand()">
+✓ 記錄這一把
+</button>
+
+</div>
+
+<div class="card">
+
+<div class="toprow">
+
+<h2>最近紀錄</h2>
+
+<button class="linkbtn" onclick="undoHand()">
+↶ 復原上一把
+</button>
+
+</div>
+
+<div id="history" class="muted">
+還沒有紀錄
+</div>
+
+</div>
+
+</section>
+
+<section id="final" class="hidden">
+
+<div class="card">
+
+<div class="toprow">
+
+<h2>💰 最終結果</h2>
+
+<button class="linkbtn" onclick="show('setup')">
+返回
+</button>
+
+</div>
+
+<div class="muted">
+今天現場已經結算好了，只要把四個人的最後輸贏輸入進來。
+</div>
+
+<div id="finalInputs"></div>
+
+<div id="balanceNotice" class="notice">
+四人合計：$0
+</div>
+
+</div>
+
+<button class="primary" onclick="saveFinal()">
+✓ 儲存這場戰績
+</button>
+
+</section>
+
+<section id="done" class="hidden">
+
+<div class="card">
+
+<h2>
+已記錄這場戰績 ✓
+</h2>
+
+<div id="doneSummary"></div>
+
+<div class="notice ok">
+這種「只記最終結果」的牌局會計入總輸贏與場次，但不會亂算自摸、放槍、胡牌次數。
+</div>
+
+</div>
+
+<button class="primary" onclick="show('home')">
+回首頁
+</button>
+
+</section>
+
+</main>
+
+<script>
+
+let mode='detailed'
+let P=[]
+let seats=[]
+let tai=0
+let winner=''
+let result='胡牌'
+let discarder=''
+let hands=[]
+let roundIndex=0
+let repeats=0
+
+const winds=['東','南','西','北']
+
+function show(id){
+
+document.querySelectorAll('main>section')
+.forEach(x=>x.classList.add('hidden'))
+
+document.getElementById(id)
+.classList.remove('hidden')
+
+}
+
+function setMode(m){
+
+mode=m
+
+document.getElementById('detailedBtn')
+.classList.toggle('active',m==='detailed')
+
+document.getElementById('finalBtn')
+.classList.toggle('active',m==='final')
+
+document.getElementById('modeHint').textContent=
+m==='detailed'
+?'逐局記錄會有完整的胡牌、自摸、放槍等統計。'
+:'只記最終結果會計入「總輸贏、牌局場次」，但不會推測胡牌、自摸或放槍次數。'
+
+}
+
+function getPlayers(){
+
+return document.getElementById('players')
+.value
+.split(/[,，]/)
+.map(x=>x.trim())
+.filter(Boolean)
+.slice(0,4)
+
+}
+
+function startGame(){
+
+P=getPlayers()
+
+if(P.length!==4){
+
+alert('請輸入四位玩家')
+return
+
+}
+
+if(mode==='final'){
+
+renderFinal()
+show('final')
+
+}else{
+
+seats=[...P]
+renderSeats()
+show('seat')
+
+}
+
+}
+
+function randomSeats(){
+
+seats=[...P].sort(()=>Math.random()-.5)
+renderSeats()
+
+}
+
+function drawSeats(){
+
+randomSeats()
+
+}
+
+function renderSeats(){
+
+document.getElementById('seatResult').innerHTML=
+seats.map((p,i)=>
+
+`<div class="total">
+<b>${winds[i]}</b>
+<span>${p}</span>
+</div>`
+
+).join('')
+
+}
+
+function confirmSeats(){
+
+if(!seats.length) randomSeats()
+
+renderGame()
+show('game')
+
+}
+
+function renderGame(){
+
+document.getElementById('seatPills').innerHTML=
+seats.map((p,i)=>
+
+`<span class="pill">
+${winds[i]} ${p}
+</span>`
+
+).join('')
+
+document.getElementById('winnerBtns').innerHTML=
+P.map(p=>
+
+`<button
+onclick="winner='${p}';renderGame()"
+class="${winner===p?'active':''}">
+${p}
+</button>`
+
+).join('')
+
+document.getElementById('discardBtns').innerHTML=
+P.map(p=>
+
+`<button
+onclick="discarder='${p}';renderGame()"
+class="${discarder===p?'active':''}">
+${p}
+</button>`
+
+).join('')
+
+document.getElementById('discardBox')
+.classList.toggle('hidden',result!=='胡牌')
+
+document.getElementById('round').textContent=
+(roundIndex<4?'東':'南')+(roundIndex%4+1)
+
+document.getElementById('repeat').textContent=repeats
+
+document.getElementById('handTitle').textContent=
+`第 ${hands.length+1} 把・誰贏？`
+
+updateTai()
+renderHistory()
+
+}
+
+function pickResult(el,r){
+
+result=r
+
+document.querySelectorAll('.result')
+.forEach(b=>b.classList.remove('active'))
+
+el.classList.add('active')
+
+document.getElementById('discardBox')
+.classList.toggle('hidden',r!=='胡牌')
+
+}
+
+function addTai(n){
+
+tai=Math.max(0,tai+n)
+
+updateTai()
+
+}
+
+function updateTai(){
+
+document.getElementById('taiNum').textContent=
+tai+' 台'
+
+let a=
+(+document.getElementById('base').value||0)
++
+(+document.getElementById('taiPrice').value||0)*tai
+
+document.getElementById('calcAmount').textContent=
+'本把換算：$'+a.toLocaleString()
+
+}
+
+function saveHand(){
+
+if(result!=='流局'&&!winner){
+
+alert('請先選擇玩家')
+return
+
+}
+
+if(result==='胡牌'&&!discarder){
+
+alert('請選擇放槍的人')
+return
+
+}
+
+let a=
+(+document.getElementById('base').value||0)
++
+(+document.getElementById('taiPrice').value||0)*tai
+
+hands.push({
+winner,
+result,
+discarder,
+tai,
+a
+})
+
+tai=0
+winner=''
+discarder=''
+
+renderGame()
+
+}
+
+function undoHand(){
+
+hands.pop()
+renderGame()
+
+}
+
+function renderHistory(){
+
+let e=document.getElementById('history')
+
+if(!hands.length){
+
+e.innerHTML='還沒有紀錄'
+return
+
+}
+
+e.innerHTML=
+[...hands].reverse().map((h,j)=>
+
+`<div class="total">
+
+<span>
+第 ${hands.length-j} 把　
+${h.result==='流局'
+?'流局'
+:h.winner+' '+h.result+(h.discarder?' ← '+h.discarder:'')}
+</span>
+
+<b>
+${h.tai}台　$${h.a}
+</b>
+
+</div>`
+
+).join('')
+
+}
+
+function repeatDealer(){
+
+repeats++
+renderGame()
+
+}
+
+function nextRound(){
+
+roundIndex=(roundIndex+1)%8
+repeats=0
+
+renderGame()
+
+}
+
+function renderFinal(){
+
+let box=document.getElementById('finalInputs')
+
+box.innerHTML=
+P.map((p,i)=>
+
+`<label>
+${p} 的最終輸贏
+</label>
+
+<input
+class="finalMoney"
+data-i="${i}"
+type="number"
+inputmode="numeric"
+value="0"
+oninput="checkBalance()">`
+
+).join('')
+
+checkBalance()
+
+}
+
+function checkBalance(){
+
+let vals=
+[...document.querySelectorAll('.finalMoney')]
+.map(x=>+x.value||0)
+
+let sum=
+vals.reduce((a,b)=>a+b,0)
+
+let n=
+document.getElementById('balanceNotice')
+
+n.textContent=
+`四人合計：${sum>=0?'+':''}$${sum.toLocaleString()}`
+
+n.className=
+'notice '+(sum===0?'ok':'bad')
+
+n.innerHTML+=
+sum===0
+?'　✓ 金額平衡'
+:'　⚠️ 輸贏合計應為 0，請再檢查一次'
+
+}
+
+function saveFinal(){
+
+let vals=
+[...document.querySelectorAll('.finalMoney')]
+.map(x=>+x.value||0)
+
+let sum=
+vals.reduce((a,b)=>a+b,0)
+
+if(sum!==0){
+
+alert('四人的輸贏合計不是 0，請先檢查金額')
+return
+
+}
+
+document.getElementById('doneSummary').innerHTML=
+P.map((p,i)=>
+
+`<div class="total">
+
+<b>${p}</b>
+
+<span class="money ${vals[i]>=0?'pos':'neg'}">
+
+${vals[i]>=0?'+':''}$${vals[i].toLocaleString()}
+
+</span>
+
+</div>`
+
+).join('')
+
+show('done')
+
+}
+
+</script>
+
+</body>
+</html>
