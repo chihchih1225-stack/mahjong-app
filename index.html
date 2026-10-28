@@ -500,6 +500,24 @@ input{
   color:#66977e;
 }
 
+
+.hand-counter{
+  font-size:34px;
+  font-weight:950;
+  line-height:1.05;
+  color:#514b53;
+}
+.entry-title{
+  font-size:24px;
+  line-height:1.15;
+  font-weight:900;
+  margin-bottom:18px;
+}
+@media (max-width:700px){
+  .hand-counter{font-size:30px;}
+  .entry-title{font-size:23px;}
+}
+
 .dealer-pill{
   display:inline-block;
   margin-top:5px;
@@ -1099,6 +1117,16 @@ input{
     <div id="myCareerTrend" class="career-note"></div>
   </div>
 
+  <div id="resumeGameCard" class="card hidden" style="border:2px solid #ead88b;background:#fffdf2">
+    <div class="toprow">
+      <div><div class="muted">未完成牌局</div><h2 style="margin:3px 0">牌局還在，別擔心</h2></div>
+      <span class="season-chip">自動存檔</span>
+    </div>
+    <div id="resumeGameInfo" class="career-note" style="margin:12px 0"></div>
+    <button class="primary" onclick="resumeActiveGame()">▶ 繼續牌局</button>
+    <button class="secondary" style="margin-top:8px;color:#b94f5f" onclick="discardActiveGame()">放棄這場未完成牌局</button>
+  </div>
+
   <div class="card">
     <div class="toprow"><h2>我的房間</h2><button class="link filled-link" onclick="createRoomPrompt()">＋新增房間</button></div>
     <div id="roomList"></div>
@@ -1117,7 +1145,10 @@ input{
   <div class="card">
     <div class="toprow">
       <div><div class="muted">ROOM</div><h2 id="roomDashboardTitle" style="margin:3px 0 0"></h2></div>
-      <button class="link" onclick="show('home')">返回首頁</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="link" onclick="show('home')">返回首頁</button>
+        <button class="link" style="color:#b94f5f;background:#fff0f2" onclick="deleteCurrentRoom()">刪除房間</button>
+      </div>
     </div>
     <div id="roomSummary" class="career-grid" style="margin-top:14px"></div>
   </div>
@@ -1466,11 +1497,7 @@ input{
 
         <div
           id="handCounter"
-          style="
-            font-size:34px;
-            font-weight:950;
-            line-height:1.05;
-          "
+          class="hand-counter"
         >
           第 1 把
         </div>
@@ -1544,8 +1571,8 @@ input{
 
   <div class="card game-entry-card">
 
-    <h2 id="entryTitle">
-      記錄這一場
+    <h2 id="entryTitle" class="entry-title">
+      第 1 場
     </h2>
 
 
@@ -2026,6 +2053,8 @@ let roundLeaders=[]
 
 /* 誰與爭鋒 V2 長期資料 */
 const STORAGE_KEY='shuiYuZhengFengV2'
+const ACTIVE_GAME_KEY='shuiYuZhengFengActiveGameV1'
+const CLEAN_START_KEY='shuiYuZhengFengCleanStart20261028V1'
 let appData=null
 let currentRoomId=''
 let sessionSaved=false
@@ -2578,6 +2607,7 @@ function confirmDealer(){
   }
 
   renderGame()
+  persistActiveGame()
 
   show('game')
 
@@ -3129,13 +3159,7 @@ function renderGame(){
     .getElementById('entryTitle')
     .textContent=
 
-      `第 ${hands.length+1} 場・${roundName}`
-
-      +(
-        repeats>0
-        ?`・連${repeats}`
-        :''
-      )
+      `第 ${hands.length+1} 場`
 
 
   /* 問題文字 */
@@ -4079,6 +4103,7 @@ function saveHand(){
   syncResultButtons()
 
   renderGame()
+  persistActiveGame()
 
 }
 
@@ -4180,6 +4205,7 @@ function undoHand(){
   syncResultButtons()
 
   renderGame()
+  persistActiveGame()
 
 }
 
@@ -4551,6 +4577,7 @@ function finishDetailedGame(){
 
 
   saveCurrentSession('detailed')
+  clearActiveGame()
   show('done')
 
 }
@@ -4737,6 +4764,7 @@ function saveFinal(){
 
 
   saveCurrentSession('final', values)
+  clearActiveGame()
   show('done')
 
 }
@@ -4760,6 +4788,13 @@ function ensureAppData(){
     if(Array.isArray(appData.sessions) && legacyRoomIds.length){
       appData.sessions=appData.sessions.filter(s=>!legacyRoomIds.includes(s.roomId))
     }
+  }
+  // 這個測試版只執行一次：清空更新前建立的測試房間與牌局，之後新資料不再自動刪除。
+  if(!localStorage.getItem(CLEAN_START_KEY)){
+    appData.rooms=[]
+    appData.sessions=[]
+    localStorage.removeItem(ACTIVE_GAME_KEY)
+    localStorage.setItem(CLEAN_START_KEY,'done')
   }
   persistAppData()
   return appData
@@ -4818,8 +4853,51 @@ function aggregateSessions(sessions){
   })
   return Object.values(players).map(x=>({...x,discardRate:x.handAppearances?x.discards/x.handAppearances:null}))
 }
+function activeGameSnapshot(){
+  return {
+    savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
+    balances:{...balances}, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
+    dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders]
+  }
+}
+function persistActiveGame(){
+  if(mode!=='detailed' || !P || P.length!==4 || !dealer) return
+  localStorage.setItem(ACTIVE_GAME_KEY,JSON.stringify(activeGameSnapshot()))
+  renderResumeGameCard()
+}
+function getActiveGame(){
+  try{return JSON.parse(localStorage.getItem(ACTIVE_GAME_KEY)||'null')}catch(e){return null}
+}
+function clearActiveGame(){ localStorage.removeItem(ACTIVE_GAME_KEY); renderResumeGameCard() }
+function renderResumeGameCard(){
+  const card=document.getElementById('resumeGameCard'); if(!card) return
+  const g=getActiveGame()
+  if(!g){card.classList.add('hidden');return}
+  card.classList.remove('hidden')
+  const room=(appData?.rooms||[]).find(r=>r.id===g.currentRoomId)
+  const info=document.getElementById('resumeGameInfo')
+  if(info) info.innerHTML=`<b>${room?.name||'未完成牌局'}</b>・${getRoundName(g.roundIndex||0)}・第 ${(g.hands||[]).length+1} 場<br>${(g.P||[]).join('・')}`
+}
+function resumeActiveGame(){
+  ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
+  currentRoomId=g.currentRoomId||''; P=g.P||[]; seats=g.seats||[...P]; selectedStake=g.selectedStake||selectedStake
+  currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; hands=g.hands||[]
+  roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
+  recorderPlayer=g.recorderPlayer||P[0]||''; roundLeaders=g.roundLeaders||[]; sessionSaved=false
+  tai=0; winner=''; discarder=''; result='胡牌'; fraudTai={}; selectedPatterns=[]
+  renderGame(); show('game')
+}
+function discardActiveGame(){
+  if(!confirm('確定要放棄這場未完成牌局嗎？\n已記錄的進度會從本機刪除。')) return
+  clearActiveGame(); renderHomeDashboard()
+}
+function guardNewGame(){
+  if(!getActiveGame()) return true
+  return confirm('目前還有一場未完成的牌局。\n按「取消」回首頁繼續舊牌局；按「確定」才會放棄舊牌局並開新牌局。') ? (clearActiveGame(),true) : false
+}
 function renderHomeDashboard(){
   ensureAppData()
+  renderResumeGameCard()
   const me=(appData.profile&&appData.profile.name)||''
   const pd=document.getElementById('profileNameDisplay'); if(pd) pd.textContent=me||'尚未設定'
   const all=aggregateSessions(appData.sessions)
@@ -4857,19 +4935,44 @@ function filterSessionsByTime(sessions,filter){
   return sessions.filter(s=>{ const d=new Date(s.createdAt); if(filter==='year') return d.getFullYear()===y; if(filter==='month') return d.getFullYear()===y&&d.getMonth()===m; if(filter==='week') return d>=startWeek; return true })
 }
 function openRoom(id){ currentRoomId=id; roomTimeFilter='all'; show('roomDashboard') }
+function deleteCurrentRoom(){
+  ensureAppData()
+  const room=appData.rooms.find(r=>r.id===currentRoomId)
+  if(!room) return
+  const count=appData.sessions.filter(s=>s.roomId===room.id).length
+  if(!confirm(`確定要刪除「${room.name}」嗎？\n這個房間的 ${count} 場歷史牌局也會一起刪除，而且無法復原。`)) return
+  appData.sessions=appData.sessions.filter(s=>s.roomId!==room.id)
+  appData.rooms=appData.rooms.filter(r=>r.id!==room.id)
+  currentRoomId=''
+  persistAppData()
+  show('home')
+}
+function deleteSessionById(id){
+  ensureAppData()
+  const ss=appData.sessions.find(s=>s.id===id)
+  if(!ss) return
+  const date=new Date(ss.createdAt).toLocaleDateString('zh-TW')
+  if(!confirm(`確定要刪除 ${date} 這一場嗎？\n刪除後，長期戰績、排行榜、名人堂都會重新計算。`)) return
+  appData.sessions=appData.sessions.filter(s=>s.id!==id)
+  persistAppData()
+  const modal=document.getElementById('sessionDetailModal')
+  if(modal) modal.remove()
+  if(document.getElementById('roomDashboard') && !document.getElementById('roomDashboard').classList.contains('hidden')) renderRoomDashboard()
+  else renderHomeDashboard()
+}
 function createRoomPrompt(){
   const name=prompt('新房間叫什麼名字？')
   if(!name||!name.trim()) return
   const r=ensureRoom(name.trim()); currentRoomId=r.id; roomTimeFilter='all'; show('roomDashboard')
 }
 function quickStartGame(){
-  ensureAppData(); currentRoomId=''
+  ensureAppData(); if(!guardNewGame()) return; currentRoomId=''
   document.getElementById('room').value=''
   ;[1,2,3,4].forEach(i=>{ const el=document.getElementById('player'+i); if(el) el.value=(i===1?(appData.profile?.name||''):'') })
   show('setup')
 }
 function startFromCurrentRoom(){
-  ensureAppData(); const r=appData.rooms.find(x=>x.id===currentRoomId)
+  ensureAppData(); if(!guardNewGame()) return; const r=appData.rooms.find(x=>x.id===currentRoomId)
   if(!r) return show('home')
   document.getElementById('room').value=r.name
   const me=appData.profile?.name||''
@@ -4935,7 +5038,7 @@ function showSessionDetail(id){
   const rows=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="session-head"><b>${n}</b><b>${money(v)}</b></div>`).join('')
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>四人輸贏走勢</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:'<div class="career-note">這場只有最終結算，沒有逐場資料，因此不產生假的曲線。</div>'
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${handsHtml}</div>`
+  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
 }
 
