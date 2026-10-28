@@ -1398,6 +1398,8 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
 
   <button class="primary" onclick="quickStartGame()">＋ 開始新牌局</button>
+
+  <button class="secondary" style="margin-top:12px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="clearAllLocalData()">🗑️ 清除所有測試資料</button>
 </section>
 
 <!-- 房間首頁 -->
@@ -5528,6 +5530,36 @@ function clearTestData(){
   ensureAppData()
   if(!confirm(`確定要清除全部 ${appData.sessions.length} 場測試戰績嗎？\n房間會保留，但牌局紀錄無法從這個按鈕復原。`)) return
   appData.sessions=[]; persistAppData(); show('home'); alert('測試戰績已清除')
+}
+
+function clearAllLocalData(){
+  ensureAppData()
+  const sessionCount=Array.isArray(appData.sessions)?appData.sessions.length:0
+  const roomCount=Array.isArray(appData.rooms)?appData.rooms.length:0
+  if(!confirm(`確定要把這台裝置上的測試資料全部清空嗎？\n\n目前有 ${roomCount} 個房間、${sessionCount} 場牌局。\n房間、歷史牌局、長期戰績、目標、暱稱、未完成牌局都會一起清除。`)) return
+  const typed=prompt('這個動作無法復原。\n請輸入「清除」確認：','')
+  if(typed!=='清除'){
+    if(typed!==null) alert('沒有輸入「清除」，資料未變更。')
+    return
+  }
+  try{
+    // 只清除「誰與爭鋒」自己的儲存鍵，不影響同網域其他 localStorage 資料。
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+    localStorage.removeItem(ACTIVE_GAME_KEY)
+    appData=normalizeAppData({version:3,profile:{name:'',goals:[]},rooms:[],sessions:[]})
+    currentRoomId=''
+    roomTimeFilter='all'
+    sessionSaved=false
+    if(Array.isArray(hands)) hands=[]
+    persistAppData()
+    show('home')
+    renderHomeDashboard()
+    alert('已清除完成，現在可以從頭測試。')
+  }catch(e){
+    console.error('清除資料失敗',e)
+    alert('清除失敗，資料沒有完整重設。請再試一次。')
+  }
 }
 
 /* =========================
