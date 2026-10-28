@@ -1328,6 +1328,21 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .king-timeline-item:first-child .king-timeline-node{box-shadow:0 0 0 2px #fffaf0,0 -8px 0 -5px #e0a300}
 .king-timeline-item:last-child .king-timeline-rail:after{display:none}
 @media (orientation:landscape) and (max-height:650px){#game.projection-mode .game-status-card,#game.projection-mode .game-chart-card{height:calc(100vh - 16px)!important;padding:8px 12px!important}#game.projection-mode #playerStats{width:min(100%,560px)!important;gap:5px 10px!important}#game.projection-mode #playerStats .player-card{min-height:58px!important}#game.projection-mode .pie{width:min(25vw,230px)!important;height:min(25vw,230px)!important}}
+
+
+/* ===== v22：PocketBase 帳號登入 / 註冊 ===== */
+.auth-shell{max-width:520px;margin:26px auto}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.auth-tab{border:1px solid #ded8cf;background:#fff;border-radius:14px;padding:11px;font-weight:800;color:#706b64}
+.auth-tab.active{background:#eef5df;border-color:#cfdcaf;color:#4d6040}
+.auth-form{display:grid;gap:10px}
+.auth-form label{font-size:13px;font-weight:800;color:#746e67}
+.auth-form input{width:100%;box-sizing:border-box;border:1px solid #ddd6cc;border-radius:14px;padding:13px 14px;font-size:16px;background:#fff}
+.auth-note{font-size:12px;line-height:1.6;color:#8a837b;margin-top:10px}
+.auth-error{display:none;background:#fff0f2;color:#a94e5d;border:1px solid #efcbd1;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:13px}
+.account-chip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.account-email{font-size:12px;color:#8a837b;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 </style>
 </head>
 
@@ -1355,9 +1370,42 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 <main>
 
 
+<!-- PocketBase 帳號入口 -->
+<section id="auth" class="hidden">
+  <div class="card auth-shell">
+    <div class="hero-title" style="font-size:28px">誰與爭鋒</div>
+    <div class="hero-sub">登入你的麻將生涯</div>
+    <div class="auth-tabs">
+      <button id="loginTab" class="auth-tab active" type="button" onclick="setAuthMode('login')">登入</button>
+      <button id="registerTab" class="auth-tab" type="button" onclick="setAuthMode('register')">註冊</button>
+    </div>
+    <div id="authError" class="auth-error"></div>
+    <form id="authForm" class="auth-form" onsubmit="submitAuth(event)">
+      <div id="authNameWrap" class="hidden">
+        <label for="authName">暱稱</label>
+        <input id="authName" autocomplete="nickname" placeholder="例如：亭之">
+      </div>
+      <div>
+        <label for="authEmail">Email</label>
+        <input id="authEmail" type="email" autocomplete="email" required placeholder="name@example.com">
+      </div>
+      <div>
+        <label for="authPassword">密碼</label>
+        <input id="authPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="至少 8 個字元">
+      </div>
+      <div id="authConfirmWrap" class="hidden">
+        <label for="authPasswordConfirm">再次輸入密碼</label>
+        <input id="authPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="再輸入一次密碼">
+      </div>
+      <button id="authSubmitBtn" class="primary" type="submit">登入</button>
+    </form>
+    <div class="auth-note">目前是 V22 帳號測試版。帳號會建立在你 NAS 的 PocketBase；牌局資料這一版仍沿用原本 localStorage，下一階段才搬到 PocketBase。</div>
+  </div>
+</section>
+
 <!-- 首頁 -->
 
-<section id="home">
+<section id="home" class="hidden">
 
   <div class="card hero compact-hero">
     <div class="mahjong-art">
@@ -1372,7 +1420,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
   <div class="card">
     <div class="toprow"><h2>我的長期戰績</h2><span class="season-chip">ALL TIME</span></div>
-    <div class="profile-row"><div><div class="muted">我的暱稱</div><div id="profileNameDisplay" class="profile-name">尚未設定</div></div><button class="link filled-link" onclick="setMyNickname()">設定暱稱</button></div>
+    <div class="profile-row"><div><div class="muted">我的帳號</div><div id="profileNameDisplay" class="profile-name">尚未登入</div><div id="profileEmailDisplay" class="account-email"></div></div><div class="account-chip"><button class="link filled-link" onclick="editAccountName()">修改暱稱</button><button class="link" style="color:#b94f5f;background:#fff0f2" onclick="logoutAccount()">登出</button></div></div>
     <div id="myCareerStats" class="career-grid"></div>
   </div>
 
@@ -2203,6 +2251,136 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
 
 <script>
+
+/* ===== v22：PocketBase Auth（NAS / Cloudflare Quick Tunnel） ===== */
+const PB_BASE_URL='https://birmingham-factor-details-released.trycloudflare.com'
+const PB_AUTH_KEY='shuiYuZhengFengPocketBaseAuthV1'
+let authMode='login'
+let pbAuth=loadPocketBaseAuth()
+
+function loadPocketBaseAuth(){
+  try{
+    const raw=localStorage.getItem(PB_AUTH_KEY)
+    const v=raw?JSON.parse(raw):null
+    return v&&v.token&&v.record? v : null
+  }catch(e){ return null }
+}
+function savePocketBaseAuth(data){
+  pbAuth=data&&data.token&&data.record?{token:data.token,record:data.record}:null
+  if(pbAuth) localStorage.setItem(PB_AUTH_KEY,JSON.stringify(pbAuth))
+  else localStorage.removeItem(PB_AUTH_KEY)
+}
+function authError(message=''){
+  const el=document.getElementById('authError')
+  if(!el) return
+  el.textContent=message
+  el.style.display=message?'block':'none'
+}
+function setAuthMode(mode){
+  authMode=mode==='register'?'register':'login'
+  document.getElementById('loginTab')?.classList.toggle('active',authMode==='login')
+  document.getElementById('registerTab')?.classList.toggle('active',authMode==='register')
+  document.getElementById('authNameWrap')?.classList.toggle('hidden',authMode!=='register')
+  document.getElementById('authConfirmWrap')?.classList.toggle('hidden',authMode!=='register')
+  const pass=document.getElementById('authPassword')
+  const confirm=document.getElementById('authPasswordConfirm')
+  if(pass) pass.autocomplete=authMode==='register'?'new-password':'current-password'
+  if(confirm) confirm.required=authMode==='register'
+  const btn=document.getElementById('authSubmitBtn')
+  if(btn) btn.textContent=authMode==='register'?'建立帳號':'登入'
+  authError('')
+}
+async function pbRequest(path,options={}){
+  const headers={'Content-Type':'application/json',...(options.headers||{})}
+  if(pbAuth?.token && !headers.Authorization) headers.Authorization=`Bearer ${pbAuth.token}`
+  const res=await fetch(PB_BASE_URL+path,{...options,headers})
+  let data={}
+  try{ data=await res.json() }catch(e){}
+  if(!res.ok){
+    const fieldErrors=data?.data?Object.values(data.data).map(x=>x?.message).filter(Boolean):[]
+    const err=new Error(fieldErrors[0]||data?.message||`連線失敗 (${res.status})`)
+    err.status=res.status; err.data=data
+    throw err
+  }
+  return data
+}
+async function submitAuth(event){
+  event.preventDefault()
+  authError('')
+  const email=(document.getElementById('authEmail')?.value||'').trim()
+  const password=document.getElementById('authPassword')?.value||''
+  const btn=document.getElementById('authSubmitBtn')
+  if(btn){btn.disabled=true;btn.textContent=authMode==='register'?'建立中…':'登入中…'}
+  try{
+    if(authMode==='register'){
+      const name=(document.getElementById('authName')?.value||'').trim()
+      const passwordConfirm=document.getElementById('authPasswordConfirm')?.value||''
+      if(!name) throw new Error('請輸入暱稱')
+      if(password!==passwordConfirm) throw new Error('兩次輸入的密碼不一致')
+      await pbRequest('/api/collections/users/records',{method:'POST',body:JSON.stringify({email,password,passwordConfirm,name})})
+    }
+    const auth=await pbRequest('/api/collections/users/auth-with-password',{method:'POST',body:JSON.stringify({identity:email,password})})
+    savePocketBaseAuth(auth)
+    syncLocalProfileFromAccount()
+    enterAppAfterLogin()
+  }catch(e){
+    console.error(e)
+    authError(e.message==='Failed to fetch'?'目前連不到 NAS PocketBase，請確認 Cloudflare Tunnel 還在運行。':e.message)
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=authMode==='register'?'建立帳號':'登入'}
+  }
+}
+function syncLocalProfileFromAccount(){
+  if(!pbAuth?.record) return
+  ensureAppData()
+  appData.profile=appData.profile||{}
+  if(pbAuth.record.name) appData.profile.name=pbAuth.record.name
+  persistAppData()
+}
+function enterAppAfterLogin(){
+  syncLocalProfileFromAccount()
+  show('home')
+  renderAccountHeader()
+}
+function renderAccountHeader(){
+  const name=pbAuth?.record?.name||''
+  const email=pbAuth?.record?.email||''
+  const n=document.getElementById('profileNameDisplay'); if(n) n.textContent=name||'尚未設定'
+  const e=document.getElementById('profileEmailDisplay'); if(e) e.textContent=email
+}
+async function editAccountName(){
+  if(!pbAuth?.record?.id) return
+  const current=pbAuth.record.name||''
+  const name=prompt('修改暱稱',current)
+  if(name===null) return
+  const clean=name.trim()
+  if(!clean){alert('暱稱不能空白');return}
+  try{
+    const record=await pbRequest(`/api/collections/users/records/${encodeURIComponent(pbAuth.record.id)}`,{method:'PATCH',body:JSON.stringify({name:clean})})
+    savePocketBaseAuth({token:pbAuth.token,record})
+    syncLocalProfileFromAccount()
+    renderHomeDashboard(); renderAccountHeader()
+  }catch(e){ alert('暱稱修改失敗：'+e.message) }
+}
+function logoutAccount(){
+  if(!confirm('要登出誰與爭鋒嗎？')) return
+  savePocketBaseAuth(null)
+  setAuthMode('login')
+  document.getElementById('authForm')?.reset()
+  show('auth')
+}
+async function bootAccount(){
+  if(!pbAuth?.token){ show('auth'); setAuthMode('login'); return }
+  try{
+    const refreshed=await pbRequest('/api/collections/users/auth-refresh',{method:'POST',body:'{}'})
+    savePocketBaseAuth(refreshed)
+    enterAppAfterLogin()
+  }catch(e){
+    savePocketBaseAuth(null)
+    show('auth'); setAuthMode('login')
+    authError('登入已過期，請重新登入。')
+  }
+}
 
 /* =========================
    基本資料
@@ -5186,7 +5364,7 @@ function renderHomeDashboard(){
   ensureAppData()
   renderResumeGameCard()
   const me=(appData.profile&&appData.profile.name)||''
-  const pd=document.getElementById('profileNameDisplay'); if(pd) pd.textContent=me||'尚未設定'
+  const pd=document.getElementById('profileNameDisplay'); if(pd) pd.textContent=(pbAuth?.record?.name||me||'尚未設定'); renderAccountHeader()
   const all=aggregateSessions(appData.sessions)
   const mine=all.find(x=>x.name===me)||{net:0,sessions:0,wins:0,selfdraws:0,discards:0}
   renderMyGoal(mine.net||0)
@@ -5602,6 +5780,7 @@ window.addEventListener('beforeunload',()=>{ if(appData) persistAppData() })
 
 ensureAppData()
 renderHomeDashboard()
+bootAccount()
 
 </script>
 
