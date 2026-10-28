@@ -300,6 +300,45 @@ input{
 }
 
 
+.art-tile.white-dragon{
+  padding:8px;
+}
+
+.white-dragon-frame{
+  width:31px;
+  height:45px;
+  border:4px solid #6fa58b;
+  border-radius:4px;
+  box-shadow:inset 0 0 0 2px #eef7f2;
+}
+
+.art-die{
+  position:relative;
+  width:55px;
+  height:55px;
+  margin-bottom:4px;
+  border-radius:13px;
+  background:linear-gradient(145deg,#fff,#f5f0e9);
+  border:2px solid #ebe5dc;
+  box-shadow:0 7px 12px rgba(70,60,55,.10);
+  transform:rotate(8deg);
+}
+
+.pip{
+  position:absolute;
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  background:#cf6f78;
+}
+
+.p1{left:11px;top:10px}
+.p2{right:11px;top:10px}
+.p3{left:23px;top:22px;background:#6caa8b}
+.p4{left:11px;bottom:10px}
+.p5{right:11px;bottom:10px}
+
+
 /* ===== 首頁 ===== */
 
 .hero{
@@ -455,7 +494,8 @@ input{
 }
 
 .round-big{
-  font-size:38px;
+  font-size:56px;
+  line-height:1;
   font-weight:950;
   color:#66977e;
 }
@@ -464,10 +504,10 @@ input{
   display:inline-block;
   margin-top:5px;
   border-radius:999px;
-  padding:6px 10px;
+  padding:9px 14px;
   background:var(--yellow);
-  font-size:12px;
-  font-weight:800;
+  font-size:18px;
+  font-weight:900;
 }
 
 .player-stats{
@@ -488,6 +528,15 @@ input{
 
 .player-card.leader{
   box-shadow:0 0 0 2px #e8d47e inset;
+}
+
+
+.leader-crown{
+  display:inline-block;
+  margin-right:2px;
+  font-size:20px;
+  line-height:1;
+  filter:drop-shadow(0 2px 2px rgba(170,130,20,.18));
 }
 
 .water{
@@ -871,13 +920,16 @@ input{
         發
       </div>
 
-      <div class="art-tile nine">
-        <span class="nine-number">九</span>
-        <span class="nine-word">萬</span>
+      <div class="art-tile white-dragon" aria-label="白皮">
+        <div class="white-dragon-frame"></div>
       </div>
 
-      <div class="art-tile big-circle">
-        <div class="big-circle-design"></div>
+      <div class="art-die" aria-label="骰子">
+        <span class="pip p1"></span>
+        <span class="pip p2"></span>
+        <span class="pip p3"></span>
+        <span class="pip p4"></span>
+        <span class="pip p5"></span>
       </div>
 
     </div>
@@ -960,7 +1012,6 @@ input{
         onclick="setStake('100/20',this)"
       >
         <strong>100 / 20</strong>
-        <span>標準水位 $2,000</span>
       </button>
 
 
@@ -969,7 +1020,6 @@ input{
         onclick="setStake('100/50',this)"
       >
         <strong>100 / 50</strong>
-        <span>標準水位 $5,000</span>
       </button>
 
 
@@ -978,7 +1028,6 @@ input{
         onclick="setStake('200/50',this)"
       >
         <strong>200 / 50</strong>
-        <span>標準水位 $5,000</span>
       </button>
 
 
@@ -987,7 +1036,6 @@ input{
         onclick="setStake('300/50',this)"
       >
         <strong>300 / 50</strong>
-        <span>標準水位 $5,000</span>
       </button>
 
 
@@ -996,7 +1044,6 @@ input{
         onclick="setStake('300/100',this)"
       >
         <strong>300 / 100</strong>
-        <span>標準水位 $10,000</span>
       </button>
 
     </div>
@@ -1006,7 +1053,7 @@ input{
       id="stakeInfo"
       class="notice ok"
     >
-      底 $100・台 $20・標準水位 $2,000
+      底 $100・台 $20
     </div>
 
 
@@ -1745,6 +1792,9 @@ let dealerSeatIndex=0
 
 let selectedPatterns=[]
 
+/* 最近一次完成「一局」後的領先者；同分可多人戴皇冠 */
+let roundLeaders=[]
+
 const winds=[
   '東',
   '南',
@@ -1800,8 +1850,7 @@ function setStake(value,element){
     .getElementById('stakeInfo')
     .innerHTML=
       `底 $${currentRule.base.toLocaleString()}
-      ・台 $${currentRule.tai.toLocaleString()}
-      ・標準水位 $${currentRule.water.toLocaleString()}`
+      ・台 $${currentRule.tai.toLocaleString()}`
 
 }
 
@@ -1883,6 +1932,7 @@ function startGame(){
   fraudTai={}
 
   selectedPatterns=[]
+  roundLeaders=[]
 
   if(mode==='final'){
 
@@ -2780,8 +2830,7 @@ function renderGame(){
     .getElementById('stakeDisplay')
     .textContent=
 
-      `${selectedStake}
-      ・水位 $${currentRule.water.toLocaleString()}`
+      `${selectedStake}`
 
 
   document
@@ -3269,7 +3318,9 @@ function renderLiveStats(){
 
               <div class="player-name">
 
-                ${player}
+                ${roundLeaders.includes(player)
+                  ?'<span class="leader-crown" title="目前局冠軍">👑</span> '
+                  :''}${player}
 
                 ${player===dealer
                   ?'・莊'
@@ -3316,7 +3367,7 @@ function renderLiveStats(){
 
                   ?`下水位 -$${Math.abs(net).toLocaleString()}`
 
-                  :'標準水位'
+                  :''
                 }
 
               </div>
@@ -3577,6 +3628,9 @@ function saveHand(){
 
   const hand={
 
+    roundLeadersBefore:
+      [...roundLeaders],
+
     winner,
 
     result,
@@ -3638,6 +3692,10 @@ function saveHand(){
 
     if(winner===dealer){
 
+      /* 莊家詐胡下莊，這一局結束 */
+      const maxBalance=Math.max(...P.map(player=>balances[player]))
+      roundLeaders=P.filter(player=>balances[player]===maxBalance)
+
       changeDealer()
 
     }
@@ -3682,6 +3740,10 @@ function saveHand(){
     ||
     result==='自摸'
   ){
+
+    /* 這一局正式結束：依當下累積金額決定皇冠 */
+    const maxBalance=Math.max(...P.map(player=>balances[player]))
+    roundLeaders=P.filter(player=>balances[player]===maxBalance)
 
     changeDealer()
 
@@ -3765,6 +3827,9 @@ function undoHand(){
 
   balances=
     {...last.balancesBefore}
+
+  roundLeaders=
+    [...(last.roundLeadersBefore||[])]
 
 
   roundIndex=
