@@ -1355,6 +1355,17 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 @keyframes dlgFade{from{opacity:0}to{opacity:1}}@keyframes dlgUp{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
 @media(min-width:600px){.app-dialog-backdrop{align-items:center}.app-dialog{padding:24px}}
 
+
+/* ===== v26：房間成員 ===== */
+.room-members-list{display:grid;gap:9px;margin-top:12px}
+.room-member-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid #eee7e1;border-radius:16px;background:#fffdfb}
+.room-member-main{display:flex;align-items:center;gap:10px;min-width:0}
+.room-member-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f4eee9;font-weight:800;font-size:16px;flex:0 0 auto}
+.room-member-name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room-member-role{font-size:12px;color:#8d7d72;margin-top:2px}
+.room-owner-chip{font-size:12px;font-weight:800;padding:5px 9px;border-radius:999px;background:#fff1c9;color:#7a5a00;white-space:nowrap}
+.room-member-chip{font-size:12px;font-weight:700;padding:5px 9px;border-radius:999px;background:#f2f0ee;color:#756a63;white-space:nowrap}
+
 </style>
 </head>
 
@@ -1411,7 +1422,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
-    <div class="auth-note">目前是 V24 多人房間測試版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
+    <div class="auth-note">目前是 V26 房間成員版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
   </div>
 </section>
 
@@ -1473,6 +1484,11 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
     </div>
     <div id="roomSummary" class="career-grid" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card room-members-card">
+    <div class="toprow"><h2>👥 房間成員</h2><span id="roomMemberCount" class="season-chip">讀取中</span></div>
+    <div id="roomMembers" class="room-members-list"><div class="muted">正在讀取房間成員…</div></div>
   </div>
 
   <div class="card">
@@ -5683,6 +5699,37 @@ function roomKingHistoryHtml(sessions){
   return `<div class="king-timeline-wrap"><div class="king-timeline-summary">王座歷經 ${reigns.length} 任｜現任 ${escapeHtml(currentKing||'—')}｜第${currentDays}天</div><div class="king-timeline">${items}</div></div>`
 }
 
+async function syncCurrentRoomMembers(){
+  const wrap=document.getElementById('roomMembers')
+  const count=document.getElementById('roomMemberCount')
+  if(!currentRoomId){
+    if(wrap) wrap.innerHTML='<div class="muted">尚未選擇房間</div>'
+    if(count) count.textContent='0 人'
+    return []
+  }
+  if(wrap) wrap.innerHTML='<div class="muted">正在讀取房間成員…</div>'
+  try{
+    const filter=encodeURIComponent(`room="${currentRoomId}"`)
+    const data=await pbRequest(`/api/collections/room_members/records?perPage=200&sort=created&filter=${filter}`)
+    const members=data.items||[]
+    if(count) count.textContent=`${members.length} 人`
+    if(wrap){
+      wrap.innerHTML=members.length?members.map(m=>{
+        const name=(m.nickname||'未命名玩家').trim()||'未命名玩家'
+        const isOwner=m.role==='owner'
+        const initial=escapeHtml(name.slice(0,1).toUpperCase())
+        return `<div class="room-member-row"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(name)}</div><div class="room-member-role">${isOwner?'房間建立者':'房間成員'}</div></div></div><span class="${isOwner?'room-owner-chip':'room-member-chip'}">${isOwner?'👑 房主':'成員'}</span></div>`
+      }).join(''):'<div class="muted">這個房間目前還沒有成員。</div>'
+    }
+    return members
+  }catch(e){
+    console.error('PocketBase room members sync failed',e)
+    if(count) count.textContent='讀取失敗'
+    if(wrap) wrap.innerHTML='<div class="muted">房間成員讀取失敗，請重新整理後再試。</div>'
+    return []
+  }
+}
+
 function renderRoomDashboard(){
   ensureAppData()
   let room=appData.rooms.find(r=>r.id===currentRoomId)
@@ -5694,6 +5741,7 @@ function renderRoomDashboard(){
   document.getElementById('roomFilterLabel').textContent=labels[roomTimeFilter]
   document.getElementById('roomDashboardTitle').textContent=room.name
   const inviteEl=document.getElementById('roomInviteCodeDisplay'); if(inviteEl) inviteEl.innerHTML=room.invite_code?`<span>邀請碼 <b>${room.invite_code}</b></span><button type="button" class="link" style="margin-left:8px;padding:5px 9px" onclick="shareCurrentRoom()" aria-label="分享房間邀請">↗ 分享</button>`:''
+  syncCurrentRoomMembers()
   document.getElementById('roomSummary').innerHTML=`
     <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
