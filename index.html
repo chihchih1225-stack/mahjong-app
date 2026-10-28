@@ -4835,7 +4835,6 @@ function safeParseStored(key){
   }catch(e){ return null }
 }
 function normalizeAppData(data){
-  // 版本不同也絕對不能把既有房間/牌局洗掉；只補缺少的欄位。
   const d=(data && typeof data==='object')?data:{}
   d.version=2
   d.profile=(d.profile && typeof d.profile==='object')?d.profile:{name:''}
@@ -4848,126 +4847,58 @@ function normalizeAppData(data){
   d.rooms.forEach(r=>{ if(!Array.isArray(r.members)) r.members=[] })
   return d
 }
-function dataScore(d){
-  if(!d) return -1
-  return (d.rooms?.length||0)*100000 + (d.sessions?.length||0)*100 + (d.profile?.goals?.length||0)
-}
-function openAppDB(){
-  return new Promise((resolve,reject)=>{
-    if(!('indexedDB' in window)) return reject(new Error('IndexedDB unavailable'))
-    const req=indexedDB.open(DB_NAME,1)
-    req.onupgradeneeded=()=>{ const db=req.result; if(!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE) }
-    req.onsuccess=()=>resolve(req.result)
-    req.onerror=()=>reject(req.error)
-  })
-}
-async function saveIndexedBackup(data){
-  try{
-    const db=await openAppDB()
-    await new Promise((resolve,reject)=>{ const tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).put(data,DB_KEY); tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error) })
-    db.close()
-  }catch(e){ console.warn('IndexedDB 備份失敗',e) }
-}
-async function restoreIndexedBackup(){
-  try{
-    const db=await openAppDB()
-    const data=await new Promise((resolve,reject)=>{ const tx=db.transaction(DB_STORE,'readonly'); const req=tx.objectStore(DB_STORE).get(DB_KEY); req.onsuccess=()=>resolve(req.result||null); req.onerror=()=>reject(req.error) })
-    db.close()
-    if(!data) return
-    const restored=normalizeAppData(data)
-    if(dataScore(restored)>dataScore(appData)){
-      appData=restored
-      persistAppData()
-      renderHomeDashboard()
-      if(currentRoomId && appData.rooms.some(r=>r.id===currentRoomId)) renderRoomDashboard()
-    }
-  }catch(e){ console.warn('IndexedDB 還原失敗',e) }
-}
-function readRoomVault(){
-  try{
-    const raw=localStorage.getItem(ROOM_VAULT_KEY)
-    const rooms=raw?JSON.parse(raw):[]
-    return Array.isArray(rooms)?rooms:[]
-  }catch(e){ return [] }
-}
-function mergeRooms(baseRooms, vaultRooms){
+function mergeRooms(baseRooms, extraRooms){
   const map=new Map()
-  ;[...(Array.isArray(baseRooms)?baseRooms:[]), ...(Array.isArray(vaultRooms)?vaultRooms:[])].forEach(r=>{
+  ;[...(Array.isArray(baseRooms)?baseRooms:[]), ...(Array.isArray(extraRooms)?extraRooms:[])].forEach(r=>{
     if(!r||!r.id) return
     const old=map.get(r.id)
-    if(!old) map.set(r.id,r)
-    else map.set(r.id,{...old,...r,members:(r.members?.length?r.members:old.members)||[]})
+    map.set(r.id,old?{...old,...r,members:(r.members?.length?r.members:old.members)||[]}:r)
   })
   return [...map.values()]
 }
-function saveRoomVault(){
-  if(!appData || !Array.isArray(appData.rooms)) return
-  try{ localStorage.setItem(ROOM_VAULT_KEY,JSON.stringify(appData.rooms)) }catch(e){ console.warn('房間獨立備份失敗',e) }
-}
-function readGoalVault(){
-  try{
-    const raw=localStorage.getItem(GOAL_VAULT_KEY)
-    const goals=raw?JSON.parse(raw):[]
-    return Array.isArray(goals)?goals:[]
-  }catch(e){ return [] }
-}
-function mergeGoals(baseGoals,vaultGoals){
+function mergeGoals(baseGoals,extraGoals){
   const map=new Map()
-  ;[...(Array.isArray(baseGoals)?baseGoals:[]), ...(Array.isArray(vaultGoals)?vaultGoals:[])].forEach(g=>{
+  ;[...(Array.isArray(baseGoals)?baseGoals:[]), ...(Array.isArray(extraGoals)?extraGoals:[])].forEach(g=>{
     if(!g) return
     const id=g.id||makeId('goal')
     map.set(id,{...g,id})
   })
   return [...map.values()]
 }
-function saveGoalVault(){
-  if(!appData?.profile || !Array.isArray(appData.profile.goals)) return
-  try{ localStorage.setItem(GOAL_VAULT_KEY,JSON.stringify(appData.profile.goals)) }catch(e){ console.warn('目標獨立備份失敗',e) }
-}
 function ensureAppData(){
-  if(appData){
-    appData=normalizeAppData(appData)
-    appData.rooms=mergeRooms(appData.rooms,readRoomVault())
-    appData.profile.goals=mergeGoals(appData.profile.goals,readGoalVault())
-    return appData
-  }
-  const primary=safeParseStored(STORAGE_KEY)
-  const backup=safeParseStored(STORAGE_BACKUP_KEY)
-  const emergency=safeParseStored(STORAGE_EMERGENCY_KEY)
-  const candidates=[primary,backup,emergency].filter(Boolean).map(normalizeAppData)
-  // 永遠選資料最完整的一份，不因版本或空白主檔覆蓋既有房間。
-  appData=candidates.sort((a,b)=>dataScore(b)-dataScore(a))[0]
-    || normalizeAppData({version:2,profile:{name:''},rooms:[],sessions:[]})
-  // 房間使用獨立保險庫保存；空白 appData 絕不能覆蓋既有房間。
-  appData.rooms=mergeRooms(appData.rooms,readRoomVault())
-  appData.profile.goals=mergeGoals(appData.profile.goals,readGoalVault())
+  if(appData) return appData
+
+  // 回到原本最單純、已經穩定的 localStorage 流程。
+  // 只在第一次載入時把前幾版留下的 vault 資料救回主資料，之後不再讓多份儲存互相覆蓋。
+  appData=normalizeAppData(safeParseStored(STORAGE_KEY) || {version:2,profile:{name:''},rooms:[],sessions:[]})
+
+  try{
+    const oldRooms=JSON.parse(localStorage.getItem(ROOM_VAULT_KEY)||'[]')
+    if(Array.isArray(oldRooms) && oldRooms.length) appData.rooms=mergeRooms(appData.rooms,oldRooms)
+  }catch(e){}
+  try{
+    const oldGoals=JSON.parse(localStorage.getItem(GOAL_VAULT_KEY)||'[]')
+    if(Array.isArray(oldGoals) && oldGoals.length) appData.profile.goals=mergeGoals(appData.profile.goals,oldGoals)
+  }catch(e){}
+
   persistAppData()
-  // 再從 IndexedDB 檢查一份獨立備份；若較完整會自動救回。
-  setTimeout(restoreIndexedBackup,0)
   return appData
 }
 function persistAppData(){
   if(!appData) return
-  const payload=JSON.stringify(normalizeAppData(appData))
+  appData=normalizeAppData(appData)
+  const payload=JSON.stringify(appData)
   try{
-    const old=localStorage.getItem(STORAGE_KEY)
-    if(old){
-      const parsed=JSON.parse(old)
-      if(parsed && dataScore(parsed)>0) localStorage.setItem(STORAGE_BACKUP_KEY,old)
-    }
     localStorage.setItem(STORAGE_KEY,payload)
-    localStorage.setItem(STORAGE_EMERGENCY_KEY,payload)
-    saveRoomVault()
-    saveGoalVault()
-    // 立即回讀驗證，避免瀏覽器表面成功但實際沒有保存。
-    if(localStorage.getItem(STORAGE_KEY)!==payload) throw new Error('localStorage verification failed')
-    saveIndexedBackup(JSON.parse(payload))
+    // 同步保留一份純備份，但讀取時不會拿它反蓋主資料。
+    localStorage.setItem(STORAGE_BACKUP_KEY,payload)
   }catch(e){
     console.error('資料保存失敗',e)
-    saveIndexedBackup(JSON.parse(payload))
-    alert('⚠️ 一般儲存空間無法使用，已嘗試改存備份。請不要使用無痕模式。')
+    alert('⚠️ 資料無法保存，請確認不是使用無痕模式。')
   }
 }
+function saveRoomVault(){ persistAppData() }
+function saveGoalVault(){ persistAppData() }
 function setMyNickname(){
   ensureAppData()
   const current=(appData.profile&&appData.profile.name)||''
