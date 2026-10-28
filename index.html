@@ -1308,6 +1308,26 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   #game.projection-mode #playerStats .player-card{min-height:58px!important}
   #game.projection-mode .pie{width:min(21vw,175px)!important;height:min(21vw,175px)!important}
 }
+
+/* ===== v18：投影等框緊湊 + 王座反向 + 台數五鍵 ===== */
+.tai-quick-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.tai-quick-grid .tai-btn:nth-child(1){background:#f7dfe5}
+.tai-quick-grid .tai-btn:nth-child(2){background:#f1eeee}
+.tai-quick-grid .tai-btn:nth-child(3){background:var(--mint)}
+.tai-quick-grid .tai-btn:nth-child(4){background:var(--blue)}
+.tai-quick-grid .tai-btn:nth-child(5){background:var(--lav)}
+#game.projection-mode{width:min(96vw,1500px)!important;margin:0 auto!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;align-items:stretch!important}
+#game.projection-mode .game-status-card,#game.projection-mode .game-chart-card{width:100%!important;height:calc(100vh - 28px)!important;min-height:0!important;align-self:stretch!important;box-sizing:border-box!important;padding:12px 16px!important;justify-content:center!important}
+#game.projection-mode #playerStats{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-areas:'top top' 'left right' 'bottom bottom'!important;width:min(100%,620px)!important;max-width:none!important;margin:0 auto!important;gap:8px 12px!important}
+#game.projection-mode #playerStats .player-card.pos-top,#game.projection-mode #playerStats .player-card.pos-bottom{width:min(62%,280px)!important}
+#game.projection-mode #playerStats .player-card.pos-left,#game.projection-mode #playerStats .player-card.pos-right{width:100%!important}
+#game.projection-mode .game-chart-card .chart-wrap{flex:1!important;display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;gap:10px!important}
+#game.projection-mode .pie{width:min(28vw,300px)!important;height:min(28vw,300px)!important}
+#game.projection-mode #moneyLegend{width:min(100%,520px)!important;max-width:none!important}
+.king-timeline{display:flex;flex-direction:column}
+.king-timeline-item:first-child .king-timeline-node{box-shadow:0 0 0 2px #fffaf0,0 -8px 0 -5px #e0a300}
+.king-timeline-item:last-child .king-timeline-rail:after{display:none}
+@media (orientation:landscape) and (max-height:650px){#game.projection-mode .game-status-card,#game.projection-mode .game-chart-card{height:calc(100vh - 16px)!important;padding:8px 12px!important}#game.projection-mode #playerStats{width:min(100%,560px)!important;gap:5px 10px!important}#game.projection-mode #playerStats .player-card{min-height:58px!important}#game.projection-mode .pie{width:min(25vw,230px)!important;height:min(25vw,230px)!important}}
 </style>
 </head>
 
@@ -1902,35 +1922,13 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
 
 
-      <div class="grid4">
+      <div class="tai-quick-grid">
 
-        <button
-          class="tai-btn"
-          onclick="resetTai()"
-        >
-          0台
-        </button>
-
-        <button
-          class="tai-btn"
-          onclick="addTai(1)"
-        >
-          +1
-        </button>
-
-        <button
-          class="tai-btn"
-          onclick="addTai(2)"
-        >
-          +2
-        </button>
-
-        <button
-          class="tai-btn"
-          onclick="addTai(5)"
-        >
-          +5
-        </button>
+        <button class="tai-btn" onclick="addTai(-1)">-1</button>
+        <button class="tai-btn" onclick="resetTai()">0</button>
+        <button class="tai-btn" onclick="addTai(1)">+1</button>
+        <button class="tai-btn" onclick="addTai(2)">+2</button>
+        <button class="tai-btn" onclick="addTai(3)">+3</button>
 
       </div>
 
@@ -5326,8 +5324,9 @@ function roomKingHistoryHtml(sessions){
   const fmt=d=>{const x=new Date(d);return `${x.getMonth()+1}/${x.getDate()}`}
   const days=(a,b)=>Math.max(1,Math.ceil((new Date(b||now)-new Date(a))/86400000))
   const currentDays=days(reigns[reigns.length-1].startAt,null)
-  const items=reigns.map((r,i)=>{
-    const isCurrent=i===reigns.length-1
+  const displayReigns=[...reigns].reverse()
+  const items=displayReigns.map((r,i)=>{
+    const isCurrent=i===0
     const d=days(r.startAt,r.endAt)
     return `<div class="king-timeline-item${isCurrent?' current':''}">
       <div class="king-timeline-rail"><span class="king-timeline-node"></span></div>
