@@ -1238,6 +1238,76 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 #game:not(.projection-mode) #projectionBottom{width:100%}
 #game:not(.projection-mode) .projection-only-launch .projection-btn{width:100%;max-width:none}
 
+
+
+/* ===== v16：王座更替史改為直立時間軸 ===== */
+.king-timeline-wrap{margin-top:10px;padding:18px 16px 16px;background:#fffaf0;border:1.5px solid #edc65b;border-radius:18px}
+.king-timeline-summary{font-weight:800;color:#9a4519;font-size:15px;line-height:1.55;margin-bottom:12px}
+.king-timeline{position:relative;padding:2px 0 2px 0}
+.king-timeline-item{position:relative;display:grid;grid-template-columns:42px 1fr;min-height:82px}
+.king-timeline-item:last-child{min-height:56px}
+.king-timeline-rail{position:relative;display:flex;justify-content:center}
+.king-timeline-rail:after{content:"";position:absolute;top:26px;bottom:-2px;width:4px;border-radius:4px;background:#e0a300}
+.king-timeline-item:last-child .king-timeline-rail:after{bottom:2px;background:linear-gradient(#e0a300,#ff7628)}
+.king-timeline-node{position:relative;z-index:2;width:22px;height:22px;border:4px solid #d99b00;background:#fffaf0;border-radius:50%;box-shadow:0 0 0 2px #fffaf0;margin-top:2px}
+.king-timeline-item.current .king-timeline-node{background:#ffe9a6;border-color:#d58b00}
+.king-timeline-content{padding:0 0 20px 4px;color:#7e3518;font-size:15px;line-height:1.55}
+.king-timeline-name{font-weight:900;font-size:16px;color:#7b3217}
+.king-timeline-date,.king-timeline-days{font-weight:800;margin-left:10px}
+.king-timeline-crown{margin-left:6px}
+.king-timeline-item.current .king-timeline-content{color:#7a2f13}
+@media(max-width:520px){
+  .king-timeline-wrap{padding:16px 12px}
+  .king-timeline-item{grid-template-columns:38px 1fr;min-height:78px}
+  .king-timeline-content{font-size:14px}
+  .king-timeline-name{font-size:15px}
+}
+
+/* ===== v17：投影緊湊化 + 歷史牌局手機可滑動 ===== */
+#game.projection-mode{
+  grid-template-columns:minmax(360px,560px) minmax(300px,460px)!important;
+  justify-content:center!important;
+  align-items:center!important;
+  gap:18px!important;
+}
+#game.projection-mode .game-status-card,
+#game.projection-mode .game-chart-card{
+  min-height:0!important;
+  height:auto!important;
+  align-self:center!important;
+  padding:12px 14px!important;
+}
+#game.projection-mode .game-status-card{justify-content:flex-start!important}
+#game.projection-mode .live-head{margin:0 0 5px!important}
+#game.projection-mode .round-big{font-size:clamp(34px,5vw,58px)!important;line-height:1!important}
+#game.projection-mode .dealer-pill{font-size:clamp(13px,1.6vw,18px)!important;padding:5px 10px!important}
+#game.projection-mode #playerStats{width:100%;max-width:500px;margin:0 auto!important;gap:6px!important}
+#game.projection-mode #playerStats .player-card{min-height:66px!important}
+#game.projection-mode #playerStats .player-card.pos-top,
+#game.projection-mode #playerStats .player-card.pos-bottom{width:min(64%,230px)!important}
+#game.projection-mode #playerStats .player-content{padding:6px 9px!important}
+#game.projection-mode #playerStats .current-money{font-size:clamp(18px,2.4vw,26px)!important;margin-top:2px!important}
+#game.projection-mode .chart-wrap{gap:4px!important}
+#game.projection-mode .pie{width:min(23vw,210px)!important;height:min(23vw,210px)!important}
+#game.projection-mode #moneyLegend{max-width:380px;margin:0 auto!important}
+
+#sessionDetailModal{align-items:flex-start!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding:12px!important}
+#sessionDetailModal .session-detail-box{max-height:none!important;overflow:visible!important;margin:8px auto 28px!important;padding:16px!important}
+#sessionDetailModal .session-detail-sticky{position:sticky;top:-1px;z-index:8;background:#fffaf7;padding:6px 0 10px;border-bottom:1px solid var(--line)}
+#sessionDetailModal .session-back-btn{border:0;border-radius:999px;padding:8px 12px;background:#fff3b8;color:#514a42;font-weight:900;white-space:nowrap}
+@media(max-width:560px){
+  #sessionDetailModal{padding:0!important;background:#fffaf7!important;backdrop-filter:none!important}
+  #sessionDetailModal .session-detail-box{width:100%!important;max-width:none!important;border-radius:0!important;box-shadow:none!important;margin:0!important;padding:12px 14px 36px!important;min-height:100dvh!important}
+  #sessionDetailModal .career-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  #sessionDetailModal .career-stat{padding:11px!important}
+  #sessionDetailModal .trend-chart{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+}
+@media (orientation:landscape) and (max-height:650px){
+  #game.projection-mode{grid-template-columns:minmax(330px,520px) minmax(280px,420px)!important;gap:12px!important}
+  #game.projection-mode .game-status-card,#game.projection-mode .game-chart-card{padding:8px 10px!important}
+  #game.projection-mode #playerStats .player-card{min-height:58px!important}
+  #game.projection-mode .pie{width:min(21vw,175px)!important;height:min(21vw,175px)!important}
+}
 </style>
 </head>
 
@@ -5237,23 +5307,34 @@ function roomKingHistoryHtml(sessions){
   if(!sessions||!sessions.length) return '<div class="muted">完成牌局後，這裡會開始記錄王座更替。</div>'
   const ordered=[...sessions].sort((a,b)=>a.createdAt.localeCompare(b.createdAt))
   const totals={}, reigns=[]
-  let currentKing='', startAt=null
+  let currentKing=''
   ordered.forEach(ss=>{
     Object.entries(sessionNets(ss)).forEach(([p,v])=>totals[p]=(totals[p]||0)+Number(v||0))
-    const max=Math.max(...Object.values(totals))
+    const values=Object.values(totals)
+    if(!values.length) return
+    const max=Math.max(...values)
     const leaders=Object.keys(totals).filter(p=>totals[p]===max)
     const nextKing=(currentKing&&leaders.includes(currentKing))?currentKing:leaders[0]
     if(nextKing!==currentKing){
       if(currentKing) reigns[reigns.length-1].endAt=ss.createdAt
-      currentKing=nextKing; startAt=ss.createdAt
-      reigns.push({name:currentKing,startAt,endAt:null})
+      currentKing=nextKing
+      reigns.push({name:currentKing,startAt:ss.createdAt,endAt:null})
     }
   })
+  if(!reigns.length) return '<div class="muted">完成牌局後，這裡會開始記錄王座更替。</div>'
   const now=new Date()
   const fmt=d=>{const x=new Date(d);return `${x.getMonth()+1}/${x.getDate()}`}
   const days=(a,b)=>Math.max(1,Math.ceil((new Date(b||now)-new Date(a))/86400000))
-  return `<div class="career-note" style="margin-bottom:10px">王座歷經 ${reigns.length} 任｜現任 ${escapeHtml(currentKing||'—')}</div>`+
-    reigns.map((r,i)=>`<div class="rank-row"><div class="rank-no">${i===reigns.length-1?'👑':i+1}</div><div><b>${escapeHtml(r.name)}</b><div class="muted">${fmt(r.startAt)}${r.endAt?' → '+fmt(r.endAt):' → 現任'}</div></div><div class="rank-money">${days(r.startAt,r.endAt)}天</div></div>`).join('')
+  const currentDays=days(reigns[reigns.length-1].startAt,null)
+  const items=reigns.map((r,i)=>{
+    const isCurrent=i===reigns.length-1
+    const d=days(r.startAt,r.endAt)
+    return `<div class="king-timeline-item${isCurrent?' current':''}">
+      <div class="king-timeline-rail"><span class="king-timeline-node"></span></div>
+      <div class="king-timeline-content"><span class="king-timeline-name">${escapeHtml(r.name)}</span>${isCurrent?'<span class="king-timeline-crown">👑</span>':''}<span class="king-timeline-date">${fmt(r.startAt)}</span><span class="king-timeline-days">${isCurrent?'現任第'+d+'天':d+'天'}</span></div>
+    </div>`
+  }).join('')
+  return `<div class="king-timeline-wrap"><div class="king-timeline-summary">王座歷經 ${reigns.length} 任｜現任 ${escapeHtml(currentKing||'—')}｜第${currentDays}天</div><div class="king-timeline">${items}</div></div>`
 }
 
 function renderRoomDashboard(){
@@ -5270,7 +5351,7 @@ function renderRoomDashboard(){
     <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
     <div class="career-stat"><div class="k">參與玩家</div><div class="v">${rows.length}</div></div>
-    <div class="career-stat"><div class="k">目前雀王</div><div class="v">${rows[0]?.name||'—'}</div></div>`
+    <div class="career-stat"><div class="k">目前冠軍</div><div class="v">${rows[0]?.name||'—'}</div></div>`
   document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 場・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
   const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
@@ -5288,7 +5369,7 @@ function badgeHtml(rows,sessions){
     return pool.filter(r=>(Number(r[key])||0)===target)
   }
   const specs=[
-    ['👑','雀王','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單場贏分最高',true],['📅','出席王','sessions',false,'出席場次最多',true],
+    ['👑','冠軍','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單場贏分最高',true],['📅','出席王','sessions',false,'出席場次最多',true],
     ['📈','最高勝率','winRate',false,'單場獲利場次比例最高',true],['🔥','連勝王','maxStreak',false,'連續單場獲利最多',true],['🎁','最大貢獻獎','maxLoss',false,'單場貢獻最高',true],
     ['🌸','自摸王','selfdraws',false,'自摸次數最多',true],['🎯','神槍手','discardWins',false,'胡別人放槍最多',true],['💣','煙火大師','discards',false,'放槍次數最多',true],
     ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true]
@@ -5403,7 +5484,7 @@ function showSessionDetail(id){
   const statsHtml=sessionDetailStatsHtml(ss)
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
+  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 回到房間</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
 }
 
