@@ -1176,62 +1176,61 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 /* 玩家選擇提示文字不顯示，座位卡本身就是操作介面 */
 #game #personQuestion,#game .seat-picker-title{display:none !important}
 
-/* ===== v10：投影模式橫向版面修正（只影響 projection-mode） ===== */
-@media (orientation: landscape){
-  #game.projection-mode:not(.hidden){
-    display:grid !important;
-    grid-template-columns:minmax(360px,.9fr) minmax(420px,1.1fr) !important;
-    gap:12px !important;
-    align-items:start !important;
-    padding:8px 12px 18px !important;
-    max-width:1400px !important;
-    margin:0 auto !important;
-  }
-  #game.projection-mode .game-status-card,
-  #game.projection-mode .game-chart-card,
-  #game.projection-mode .game-trend-card{
-    padding:14px !important;
-    margin:0 !important;
-    min-width:0 !important;
-  }
-  #game.projection-mode .game-status-card{grid-column:1;grid-row:1;}
-  #game.projection-mode .game-chart-card{grid-column:2;grid-row:1;}
-  #game.projection-mode .game-trend-card{grid-column:1 / -1;grid-row:2;}
-  #game.projection-mode .live-head{margin:0 0 8px !important;}
-  #game.projection-mode .round-big{font-size:clamp(42px,6vw,72px) !important;line-height:.95 !important;}
-  #game.projection-mode .dealer-pill{font-size:clamp(14px,1.8vw,20px) !important;padding:7px 13px !important;}
-  #game.projection-mode .player-stats{gap:6px !important;margin-top:6px !important;}
-  #game.projection-mode .player-card{min-height:82px !important;border-radius:15px !important;}
-  #game.projection-mode .player-card.pos-top,
-  #game.projection-mode .player-card.pos-bottom{width:min(72%,220px) !important;}
-  #game.projection-mode .player-content{padding:8px 10px !important;}
-  #game.projection-mode .player-wind{font-size:10px !important;margin-bottom:1px !important;}
-  #game.projection-mode .player-name{font-size:13px !important;}
-  #game.projection-mode .current-money{font-size:20px !important;margin-top:3px !important;}
-  #game.projection-mode .net,
-  #game.projection-mode .water-label,
-  #game.projection-mode .winrate{font-size:10px !important;margin-top:2px !important;}
-  #game.projection-mode .leader-crown{font-size:15px !important;}
-  #game.projection-mode .chart-wrap{
-    grid-template-columns:minmax(180px,42%) minmax(180px,1fr) !important;
-    gap:12px !important;
-    align-items:center !important;
-  }
-  #game.projection-mode .pie{width:min(24vw,220px) !important;height:min(24vw,220px) !important;margin:auto !important;}
-  #game.projection-mode .game-chart-card h2{font-size:18px !important;}
-  #game.projection-mode #moneyLegend{font-size:12px !important;min-width:0 !important;}
-  #game.projection-mode .trend-chart{min-height:170px !important;max-height:230px !important;}
-  #game.projection-mode .projection-exit-btn{right:12px !important;top:10px !important;padding:9px 14px !important;font-size:14px !important;}
+/* ===== v11：手機單頁計分 + 投影雙欄 ===== */
+/* 投影按鈕放在紀錄頁最底部 */
+.projection-only-launch{justify-content:center;margin:12px 0 4px}
+.projection-only-launch .projection-btn{width:100%;max-width:420px;padding:10px 14px}
+
+/* iPhone 16 Pro 等直式手機：把主要計分控制壓進一個視窗 */
+@media (max-width: 700px) and (orientation: portrait){
+  #game:not(.projection-mode){padding-bottom:6px}
+  #game:not(.projection-mode) .game-entry-card{padding:10px 12px;margin-bottom:8px}
+  #game:not(.projection-mode) .entry-title{font-size:15px;margin:0 0 3px}
+  #game:not(.projection-mode) .seat-picker-wrap{margin:1px 0 5px}
+  #game:not(.projection-mode) #seatPicker.player-stats{gap:4px;margin-top:2px}
+  #game:not(.projection-mode) #seatPicker .player-card{min-height:60px;border-radius:13px}
+  #game:not(.projection-mode) #seatPicker .player-card.pos-top,
+  #game:not(.projection-mode) #seatPicker .player-card.pos-bottom{width:min(66%,190px)}
+  #game:not(.projection-mode) #seatPicker .player-content{padding:5px 8px}
+  #game:not(.projection-mode) #seatPicker .player-wind{font-size:9px}
+  #game:not(.projection-mode) #seatPicker .player-name{font-size:12px}
+  #game:not(.projection-mode) #seatPicker .current-money{font-size:15px;margin-top:1px}
+  #game:not(.projection-mode) .game-entry-card h3{font-size:12px;margin:6px 0 4px}
+  #game:not(.projection-mode) .choice{padding:8px 3px;border-radius:11px;font-size:12px}
+  #game:not(.projection-mode) .tai-box{padding:6px 8px;border-radius:13px;margin-top:6px!important}
+  #game:not(.projection-mode) .tai-box h3{display:inline-block;margin:0 8px 0 0!important;vertical-align:middle}
+  #game:not(.projection-mode) .tai-number{display:inline-block;font-size:20px;margin:0 0 4px;vertical-align:middle}
+  #game:not(.projection-mode) .tai-box .grid4{gap:5px}
+  #game:not(.projection-mode) .tai-btn{padding:7px 3px;border-radius:10px;font-size:12px}
+  #game:not(.projection-mode) .pattern-box{margin-top:6px}
+  #game:not(.projection-mode) .pattern-toggle{padding:7px 9px;font-size:11px}
+  #game:not(.projection-mode) #calculationPreview{padding:7px 9px;margin-top:6px;font-size:11px;line-height:1.3}
+  #game:not(.projection-mode) .game-entry-card > .primary{margin-top:6px!important;padding:10px 12px}
 }
-@media (orientation: landscape) and (max-height:520px){
-  #game.projection-mode:not(.hidden){grid-template-columns:minmax(330px,.9fr) minmax(380px,1.1fr) !important;}
-  #game.projection-mode .round-big{font-size:42px !important;}
-  #game.projection-mode .player-card{min-height:68px !important;}
-  #game.projection-mode .player-content{padding:6px 8px !important;}
-  #game.projection-mode .current-money{font-size:17px !important;}
-  #game.projection-mode .pie{width:min(20vw,180px) !important;height:min(20vw,180px) !important;}
-  #game.projection-mode .trend-chart{min-height:130px !important;max-height:170px !important;}
+
+/* 投影：只要座位戰況 + 圓餅圖；兩張卡等寬等高，不顯示折線圖 */
+#game.projection-mode .game-trend-card{display:none!important}
+#game.projection-mode{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;align-items:stretch!important}
+#game.projection-mode .game-status-card,
+#game.projection-mode .game-chart-card{display:flex!important;flex-direction:column;justify-content:center;min-width:0;min-height:calc(100vh - 36px);margin:0!important;padding:16px!important;overflow:hidden}
+#game.projection-mode .live-head{margin-bottom:8px!important}
+#game.projection-mode .round-big{font-size:clamp(44px,7vw,76px)!important}
+#game.projection-mode .dealer-pill{font-size:clamp(15px,2vw,22px)!important;padding:7px 12px!important}
+#game.projection-mode #playerStats{gap:7px!important}
+#game.projection-mode #playerStats .player-card{min-height:82px!important}
+#game.projection-mode #playerStats .player-content{padding:8px 10px!important}
+#game.projection-mode #playerStats .current-money{font-size:clamp(20px,3vw,32px)!important}
+#game.projection-mode .chart-wrap{grid-template-columns:1fr!important;justify-items:center!important;gap:8px!important}
+#game.projection-mode .pie{width:min(30vw,240px)!important;height:min(30vw,240px)!important}
+#game.projection-mode #moneyLegend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;width:100%;font-size:12px}
+@media (orientation: landscape) and (max-height: 650px){
+  #game.projection-mode .game-status-card,#game.projection-mode .game-chart-card{min-height:calc(100vh - 20px);padding:10px!important}
+  #game.projection-mode .round-big{font-size:42px!important}
+  #game.projection-mode .dealer-pill{font-size:14px!important;padding:5px 10px!important}
+  #game.projection-mode #playerStats .player-card{min-height:66px!important}
+  #game.projection-mode .pie{width:min(26vw,190px)!important;height:min(26vw,190px)!important}
 }
+
 </style>
 </head>
 
@@ -1634,7 +1633,6 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
 
 
-  <div class="projection-only-launch"><button class="projection-btn" onclick="toggleProjectionMode()" type="button">📺 投影</button></div>
 
   <!-- 即時戰況：一般計分隱藏，投影模式才顯示 -->
 
@@ -2026,6 +2024,8 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   >
     提前結束牌局
   </button>
+
+  <div class="projection-only-launch"><button class="projection-btn" onclick="toggleProjectionMode()" type="button">📺 投影</button></div>
 
 </section>
 
@@ -5290,14 +5290,28 @@ function sessionRowHtml(ss){
   const result=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${n} ${money(v)}`).join('・')
   return `<div class="session-row" onclick="showSessionDetail('${ss.id}')" style="cursor:pointer"><div class="session-head"><span>${date}・${room?.name||ss.roomName||'牌局'}</span><span>${ss.stake||''} ›</span></div><div class="session-result">${result}</div></div>`
 }
+function sessionDetailStatsHtml(ss){
+  const players=ss.players||Object.keys(sessionNets(ss))
+  const hands=Array.isArray(ss.hands)?ss.hands:[]
+  if(!hands.length) return '<div class="career-note">這場只有最終結算，沒有逐把資料，因此只顯示最終輸贏。</div>'
+  const stats=Object.fromEntries(players.map(p=>[p,{wins:0,selfdraws:0,discards:0}]))
+  hands.forEach(h=>{
+    if(h.result==='胡牌' && h.winner && stats[h.winner]) stats[h.winner].wins++
+    if(h.result==='自摸' && h.winner && stats[h.winner]) stats[h.winner].selfdraws++
+    if(h.result==='胡牌' && h.discarder && stats[h.discarder]) stats[h.discarder].discards++
+  })
+  const nets=sessionNets(ss)
+  return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${players.map(p=>`<div class="career-stat"><div class="k">${escapeHtml(p)}</div><div class="v" style="font-size:18px">${money(nets[p]||0)}</div><div class="muted" style="margin-top:5px">胡 ${stats[p].wins}・自摸 ${stats[p].selfdraws}・放槍 ${stats[p].discards}</div></div>`).join('')}</div></div>`
+}
 function showSessionDetail(id){
   ensureAppData(); const ss=appData.sessions.find(s=>s.id===id); if(!ss) return
   const old=document.getElementById('sessionDetailModal'); if(old) old.remove()
   const date=new Date(ss.createdAt).toLocaleString('zh-TW')
   const rows=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="session-head"><b>${n}</b><b>${money(v)}</b></div>`).join('')
-  const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>四人輸贏走勢</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:'<div class="career-note">這場只有最終結算，沒有逐場資料，因此不產生假的曲線。</div>'
+  const statsHtml=sessionDetailStatsHtml(ss)
+  const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
+  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
 }
 
