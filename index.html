@@ -1170,6 +1170,11 @@ input{
 .goal-item .goal-current{font-size:20px}
 .goal-item .goal-remain{display:none}
 
+
+/* 計分頁精簡：進入牌局時隱藏首頁大標題；首頁仍保留 */
+body:has(#game:not(.hidden)) > header{display:none !important}
+/* 玩家選擇提示文字不顯示，座位卡本身就是操作介面 */
+#game #personQuestion,#game .seat-picker-title{display:none !important}
 </style>
 </head>
 
@@ -1686,7 +1691,7 @@ input{
     </h2>
 
 
-    <div id="personQuestion" class="player-pick-hint">請直接點上方座位卡選擇胡牌者</div>
+    <div id="personQuestion" class="player-pick-hint" aria-live="polite"></div>
 
 
     <div
@@ -1696,7 +1701,6 @@ input{
 
 
     <div class="seat-picker-wrap">
-      <div class="seat-picker-title">直接點座位選擇玩家</div>
       <div id="seatPicker" class="player-stats"></div>
     </div>
 
@@ -2166,6 +2170,7 @@ const STORAGE_KEY='shuiYuZhengFengV2'
 const ACTIVE_GAME_KEY='shuiYuZhengFengActiveGameV1'
 const STORAGE_BACKUP_KEY='shuiYuZhengFengV2_backup'
 const STORAGE_EMERGENCY_KEY='shuiYuZhengFengV2_emergency'
+const ROOM_VAULT_KEY='shuiYuZhengFengV2_rooms_vault'
 const DB_NAME='shuiYuZhengFengDB'
 const DB_STORE='app'
 const DB_KEY='main'
@@ -4877,6 +4882,27 @@ async function restoreIndexedBackup(){
     }
   }catch(e){ console.warn('IndexedDB 還原失敗',e) }
 }
+function readRoomVault(){
+  try{
+    const raw=localStorage.getItem(ROOM_VAULT_KEY)
+    const rooms=raw?JSON.parse(raw):[]
+    return Array.isArray(rooms)?rooms:[]
+  }catch(e){ return [] }
+}
+function mergeRooms(baseRooms, vaultRooms){
+  const map=new Map()
+  ;[...(Array.isArray(baseRooms)?baseRooms:[]), ...(Array.isArray(vaultRooms)?vaultRooms:[])].forEach(r=>{
+    if(!r||!r.id) return
+    const old=map.get(r.id)
+    if(!old) map.set(r.id,r)
+    else map.set(r.id,{...old,...r,members:(r.members?.length?r.members:old.members)||[]})
+  })
+  return [...map.values()]
+}
+function saveRoomVault(){
+  if(!appData || !Array.isArray(appData.rooms) || appData.rooms.length===0) return
+  try{ localStorage.setItem(ROOM_VAULT_KEY,JSON.stringify(appData.rooms)) }catch(e){ console.warn('房間獨立備份失敗',e) }
+}
 function ensureAppData(){
   if(appData) return appData
   const primary=safeParseStored(STORAGE_KEY)
@@ -4886,6 +4912,8 @@ function ensureAppData(){
   // 永遠選資料最完整的一份，不因版本或空白主檔覆蓋既有房間。
   appData=candidates.sort((a,b)=>dataScore(b)-dataScore(a))[0]
     || normalizeAppData({version:2,profile:{name:''},rooms:[],sessions:[]})
+  // 房間使用獨立保險庫保存；空白 appData 絕不能覆蓋既有房間。
+  appData.rooms=mergeRooms(appData.rooms,readRoomVault())
   persistAppData()
   // 再從 IndexedDB 檢查一份獨立備份；若較完整會自動救回。
   setTimeout(restoreIndexedBackup,0)
@@ -4902,6 +4930,7 @@ function persistAppData(){
     }
     localStorage.setItem(STORAGE_KEY,payload)
     localStorage.setItem(STORAGE_EMERGENCY_KEY,payload)
+    saveRoomVault()
     // 立即回讀驗證，避免瀏覽器表面成功但實際沒有保存。
     if(localStorage.getItem(STORAGE_KEY)!==payload) throw new Error('localStorage verification failed')
     saveIndexedBackup(JSON.parse(payload))
@@ -4983,7 +5012,7 @@ function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.rand
 function ensureRoom(name){
   ensureAppData()
   let room=appData.rooms.find(r=>r.name===name)
-  if(!room){ room={id:makeId('room'),name,createdAt:new Date().toISOString(),members:[]}; appData.rooms.push(room); persistAppData() }
+  if(!room){ room={id:makeId('room'),name,createdAt:new Date().toISOString(),members:[]}; appData.rooms.push(room); saveRoomVault(); persistAppData() }
   if(!Array.isArray(room.members)) room.members=[]
   return room
 }
