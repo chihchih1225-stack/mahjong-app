@@ -1399,7 +1399,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
-    <div class="auth-note">目前是 V22 帳號測試版。帳號會建立在你 NAS 的 PocketBase；牌局資料這一版仍沿用原本 localStorage，下一階段才搬到 PocketBase。</div>
+    <div class="auth-note">目前是 V23 多人房間測試版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
   </div>
 </section>
 
@@ -1440,7 +1440,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   </div>
 
   <div class="card">
-    <div class="toprow"><h2>我的房間</h2><button class="link filled-link" onclick="createRoomPrompt()">＋新增房間</button></div>
+    <div class="toprow"><h2>我的房間</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="link" onclick="joinRoomPrompt()">輸入邀請碼</button><button class="link filled-link" onclick="createRoomPrompt()">＋新增房間</button></div></div>
     <div id="roomList"></div>
   </div>
 
@@ -1454,7 +1454,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 <section id="roomDashboard" class="hidden">
   <div class="card">
     <div class="toprow">
-      <div><div class="muted">ROOM</div><h2 id="roomDashboardTitle" style="margin:3px 0 0"></h2></div>
+      <div><div class="muted">ROOM</div><h2 id="roomDashboardTitle" style="margin:3px 0 0"></h2><div id="roomInviteCodeDisplay" class="muted" style="margin-top:5px"></div></div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="link" onclick="show('home')">返回首頁</button>
         <button class="link" style="color:#b94f5f;background:#fff0f2" onclick="deleteCurrentRoom()">刪除房間</button>
@@ -2252,7 +2252,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
 <script>
 
-/* ===== v22：PocketBase Auth（NAS / Cloudflare Quick Tunnel） ===== */
+/* ===== v23：PocketBase Auth + Rooms（NAS / Cloudflare Quick Tunnel） ===== */
 const PB_BASE_URL='https://birmingham-factor-details-released.trycloudflare.com'
 const PB_AUTH_KEY='shuiYuZhengFengPocketBaseAuthV1'
 let authMode='login'
@@ -2304,6 +2304,61 @@ async function pbRequest(path,options={}){
   }
   return data
 }
+
+/* ===== v23：PocketBase 多人房間 ===== */
+async function syncRoomsFromPocketBase(){
+  if(!pbAuth?.token) return []
+  try{
+    const data=await pbRequest('/api/collections/rooms/records?perPage=200&sort=-created')
+    const rooms=(data.items||[]).map(r=>({
+      id:r.id,
+      name:r.name||'未命名房間',
+      invite_code:r.invite_code||'',
+      owner:r.owner||'',
+      createdAt:r.created||new Date().toISOString(),
+      pocketbase:true
+    }))
+    ensureAppData()
+    appData.rooms=rooms
+    persistAppData()
+    renderHomeDashboard()
+    return rooms
+  }catch(e){
+    console.error('PocketBase rooms sync failed',e)
+    return []
+  }
+}
+async function createPocketBaseRoom(name){
+  const nickname=(pbAuth?.record?.name||appData?.profile?.name||'').trim()
+  return pbRequest('/api/mahjong/rooms/create',{
+    method:'POST',
+    body:JSON.stringify({name,nickname})
+  })
+}
+async function joinPocketBaseRoom(inviteCode){
+  const nickname=(pbAuth?.record?.name||appData?.profile?.name||'').trim()
+  return pbRequest('/api/mahjong/rooms/join',{
+    method:'POST',
+    body:JSON.stringify({invite_code:inviteCode,nickname})
+  })
+}
+async function joinRoomPrompt(){
+  if(!pbAuth?.token){ alert('請先登入帳號'); return }
+  const code=prompt('請輸入 6 位數房間邀請碼')
+  if(code===null) return
+  const clean=code.trim()
+  if(!/^\d{6}$/.test(clean)){ alert('邀請碼是 6 位數字'); return }
+  try{
+    const result=await joinPocketBaseRoom(clean)
+    await syncRoomsFromPocketBase()
+    const roomId=result?.room?.id
+    if(roomId){ currentRoomId=roomId; roomTimeFilter='all'; show('roomDashboard') }
+    alert(result?.already_member?'你原本就已經在這個房間裡。':'加入房間成功！')
+  }catch(e){
+    alert('加入房間失敗：'+(e.message||'請稍後再試'))
+  }
+}
+
 async function submitAuth(event){
   event.preventDefault()
   authError('')
@@ -2341,6 +2396,7 @@ function enterAppAfterLogin(){
   syncLocalProfileFromAccount()
   show('home')
   renderAccountHeader()
+  syncRoomsFromPocketBase()
 }
 function renderAccountHeader(){
   const name=pbAuth?.record?.name||''
@@ -5399,17 +5455,23 @@ function filterSessionsByTime(sessions,filter){
   return sessions.filter(s=>{ const d=new Date(s.createdAt); if(filter==='year') return d.getFullYear()===y; if(filter==='month') return d.getFullYear()===y&&d.getMonth()===m; if(filter==='week') return d>=startWeek; return true })
 }
 function openRoom(id){ currentRoomId=id; roomTimeFilter='all'; show('roomDashboard') }
-function deleteCurrentRoom(){
+async function deleteCurrentRoom(){
   ensureAppData()
   const room=appData.rooms.find(r=>r.id===currentRoomId)
   if(!room) return
   const count=appData.sessions.filter(s=>s.roomId===room.id).length
-  if(!confirm(`確定要刪除「${room.name}」嗎？\n這個房間的 ${count} 場歷史牌局也會一起刪除，而且無法復原。`)) return
-  appData.sessions=appData.sessions.filter(s=>s.roomId!==room.id)
-  appData.rooms=appData.rooms.filter(r=>r.id!==room.id)
-  currentRoomId=''
-  persistAppData()
-  show('home')
+  if(!confirm(`確定要刪除「${room.name}」嗎？\n這個房間的 ${count} 場本機歷史牌局也會一起刪除，而且無法復原。`)) return
+  try{
+    if(room.pocketbase){
+      await pbRequest(`/api/collections/rooms/records/${encodeURIComponent(room.id)}`,{method:'DELETE'})
+    }
+    appData.sessions=appData.sessions.filter(s=>s.roomId!==room.id)
+    appData.rooms=appData.rooms.filter(r=>r.id!==room.id)
+    currentRoomId=''
+    persistAppData()
+    if(pbAuth?.token) await syncRoomsFromPocketBase()
+    show('home')
+  }catch(e){ alert('刪除房間失敗：'+e.message) }
 }
 function deleteSessionById(id){
   ensureAppData()
@@ -5428,10 +5490,23 @@ function deleteSessionById(id){
   renderHomeDashboard()
   renderRoomDashboard()
 }
-function createRoomPrompt(){
+async function createRoomPrompt(){
+  if(!pbAuth?.token){ alert('請先登入帳號'); return }
   const name=prompt('新房間叫什麼名字？')
   if(!name||!name.trim()) return
-  const r=ensureRoom(name.trim()); if(!r) return; currentRoomId=r.id; roomTimeFilter='all'; show('roomDashboard')
+  const clean=name.trim()
+  try{
+    const result=await createPocketBaseRoom(clean)
+    await syncRoomsFromPocketBase()
+    const roomId=result?.room?.id
+    if(roomId){
+      currentRoomId=roomId
+      roomTimeFilter='all'
+      show('roomDashboard')
+      const code=result?.room?.invite_code||''
+      if(code) alert(`房間建立成功！\n邀請碼：${code}\n把這 6 位數字給朋友，他登入後就能加入。`)
+    }
+  }catch(e){ alert('建立房間失敗：'+(e.message||'請稍後再試')) }
 }
 function quickStartGame(){
   ensureAppData(); if(!guardNewGame()) return; currentRoomId=''
@@ -5532,6 +5607,7 @@ function renderRoomDashboard(){
   const labels={all:'全部',year:'今年',month:'本月',week:'本週'}
   document.getElementById('roomFilterLabel').textContent=labels[roomTimeFilter]
   document.getElementById('roomDashboardTitle').textContent=room.name
+  const inviteEl=document.getElementById('roomInviteCodeDisplay'); if(inviteEl) inviteEl.textContent=room.invite_code?`邀請碼 ${room.invite_code}`:''
   document.getElementById('roomSummary').innerHTML=`
     <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
