@@ -2164,6 +2164,11 @@ let roundLeaders=[]
 /* 誰與爭鋒 V2 長期資料 */
 const STORAGE_KEY='shuiYuZhengFengV2'
 const ACTIVE_GAME_KEY='shuiYuZhengFengActiveGameV1'
+const STORAGE_BACKUP_KEY='shuiYuZhengFengV2_backup'
+const STORAGE_EMERGENCY_KEY='shuiYuZhengFengV2_emergency'
+const DB_NAME='shuiYuZhengFengDB'
+const DB_STORE='app'
+const DB_KEY='main'
 let appData=null
 let currentRoomId=''
 let sessionSaved=false
@@ -4815,23 +4820,96 @@ function saveFinal(){
 /* =========================
    誰與爭鋒 V2：長期資料
 ========================= */
+function safeParseStored(key){
+  try{
+    const raw=localStorage.getItem(key)
+    if(!raw) return null
+    const data=JSON.parse(raw)
+    return data && typeof data==='object' ? data : null
+  }catch(e){ return null }
+}
+function normalizeAppData(data){
+  // 版本不同也絕對不能把既有房間/牌局洗掉；只補缺少的欄位。
+  const d=(data && typeof data==='object')?data:{}
+  d.version=2
+  d.profile=(d.profile && typeof d.profile==='object')?d.profile:{name:''}
+  d.rooms=Array.isArray(d.rooms)?d.rooms:[]
+  d.sessions=Array.isArray(d.sessions)?d.sessions:[]
+  if(!Array.isArray(d.profile.goals)){
+    const oldGoal=Number(d.profile.goal||0)
+    d.profile.goals=oldGoal>0?[{id:makeId('goal'),name:'我的目標',amount:oldGoal}]:[]
+  }
+  d.rooms.forEach(r=>{ if(!Array.isArray(r.members)) r.members=[] })
+  return d
+}
+function dataScore(d){
+  if(!d) return -1
+  return (d.rooms?.length||0)*100000 + (d.sessions?.length||0)*100 + (d.profile?.goals?.length||0)
+}
+function openAppDB(){
+  return new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window)) return reject(new Error('IndexedDB unavailable'))
+    const req=indexedDB.open(DB_NAME,1)
+    req.onupgradeneeded=()=>{ const db=req.result; if(!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE) }
+    req.onsuccess=()=>resolve(req.result)
+    req.onerror=()=>reject(req.error)
+  })
+}
+async function saveIndexedBackup(data){
+  try{
+    const db=await openAppDB()
+    await new Promise((resolve,reject)=>{ const tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).put(data,DB_KEY); tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error) })
+    db.close()
+  }catch(e){ console.warn('IndexedDB 備份失敗',e) }
+}
+async function restoreIndexedBackup(){
+  try{
+    const db=await openAppDB()
+    const data=await new Promise((resolve,reject)=>{ const tx=db.transaction(DB_STORE,'readonly'); const req=tx.objectStore(DB_STORE).get(DB_KEY); req.onsuccess=()=>resolve(req.result||null); req.onerror=()=>reject(req.error) })
+    db.close()
+    if(!data) return
+    const restored=normalizeAppData(data)
+    if(dataScore(restored)>dataScore(appData)){
+      appData=restored
+      persistAppData()
+      renderHomeDashboard()
+      if(currentRoomId && appData.rooms.some(r=>r.id===currentRoomId)) renderRoomDashboard()
+    }
+  }catch(e){ console.warn('IndexedDB 還原失敗',e) }
+}
 function ensureAppData(){
   if(appData) return appData
-  try{ appData=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null') }catch(e){ appData=null }
-  if(!appData || appData.version!==2){
-    appData={version:2, profile:{name:''}, rooms:[], sessions:[]}
-  }
-  appData.profile=appData.profile||{name:''}
-  if(!Array.isArray(appData.profile.goals)){
-    const oldGoal=Number(appData.profile.goal||0)
-    appData.profile.goals=oldGoal>0?[{id:makeId('goal'),name:'我的目標',amount:oldGoal}]:[]
-  }
-  // 房間、歷史牌局與進行中牌局都只由使用者主動刪除；啟動時絕不自動清資料。
+  const primary=safeParseStored(STORAGE_KEY)
+  const backup=safeParseStored(STORAGE_BACKUP_KEY)
+  const emergency=safeParseStored(STORAGE_EMERGENCY_KEY)
+  const candidates=[primary,backup,emergency].filter(Boolean).map(normalizeAppData)
+  // 永遠選資料最完整的一份，不因版本或空白主檔覆蓋既有房間。
+  appData=candidates.sort((a,b)=>dataScore(b)-dataScore(a))[0]
+    || normalizeAppData({version:2,profile:{name:''},rooms:[],sessions:[]})
   persistAppData()
+  // 再從 IndexedDB 檢查一份獨立備份；若較完整會自動救回。
+  setTimeout(restoreIndexedBackup,0)
   return appData
 }
 function persistAppData(){
-  if(appData) localStorage.setItem(STORAGE_KEY,JSON.stringify(appData))
+  if(!appData) return
+  const payload=JSON.stringify(normalizeAppData(appData))
+  try{
+    const old=localStorage.getItem(STORAGE_KEY)
+    if(old){
+      const parsed=JSON.parse(old)
+      if(parsed && dataScore(parsed)>0) localStorage.setItem(STORAGE_BACKUP_KEY,old)
+    }
+    localStorage.setItem(STORAGE_KEY,payload)
+    localStorage.setItem(STORAGE_EMERGENCY_KEY,payload)
+    // 立即回讀驗證，避免瀏覽器表面成功但實際沒有保存。
+    if(localStorage.getItem(STORAGE_KEY)!==payload) throw new Error('localStorage verification failed')
+    saveIndexedBackup(JSON.parse(payload))
+  }catch(e){
+    console.error('資料保存失敗',e)
+    saveIndexedBackup(JSON.parse(payload))
+    alert('⚠️ 一般儲存空間無法使用，已嘗試改存備份。請不要使用無痕模式。')
+  }
 }
 function setMyNickname(){
   ensureAppData()
@@ -5258,6 +5336,9 @@ function toggleProjectionMode(){
   }
   window.scrollTo(0,0)
 }
+
+window.addEventListener('pagehide',()=>{ if(appData) persistAppData() })
+window.addEventListener('beforeunload',()=>{ if(appData) persistAppData() })
 
 ensureAppData()
 renderHomeDashboard()
