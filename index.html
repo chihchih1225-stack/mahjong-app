@@ -5239,8 +5239,9 @@ function deleteSessionById(id){
   persistAppData()
   const modal=document.getElementById('sessionDetailModal')
   if(modal) modal.remove()
+  // 刪除單場後，首頁與房間統計都立即從目前 sessions 重算，避免首頁詳細紀錄場數殘留舊值
+  renderHomeDashboard()
   if(document.getElementById('roomDashboard') && !document.getElementById('roomDashboard').classList.contains('hidden')) renderRoomDashboard()
-  else renderHomeDashboard()
 }
 function createRoomPrompt(){
   const name=prompt('新房間叫什麼名字？')
@@ -5462,10 +5463,11 @@ function sessionDetailStatsHtml(ss){
     <div class="v" style="font-size:18px">${money(nets[p]||0)}</div>
     <div class="muted" style="margin-top:5px;line-height:1.75">
       胡牌 ${stats[p].wins}次・自摸 ${stats[p].selfdraws}次<br>
-      被胡 ${stats[p].gotDiscarded}次・被自摸 ${stats[p].gotSelfdrawn}次・放槍 ${stats[p].discards}次<br>
+      被胡 ${stats[p].gotDiscarded}次・放槍 ${stats[p].discards}次<br>
+      <b>被自摸 ${stats[p].gotSelfdrawn}次</b><br>
       胡過：${relationText(stats[p].wonFrom)}<br>
       被胡：${relationText(stats[p].lostTo)}<br>
-      被自摸：${relationText(stats[p].selfdrawnBy)}<br>
+      被誰自摸：${relationText(stats[p].selfdrawnBy)}<br>
       最高水位 ${money(stats[p].high)}・最低水位 ${money(stats[p].low)}
     </div>
   </div>`).join('')
