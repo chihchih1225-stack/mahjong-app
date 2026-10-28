@@ -4917,6 +4917,15 @@ function deleteMyGoal(id){
   persistAppData(); renderHomeDashboard()
 }
 function setMyGoal(){ addMyGoal() }
+function escapeHtml(value){
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;')
+}
+
 function renderMyGoal(currentNet){
   const box=document.getElementById('myGoalContent'); if(!box) return
   const goals=Array.isArray(appData.profile?.goals)?appData.profile.goals:[]
