@@ -587,6 +587,15 @@ input{
   box-shadow:0 0 0 2px #e8d47e inset;
 }
 
+.player-card.selectable{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease}
+.player-card.selectable:active{transform:scale(.985)}
+.player-card.pick-winner{border:3px solid #6caa8b;box-shadow:0 0 0 4px rgba(108,170,139,.14)}
+.player-card.pick-discarder{border:3px solid #cf7f91;box-shadow:0 0 0 4px rgba(207,127,145,.14)}
+.player-pick-tag{display:inline-block;margin-left:5px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:950}
+.player-pick-tag.win{background:#dff3e8;color:#4e876b}
+.player-pick-tag.discard{background:#f8dce3;color:#a95f72}
+.player-pick-hint{text-align:center;font-weight:900;color:#6d666d;margin:6px 0 12px}
+
 
 .leader-crown{
   display:inline-block;
@@ -1621,14 +1630,12 @@ input{
     </h2>
 
 
-    <h3 id="personQuestion">
-      誰胡？
-    </h3>
+    <div id="personQuestion" class="player-pick-hint">請直接點上方座位卡選擇胡牌者</div>
 
 
     <div
       id="winnerBtns"
-      class="grid4"
+      class="grid4 hidden"
     ></div>
 
 
@@ -1679,7 +1686,7 @@ input{
 
     <!-- 放槍 -->
 
-    <div id="discardBox">
+    <div id="discardBox" class="hidden">
 
       <h3>
         誰放槍？
@@ -2077,6 +2084,7 @@ let tai=0
 let winner=''
 let result='胡牌'
 let discarder=''
+let autoEndAfterHand=false
 
 /* 詐胡者使用 winner
    另外三家的台數存在 fraudTai */
@@ -2277,13 +2285,9 @@ function startGame(){
 
 function getRoundName(index){
 
-  if(index<4){
-
-    return '東'+(index+1)
-
-  }
-
-  return '南'+(index-3)
+  const winds=['東','南','西','北']
+  const safe=Math.max(0,Math.min(15,index))
+  return winds[Math.floor(safe/4)]+((safe%4)+1)
 
 }
 
@@ -3213,10 +3217,17 @@ function renderGame(){
   document
     .getElementById('personQuestion')
     .textContent=
-
-      result==='詐胡'
-      ?'誰詐胡？'
-      :'誰胡？'
+      result==='流局'
+      ?'流局不需要選擇玩家'
+      :result==='詐胡'
+      ?(winner?`已選：${winner} 詐胡`:'請直接點上方座位卡選擇詐胡者')
+      :result==='自摸'
+      ?(winner?`已選：${winner} 自摸`:'請直接點上方座位卡選擇自摸者')
+      :!winner
+      ?'請直接點上方座位卡選擇胡牌者'
+      :!discarder
+      ?`胡牌：${winner}・請再點座位卡選擇放槍者`
+      :`胡牌：${winner}・放槍：${discarder}`
 
 
   /* 玩家 */
@@ -3272,22 +3283,9 @@ function renderGame(){
     result==='詐胡'
 
 
-  document
-    .getElementById('winnerBtns')
-    .classList
-    .toggle(
-      'hidden',
-      isDraw
-    )
-
-
-  document
-    .getElementById('discardBox')
-    .classList
-    .toggle(
-      'hidden',
-      result!=='胡牌'
-    )
+  // 玩家直接從上方座位表選擇，舊的重複按鈕保持隱藏
+  document.getElementById('winnerBtns').classList.add('hidden')
+  document.getElementById('discardBox').classList.add('hidden')
 
 
   /*
@@ -3355,6 +3353,43 @@ function renderGame(){
 /* =========================
    選玩家
 ========================= */
+
+function handlePlayerCardClick(player){
+
+  if(result==='流局') return
+
+  if(result==='自摸' || result==='詐胡'){
+    winner=player
+    discarder=''
+    if(result==='詐胡') fraudTai={}
+    renderGame()
+    return
+  }
+
+  // 胡牌：第一次點選胡牌者，第二次點選放槍者
+  if(!winner){
+    winner=player
+    discarder=''
+  }else if(!discarder){
+    if(player===winner){
+      // 再點一次胡牌者可取消，方便選錯時重選
+      winner=''
+    }else{
+      discarder=player
+    }
+  }else{
+    // 已選完後：點胡牌者重新選胡牌者；點其他人直接改放槍者
+    if(player===winner){
+      winner=''
+      discarder=''
+    }else{
+      discarder=player
+    }
+  }
+
+  renderGame()
+}
+
 
 function selectWinner(player){
 
@@ -3664,11 +3699,12 @@ function renderLiveStats(){
 
           <div
             class="
-              player-card pos-${getTablePosition(player)}
-              ${amount===maxBalance
-                ?'leader'
-                :''}
+              player-card pos-${getTablePosition(player)} selectable
+              ${amount===maxBalance?'leader':''}
+              ${winner===player?'pick-winner':''}
+              ${discarder===player?'pick-discarder':''}
             "
+            onclick="handlePlayerCardClick('${player.replace(/'/g,"\\'")}')"
           >
 
             <div
@@ -3686,7 +3722,7 @@ function renderLiveStats(){
 
             <div class="player-content">
 
-              <div class="player-wind">${getPlayerWind(player)}家${player===recorderPlayer?'<span class="recorder-tag">記錄者</span>':''}</div>
+              <div class="player-wind">${getPlayerWind(player)}家${player===recorderPlayer?'<span class="recorder-tag">記錄者</span>':''}${winner===player?`<span class="player-pick-tag win">${result==='詐胡'?'詐胡':result==='自摸'?'自摸':'胡牌'}</span>`:''}${discarder===player?'<span class="player-pick-tag discard">放槍</span>':''}</div>
               <div class="player-name">
 
                 ${roundLeaders.includes(player)
@@ -3914,14 +3950,15 @@ function nextDealer(){
 
 function changeDealer(){
 
-  nextDealer()
-
-  if(roundIndex<7){
-
-    roundIndex++
-
+  // 北4莊家下莊後，整場結束；不再跳到不存在的下一局
+  if(roundIndex>=15){
+    repeats=0
+    autoEndAfterHand=true
+    return
   }
 
+  nextDealer()
+  roundIndex++
   repeats=0
 
 }
@@ -4121,7 +4158,15 @@ function saveHand(){
   }
 
 
-  /* 下一把 */
+  if(autoEndAfterHand){
+    persistActiveGame()
+    autoEndAfterHand=false
+    alert('北4莊家已下莊，本場牌局完成！')
+    finishDetailedGame()
+    return
+  }
+
+  /* 下一場 */
 
   tai=0
 
