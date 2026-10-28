@@ -1092,33 +1092,22 @@ input{
 
 /* ===== 個人目標 ===== */
 .goal-card{overflow:hidden}
-.goal-list{display:grid;gap:12px}
-.goal-item{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:18px;background:#fffdf9}
-.goal-ring{--goal-progress:0%;width:90px;aspect-ratio:1;border-radius:50%;background:conic-gradient(#9fcdb6 var(--goal-progress),#f1ece7 0);display:grid;place-items:center;position:relative;margin:auto}
-.goal-ring::after{content:"";width:64px;aspect-ratio:1;border-radius:50%;background:#fffdf9;position:absolute}
+.goal-wrap{display:grid;grid-template-columns:132px 1fr;gap:18px;align-items:center}
+.goal-ring{--goal-progress:0%;width:126px;aspect-ratio:1;border-radius:50%;background:conic-gradient(#9fcdb6 var(--goal-progress),#f1ece7 0);display:grid;place-items:center;position:relative;margin:auto}
+.goal-ring::after{content:"";width:88px;aspect-ratio:1;border-radius:50%;background:#fffdf9;position:absolute}
 .goal-ring-center{position:relative;z-index:1;text-align:center;line-height:1.15}
-.goal-percent{font-size:20px;font-weight:950}
-.goal-small{font-size:9px;color:#8a8185;font-weight:850;margin-top:3px}
-.goal-name{font-size:16px;font-weight:950;margin-bottom:5px}
-.goal-current{font-size:20px;font-weight:950;margin-top:2px}
-.goal-target{font-size:11px;color:#81777c;margin-top:3px}
-.goal-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.goal-actions button{width:auto;padding:6px 9px;font-size:11px}
-@media(max-width:420px){.goal-item{grid-template-columns:82px minmax(0,1fr);gap:10px;padding:10px}.goal-ring{width:78px}.goal-ring::after{width:56px}.goal-percent{font-size:18px}.goal-current{font-size:18px}}
+.goal-percent{font-size:25px;font-weight:950}
+.goal-small{font-size:10px;color:#8a8185;font-weight:850;margin-top:4px}
+.goal-current{font-size:25px;font-weight:950;margin-top:4px}
+.goal-target{font-size:12px;color:#81777c;margin-top:4px}
+.goal-remain{margin-top:10px;padding:9px 11px;border-radius:12px;background:#f6fbf8;font-size:12px;font-weight:850}
+@media(max-width:420px){.goal-wrap{grid-template-columns:112px 1fr;gap:12px}.goal-ring{width:108px}.goal-ring::after{width:76px}.goal-percent{font-size:21px}.goal-current{font-size:21px}}
 
 /* 一般計分時，座位表放進計分卡；投影時才顯示上方戰況座位表 */
 #game:not(.projection-mode) .game-status-card #playerStats{display:none}
 #game.projection-mode #playerStats{display:grid}
 .seat-picker-wrap{margin:14px 0 10px}
-.seat-picker-title{font-size:12px;font-weight:900;color:#81777c;margin-bottom:6px;text-align:center}
-#seatPicker{gap:6px;margin-top:6px}
-#seatPicker .player-card{min-height:96px;border-radius:16px}
-#seatPicker .player-card.pos-top,#seatPicker .player-card.pos-bottom{width:min(72%,220px)}
-#seatPicker .player-content{padding:8px}
-#seatPicker .current-money{font-size:18px}
-#seatPicker .player-name{font-size:14px}
-#seatPicker .winrate,#seatPicker .water-label{font-size:9px}
-@media(max-width:560px){#seatPicker .player-card{min-height:90px}#seatPicker .player-card.pos-top,#seatPicker .player-card.pos-bottom{width:min(74%,210px)}}
+.seat-picker-title{font-size:12px;font-weight:900;color:#81777c;margin-bottom:8px;text-align:center}
 
 /* ===== 誰與爭鋒 V2：長期戰績 / 房間 ===== */
 .compact-hero{padding-bottom:18px}
@@ -1146,6 +1135,40 @@ input{
 .session-head{display:flex;justify-content:space-between;gap:8px;font-weight:900}
 .session-result{font-size:11px;color:#847b80;margin-top:5px;line-height:1.6}
 @media(min-width:760px){.career-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.badge-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+
+/* ===== 1028 mobile scoring cleanup ===== */
+#game:not(.projection-mode) .game-status-card{display:none !important}
+#game:not(.projection-mode) .projection-only-launch{display:flex}
+.projection-only-launch{justify-content:flex-end;margin:0 0 8px}
+.projection-only-launch .projection-btn{font-size:12px;padding:8px 12px}
+#game.projection-mode .projection-only-launch{display:none}
+#game:not(.projection-mode) #seatPicker.player-stats{gap:6px;margin-top:6px}
+#game:not(.projection-mode) #seatPicker .player-card{min-height:78px;border-radius:15px}
+#game:not(.projection-mode) #seatPicker .player-card.pos-top,
+#game:not(.projection-mode) #seatPicker .player-card.pos-bottom{width:min(72%,220px)}
+#game:not(.projection-mode) #seatPicker .player-content{padding:8px 10px}
+#game:not(.projection-mode) #seatPicker .player-wind{font-size:10px;margin-bottom:1px}
+#game:not(.projection-mode) #seatPicker .player-name{font-size:13px}
+#game:not(.projection-mode) #seatPicker .current-money{font-size:18px;margin-top:3px}
+#game:not(.projection-mode) #seatPicker .net,
+#game:not(.projection-mode) #seatPicker .water-label,
+#game:not(.projection-mode) #seatPicker .winrate{display:none}
+#game:not(.projection-mode) #seatPicker .leader-crown{font-size:15px}
+#game:not(.projection-mode) .seat-picker-wrap{margin:4px 0 10px}
+#game:not(.projection-mode) .seat-picker-title{margin-bottom:5px}
+.goal-list{display:grid;gap:12px}
+.goal-item{border:1px solid var(--line);border-radius:18px;padding:12px;background:#fffdf9}
+.goal-item-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.goal-item-name{font-weight:950;font-size:15px}
+.goal-actions{display:flex;gap:6px}
+.goal-actions button{font-size:11px;padding:6px 8px;border-radius:10px}
+.goal-item .goal-wrap{grid-template-columns:92px 1fr;gap:12px}
+.goal-item .goal-ring{width:88px}
+.goal-item .goal-ring::after{width:62px}
+.goal-item .goal-percent{font-size:18px}
+.goal-item .goal-current{font-size:20px}
+.goal-item .goal-remain{display:none}
 
 </style>
 </head>
@@ -1549,7 +1572,9 @@ input{
 
 
 
-  <!-- 即時戰況 -->
+  <div class="projection-only-launch"><button class="projection-btn" onclick="toggleProjectionMode()" type="button">📺 投影</button></div>
+
+  <!-- 即時戰況：一般計分隱藏，投影模式才顯示 -->
 
   <div class="card live-card game-status-card">
 
@@ -1661,16 +1686,19 @@ input{
     </h2>
 
 
-    <div class="seat-picker-wrap">
-      <div class="seat-picker-title">座位表</div>
-      <div id="seatPicker" class="player-stats"></div>
-    </div>
+    <div id="personQuestion" class="player-pick-hint">請直接點上方座位卡選擇胡牌者</div>
+
 
     <div
       id="winnerBtns"
       class="grid4 hidden"
     ></div>
 
+
+    <div class="seat-picker-wrap">
+      <div class="seat-picker-title">直接點座位選擇玩家</div>
+      <div id="seatPicker" class="player-stats"></div>
+    </div>
 
     <h3>
       結果
@@ -1716,7 +1744,6 @@ input{
 
     </div>
 
-    <div id="personQuestion" class="player-pick-hint">選擇結果後，直接點上方座位</div>
 
     <!-- 放槍 -->
 
@@ -1997,10 +2024,8 @@ input{
   </div>
 
 
-  <div class="grid2" style="margin-top:12px">
-    <button class="secondary" onclick="show('home')">🏠 回首頁</button>
-    <button class="primary" onclick="backToFinishedRoom()">🀄 回到房間</button>
-  </div>
+  <button class="primary" onclick="show('home')">🏠 回首頁</button>
+  <button class="secondary" style="margin-top:8px" onclick="returnToCurrentRoom()">🀄 回到房間</button>
 
 </section>
 
@@ -3709,143 +3734,28 @@ function getPlayerWind(player){
 
 
 function renderLiveStats(){
-
-  const maxBalance=
-    Math.max(
-      ...P.map(p=>balances[p])
-    )
-
-
-  const playerCardsHtml=
-
-      P.map(player=>{
-
-        const amount=
-          balances[player]
-
-        const net=
-          amount
-
-        const stats=
-          getPlayerStats(player)
-
-        const height=
-          getWaterHeight(amount)
-
-
-        return `
-
-          <div
-            class="
-              player-card pos-${getTablePosition(player)} selectable
-              ${amount===maxBalance?'leader':''}
-              ${winner===player?'pick-winner':''}
-              ${discarder===player?'pick-discarder':''}
-            "
-            onclick="handlePlayerCardClick('${player.replace(/'/g,"\\'")}')"
-          >
-
-            <div
-              class="
-                water
-                ${net>=0
-                  ?'high'
-                  :'low'}
-              "
-              style="
-                height:${height}%
-              "
-            ></div>
-
-
-            <div class="player-content">
-
-              <div class="player-wind">${getPlayerWind(player)}家${player===recorderPlayer?'<span class="recorder-tag">記錄者</span>':''}${winner===player?`<span class="player-pick-tag win">${result==='詐胡'?'詐胡':result==='自摸'?'自摸':'胡牌'}</span>`:''}${discarder===player?'<span class="player-pick-tag discard">放槍</span>':''}</div>
-              <div class="player-name">
-
-                ${roundLeaders.includes(player)
-                  ?'<span class="leader-crown" title="目前局冠軍">👑</span> '
-                  :''}${player}
-
-                ${player===dealer
-                  ?'・莊'
-                  :''}
-
-              </div>
-
-
-              <div class="current-money">
-
-                ${net>=0?'+':''}$${net.toLocaleString()}
-
-              </div>
-
-
-              <div
-                class="
-                  net
-                  ${net>=0
-                    ?'pos'
-                    :'neg'}
-                "
-              >
-
-                本場
-
-                ${net>=0
-                  ?'+'
-                  :''}
-
-                $${net.toLocaleString()}
-
-              </div>
-
-
-              <div class="water-label">
-
-                ${
-                  net>0
-
-                  ?`高水位 +$${net.toLocaleString()}`
-
-                  :net<0
-
-                  ?`下水位 -$${Math.abs(net).toLocaleString()}`
-
-                  :''
-                }
-
-              </div>
-
-
-              <div class="winrate">
-
-                胡牌率
-                ${stats.winRate.toFixed(1)}%
-
-                ・勝
-                ${stats.wins}
-                把
-
-              </div>
-
-            </div>
-
-          </div>
-
-        `
-
-      }).join('')
-
+  const maxBalance=Math.max(...P.map(p=>balances[p]))
+  const playerCardsHtml=P.map(player=>{
+    const net=balances[player]
+    const height=getWaterHeight(net)
+    const safePlayer=player.replace(/'/g,"\\'")
+    return `
+      <div class="player-card pos-${getTablePosition(player)} selectable ${net===maxBalance?'leader':''} ${winner===player?'pick-winner':''} ${discarder===player?'pick-discarder':''}"
+        onclick="handlePlayerCardClick('${safePlayer}')">
+        <div class="water ${net>=0?'high':'low'}" style="height:${height}%"></div>
+        <div class="player-content">
+          <div class="player-wind">${getPlayerWind(player)}家${player===recorderPlayer?'<span class="recorder-tag">記錄者</span>':''}${winner===player?`<span class="player-pick-tag win">${result==='詐胡'?'詐胡':result==='自摸'?'自摸':'胡牌'}</span>`:''}${discarder===player?'<span class="player-pick-tag discard">放槍</span>':''}</div>
+          <div class="player-name">${roundLeaders.includes(player)?'<span class="leader-crown" title="目前局冠軍">👑</span> ':''}${player}${player===dealer?'・莊':''}</div>
+          <div class="current-money">${net>=0?'+':''}$${net.toLocaleString()}</div>
+        </div>
+      </div>`
+  }).join('')
   const liveSeatTable=document.getElementById('playerStats')
   const scoringSeatTable=document.getElementById('seatPicker')
   if(liveSeatTable) liveSeatTable.innerHTML=playerCardsHtml
   if(scoringSeatTable) scoringSeatTable.innerHTML=playerCardsHtml
-
   renderMoneyPie()
-
 }
-
 
 /* =========================
    金額圓餅
@@ -4913,11 +4823,10 @@ function ensureAppData(){
     appData={version:2, profile:{name:''}, rooms:[], sessions:[]}
   }
   appData.profile=appData.profile||{name:''}
-  if(!Array.isArray(appData.profile.goals)) appData.profile.goals=[]
-  if(Number.isFinite(Number(appData.profile.goal)) && Number(appData.profile.goal)>0 && appData.profile.goals.length===0){
-    appData.profile.goals=[{id:makeId('goal'),name:'我的目標',amount:Math.round(Number(appData.profile.goal))}]
+  if(!Array.isArray(appData.profile.goals)){
+    const oldGoal=Number(appData.profile.goal||0)
+    appData.profile.goals=oldGoal>0?[{id:makeId('goal'),name:'我的目標',amount:oldGoal}]:[]
   }
-  delete appData.profile.goal
   // 舊版預設測試房間直接移除；同房間的舊測試場次也一併清除。
   const legacyDefaultRooms=['之之麻將團','之芝麻醬團']
   if(Array.isArray(appData.rooms)){
@@ -4956,47 +4865,57 @@ function addMyGoal(){
   ensureAppData()
   const nameRaw=prompt('目標名稱（例如：名古屋旅費）','我的新目標')
   if(nameRaw===null) return
-  const name=nameRaw.trim(); if(!name){alert('目標名稱不能空白');return}
-  const amountRaw=prompt('目標金額（例如 15000）','15000')
-  if(amountRaw===null) return
-  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
-  if(!Number.isFinite(amount)||amount<=0){alert('請輸入大於 0 的金額');return}
-  appData.profile.goals=appData.profile.goals||[]
+  const name=nameRaw.trim()
+  if(!name){ alert('請輸入目標名稱'); return }
+  const raw=prompt('目標金額（例如 15000）','15000')
+  if(raw===null) return
+  const amount=Number(String(raw).replace(/[$,，\s]/g,''))
+  if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
   appData.profile.goals.push({id:makeId('goal'),name,amount:Math.round(amount)})
   persistAppData(); renderHomeDashboard()
 }
 function editMyGoal(id){
-  ensureAppData(); const goal=(appData.profile.goals||[]).find(g=>g.id===id); if(!goal) return
-  const nameRaw=prompt('修改目標名稱',goal.name); if(nameRaw===null) return
-  const name=nameRaw.trim(); if(!name){alert('目標名稱不能空白');return}
-  const amountRaw=prompt('修改目標金額',goal.amount); if(amountRaw===null) return
-  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
-  if(!Number.isFinite(amount)||amount<=0){alert('請輸入大於 0 的金額');return}
-  goal.name=name; goal.amount=Math.round(amount); persistAppData(); renderHomeDashboard()
+  ensureAppData()
+  const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
+  const nameRaw=prompt('修改目標名稱',g.name); if(nameRaw===null) return
+  const name=nameRaw.trim(); if(!name){ alert('目標名稱不能空白'); return }
+  const raw=prompt('修改目標金額',String(g.amount)); if(raw===null) return
+  const amount=Number(String(raw).replace(/[$,，\s]/g,''))
+  if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
+  g.name=name; g.amount=Math.round(amount)
+  persistAppData(); renderHomeDashboard()
 }
 function deleteMyGoal(id){
-  ensureAppData(); const goal=(appData.profile.goals||[]).find(g=>g.id===id); if(!goal) return
-  if(!confirm(`確定刪除目標「${goal.name}」嗎？`)) return
-  appData.profile.goals=appData.profile.goals.filter(g=>g.id!==id); persistAppData(); renderHomeDashboard()
+  ensureAppData()
+  const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
+  if(!confirm(`刪除目標「${g.name}」？`)) return
+  appData.profile.goals=appData.profile.goals.filter(x=>x.id!==id)
+  persistAppData(); renderHomeDashboard()
 }
 function setMyGoal(){ addMyGoal() }
 function renderMyGoal(currentNet){
   const box=document.getElementById('myGoalContent'); if(!box) return
-  const goals=appData.profile?.goals||[]
+  const goals=Array.isArray(appData.profile?.goals)?appData.profile.goals:[]
   if(!goals.length){
     box.innerHTML=`<button class="primary" style="margin-top:10px" onclick="addMyGoal()">＋ 新增第一個目標</button>`
     return
   }
-  box.innerHTML=`<div class="goal-list">${goals.map(goal=>{
-    const amount=Number(goal.amount)||0
-    const progress=amount>0?Math.max(0,Math.min(100,currentNet/amount*100)):0
-    const achieved=amount>0&&currentNet>=amount
+  box.innerHTML=`<div class="goal-list">${goals.map(g=>{
+    const goal=Number(g.amount||0)
+    const progress=Math.max(0,Math.min(100,currentNet/goal*100))
+    const achieved=currentNet>=goal
     return `<div class="goal-item">
-      <div class="goal-ring" style="--goal-progress:${progress}%"><div class="goal-ring-center"><div class="goal-percent">${Math.round(progress)}%</div><div class="goal-small">${achieved?'已達成':'完成度'}</div></div></div>
-      <div><div class="goal-name">${escapeHtml(goal.name||'我的目標')}</div><div class="goal-current">${money(currentNet)}</div><div class="goal-target">目標 +$${amount.toLocaleString()}</div>
-      <div class="goal-actions"><button class="link" onclick="editMyGoal('${goal.id}')">修改</button><button class="link" style="color:#b94f5f" onclick="deleteMyGoal('${goal.id}')">刪除</button></div></div>
+      <div class="goal-item-head"><div class="goal-item-name">${escapeHtml(g.name)}</div><div class="goal-actions"><button class="secondary" onclick="editMyGoal('${g.id}')">修改</button><button class="secondary" onclick="deleteMyGoal('${g.id}')">刪除</button></div></div>
+      <div class="goal-wrap">
+        <div class="goal-ring" style="--goal-progress:${progress}%"><div class="goal-ring-center"><div class="goal-percent">${Math.round(progress)}%</div></div></div>
+        <div><div class="goal-current">${money(currentNet)}</div><div class="goal-target">目標 +$${goal.toLocaleString()}</div>${achieved?'<div class="season-chip" style="display:inline-block;margin-top:7px">🎉 目標達成</div>':''}</div>
+      </div>
     </div>`
   }).join('')}</div>`
+}
+function returnToCurrentRoom(){
+  if(currentRoomId && appData?.rooms?.some(r=>r.id===currentRoomId)) openRoom(currentRoomId)
+  else show('home')
 }
 function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7) }
 function ensureRoom(name){
@@ -5283,12 +5202,6 @@ function showSessionDetail(id){
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
   div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
-}
-
-function backToFinishedRoom(){
-  ensureAppData()
-  if(currentRoomId && appData.rooms.some(r=>r.id===currentRoomId)) show('roomDashboard')
-  else show('home')
 }
 
 function saveCurrentSession(kind, finalValues){
