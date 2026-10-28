@@ -1090,6 +1090,25 @@ input{
 .profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding:10px 12px;border-radius:14px;background:#f6fbf8}
 .profile-name{font-weight:950;font-size:16px}
 
+/* ===== 個人目標 ===== */
+.goal-card{overflow:hidden}
+.goal-wrap{display:grid;grid-template-columns:132px 1fr;gap:18px;align-items:center}
+.goal-ring{--goal-progress:0%;width:126px;aspect-ratio:1;border-radius:50%;background:conic-gradient(#9fcdb6 var(--goal-progress),#f1ece7 0);display:grid;place-items:center;position:relative;margin:auto}
+.goal-ring::after{content:"";width:88px;aspect-ratio:1;border-radius:50%;background:#fffdf9;position:absolute}
+.goal-ring-center{position:relative;z-index:1;text-align:center;line-height:1.15}
+.goal-percent{font-size:25px;font-weight:950}
+.goal-small{font-size:10px;color:#8a8185;font-weight:850;margin-top:4px}
+.goal-current{font-size:25px;font-weight:950;margin-top:4px}
+.goal-target{font-size:12px;color:#81777c;margin-top:4px}
+.goal-remain{margin-top:10px;padding:9px 11px;border-radius:12px;background:#f6fbf8;font-size:12px;font-weight:850}
+@media(max-width:420px){.goal-wrap{grid-template-columns:112px 1fr;gap:12px}.goal-ring{width:108px}.goal-ring::after{width:76px}.goal-percent{font-size:21px}.goal-current{font-size:21px}}
+
+/* 一般計分時，座位表放進計分卡；投影時才顯示上方戰況座位表 */
+#game:not(.projection-mode) .game-status-card #playerStats{display:none}
+#game.projection-mode #playerStats{display:grid}
+.seat-picker-wrap{margin:14px 0 10px}
+.seat-picker-title{font-size:12px;font-weight:900;color:#81777c;margin-bottom:8px;text-align:center}
+
 /* ===== 誰與爭鋒 V2：長期戰績 / 房間 ===== */
 .compact-hero{padding-bottom:18px}
 .career-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -1174,6 +1193,11 @@ input{
     <div id="resumeGameInfo" class="career-note" style="margin:12px 0"></div>
     <button class="primary" onclick="resumeActiveGame()">▶ 繼續牌局</button>
     <button class="secondary" style="margin-top:8px;color:#b94f5f" onclick="discardActiveGame()">放棄這場未完成牌局</button>
+  </div>
+
+  <div class="card goal-card">
+    <div class="toprow"><h2>🎯 我的目標</h2><button class="link filled-link" onclick="setMyGoal()">修改目標</button></div>
+    <div id="myGoalContent"></div>
   </div>
 
   <div class="card">
@@ -1681,6 +1705,11 @@ input{
         流局
       </button>
 
+    </div>
+
+    <div class="seat-picker-wrap">
+      <div class="seat-picker-title">直接點座位選擇玩家</div>
+      <div id="seatPicker" class="player-stats"></div>
     </div>
 
 
@@ -3676,9 +3705,7 @@ function renderLiveStats(){
     )
 
 
-  document
-    .getElementById('playerStats')
-    .innerHTML=
+  const playerCardsHtml=
 
       P.map(player=>{
 
@@ -3799,6 +3826,10 @@ function renderLiveStats(){
 
       }).join('')
 
+  const liveSeatTable=document.getElementById('playerStats')
+  const scoringSeatTable=document.getElementById('seatPicker')
+  if(liveSeatTable) liveSeatTable.innerHTML=playerCardsHtml
+  if(scoringSeatTable) scoringSeatTable.innerHTML=playerCardsHtml
 
   renderMoneyPie()
 
@@ -4871,6 +4902,7 @@ function ensureAppData(){
     appData={version:2, profile:{name:''}, rooms:[], sessions:[]}
   }
   appData.profile=appData.profile||{name:''}
+  if(!Number.isFinite(Number(appData.profile.goal))) appData.profile.goal=0
   // 舊版預設測試房間直接移除；同房間的舊測試場次也一併清除。
   const legacyDefaultRooms=['之之麻將團','之芝麻醬團']
   if(Array.isArray(appData.rooms)){
@@ -4904,6 +4936,35 @@ function setMyNickname(){
   appData.profile.name=clean
   persistAppData()
   renderHomeDashboard()
+}
+function setMyGoal(){
+  ensureAppData()
+  const current=Number(appData.profile?.goal||0)
+  const raw=prompt('設定你的累積獲利目標（例如 15000）',current>0?current:'15000')
+  if(raw===null) return
+  const goal=Number(String(raw).replace(/[$,，\s]/g,''))
+  if(!Number.isFinite(goal)||goal<=0){ alert('請輸入大於 0 的金額'); return }
+  appData.profile=appData.profile||{}
+  appData.profile.goal=Math.round(goal)
+  persistAppData()
+  renderHomeDashboard()
+}
+function renderMyGoal(currentNet){
+  const box=document.getElementById('myGoalContent'); if(!box) return
+  const goal=Number(appData.profile?.goal||0)
+  if(goal<=0){
+    box.innerHTML=`<div class="career-note" style="margin-top:8px">還沒有設定目標。可以先設定一個想贏到的累積金額，例如 $15,000。</div><button class="primary" style="margin-top:10px" onclick="setMyGoal()">＋ 設定我的目標</button>`
+    return
+  }
+  const progress=Math.max(0,Math.min(100,currentNet/goal*100))
+  const remain=Math.max(0,goal-currentNet)
+  const achieved=currentNet>=goal
+  const extra=Math.max(0,currentNet-goal)
+  box.innerHTML=`<div class="goal-wrap">
+    <div class="goal-ring" style="--goal-progress:${progress}%"><div class="goal-ring-center"><div class="goal-percent">${Math.round(progress)}%</div><div class="goal-small">完成度</div></div></div>
+    <div><div class="muted">目前累積輸贏</div><div class="goal-current">${money(currentNet)}</div><div class="goal-target">目標 +$${goal.toLocaleString()}</div>
+    <div class="goal-remain">${achieved?`🎉 目標達成！超過目標 $${extra.toLocaleString()}`:`距離目標還差 $${remain.toLocaleString()}`}</div></div>
+  </div>`
 }
 function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7) }
 function ensureRoom(name){
@@ -4993,6 +5054,7 @@ function renderHomeDashboard(){
   const pd=document.getElementById('profileNameDisplay'); if(pd) pd.textContent=me||'尚未設定'
   const all=aggregateSessions(appData.sessions)
   const mine=all.find(x=>x.name===me)||{net:0,sessions:0,wins:0,selfdraws:0,discards:0}
+  renderMyGoal(mine.net||0)
   const mySessions=appData.sessions.filter(s=>Object.prototype.hasOwnProperty.call(sessionNets(s),me))
   const now=new Date(), ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
   const monthNet=mySessions.filter(s=>s.createdAt.slice(0,7)===ym).reduce((n,s)=>n+(sessionNets(s)[me]||0),0)
