@@ -5188,7 +5188,9 @@ function renderHomeDashboard(){
   const all=aggregateSessions(appData.sessions)
   const mine=all.find(x=>x.name===me)||{net:0,sessions:0,wins:0,selfdraws:0,discards:0}
   renderMyGoal(mine.net||0)
-  const mySessions=appData.sessions.filter(s=>Object.prototype.hasOwnProperty.call(sessionNets(s),me))
+  // 首頁所有統計一律直接從目前仍存在的 sessions 即時計算，避免刪除後沿用舊場數
+  const mySessions=(appData.sessions||[]).filter(s=>Object.prototype.hasOwnProperty.call(sessionNets(s),me))
+  const myDetailedSessions=mySessions.filter(s=>s.mode==='detailed' || (Array.isArray(s.hands)&&s.hands.length>0))
   const now=new Date(), ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
   const monthNet=mySessions.filter(s=>s.createdAt.slice(0,7)===ym).reduce((n,s)=>n+(sessionNets(s)[me]||0),0)
   const vals=mySessions.map(s=>sessionNets(s)[me]||0)
@@ -5202,7 +5204,7 @@ function renderHomeDashboard(){
     <div class="career-stat"><div class="k">放槍 / 放槍率</div><div class="v">${mine.discards||0} / ${rate}</div></div>
     <div class="career-stat"><div class="k">最佳單場</div><div class="v">${money(best)}</div></div>
     <div class="career-stat"><div class="k">最慘單場</div><div class="v">${money(worst)}</div></div>
-    <div class="career-stat"><div class="k">詳細紀錄場數</div><div class="v">${mySessions.filter(s=>(s.hands||[]).length>0).length} 場</div></div>`
+    <div class="career-stat"><div class="k">詳細紀錄場數</div><div class="v">${myDetailedSessions.length} 場</div></div>`
   document.getElementById('roomList').innerHTML=appData.rooms.map(r=>{
     const ss=roomSessions(r.id), a=aggregateSessions(ss), meRow=a.find(x=>x.name===me)
     return `<div class="room-row" onclick="openRoom('${r.id}')"><div><div class="room-name">🀄 ${r.name}</div><div class="room-meta">${ss.length} 場・我的戰績 ${money(meRow?meRow.net:0)}</div></div><div class="room-arrow">›</div></div>`
@@ -5236,12 +5238,15 @@ function deleteSessionById(id){
   const date=new Date(ss.createdAt).toLocaleDateString('zh-TW')
   if(!confirm(`確定要刪除 ${date} 這一場嗎？\n刪除後，長期戰績、排行榜、名人堂都會重新計算。`)) return
   appData.sessions=appData.sessions.filter(s=>s.id!==id)
-  persistAppData()
+  if(!persistAppData()) return
+  // 重新讀回剛剛實際寫入 localStorage 的資料，首頁不再使用刪除前的記憶體快取
+  const savedAfterDelete=safeParseStored(STORAGE_KEY)
+  if(savedAfterDelete) appData=normalizeAppData(savedAfterDelete)
   const modal=document.getElementById('sessionDetailModal')
   if(modal) modal.remove()
-  // 刪除單場後，首頁與房間統計都立即從目前 sessions 重算，避免首頁詳細紀錄場數殘留舊值
+  // 首頁與房間統計都從刪除後的 sessions 重新計算
   renderHomeDashboard()
-  if(document.getElementById('roomDashboard') && !document.getElementById('roomDashboard').classList.contains('hidden')) renderRoomDashboard()
+  renderRoomDashboard()
 }
 function createRoomPrompt(){
   const name=prompt('新房間叫什麼名字？')
