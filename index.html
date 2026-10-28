@@ -508,14 +508,32 @@ input{
   color:#514b53;
 }
 .entry-title{
-  font-size:24px;
-  line-height:1.15;
-  font-weight:900;
+  text-align:center;
   margin-bottom:18px;
+}
+.entry-round{
+  font-size:48px;
+  line-height:1;
+  font-weight:950;
+  color:#66977e;
+}
+.entry-dealer{
+  margin-top:8px;
+  font-size:20px;
+  line-height:1.25;
+  font-weight:900;
+  color:#514b53;
+}
+.entry-hand{
+  margin-top:5px;
+  font-size:14px;
+  font-weight:800;
+  color:#8c858d;
 }
 @media (max-width:700px){
   .hand-counter{font-size:30px;}
-  .entry-title{font-size:23px;}
+  .entry-round{font-size:52px;}
+  .entry-dealer{font-size:19px;}
 }
 
 .dealer-pill{
@@ -957,9 +975,31 @@ input{
 }
 #game.projection-mode .game-entry-card,
 #game.projection-mode .game-history-card,
-#game.projection-mode .game-finish-btn,
-#game.projection-mode .live-head{
+#game.projection-mode .game-finish-btn{
   display:none !important;
+}
+/* 投影時保留最重要的牌局狀態：東幾、莊家、連莊 */
+#game.projection-mode .live-head{
+  display:flex !important;
+  justify-content:center;
+  text-align:center;
+  margin-bottom:18px;
+}
+#game.projection-mode .live-head > div:first-child{
+  width:100%;
+}
+#game.projection-mode .live-head > div:last-child{
+  display:none !important;
+}
+#game.projection-mode .live-head .muted{
+  display:none !important;
+}
+#game.projection-mode .round-big{
+  font-size:clamp(64px,10vw,112px);
+}
+#game.projection-mode .dealer-pill{
+  font-size:clamp(20px,3vw,32px);
+  padding:10px 18px;
 }
 #game.projection-mode .game-status-card,
 #game.projection-mode .game-chart-card,
@@ -1162,6 +1202,11 @@ input{
       <button class="rule-btn" style="padding:9px 4px" onclick="setRoomFilter('week')">本週</button>
     </div>
     <div id="roomRanking"></div>
+  </div>
+
+  <div class="card trend-card room-trend-card">
+    <div class="toprow"><h2>📈 房間戰績走勢</h2><span class="muted">橫軸：日期・縱軸：累積輸贏</span></div>
+    <div id="roomTrendChart" class="trend-chart"></div>
   </div>
 
   <div class="card">
@@ -3157,9 +3202,10 @@ function renderGame(){
 
   document
     .getElementById('entryTitle')
-    .textContent=
-
-      `第 ${hands.length+1} 場`
+    .innerHTML=
+      `<div class="entry-round">${roundName}</div>`+
+      `<div class="entry-dealer">莊家：${dealer}${repeats>0?` ・ 連莊 ${repeats}`:' ・ 未連莊'}</div>`+
+      `<div class="entry-hand">第 ${hands.length+1} 場</div>`
 
 
   /* 問題文字 */
@@ -4982,6 +5028,43 @@ function startFromCurrentRoom(){
   ;[1,2,3,4].forEach((i,idx)=>{ const el=document.getElementById('player'+i); if(el) el.value=names[idx]||'' })
   show('setup')
 }
+function roomTrendChartHtml(sessions){
+  if(!sessions||!sessions.length) return '<div class="career-note">這個期間還沒有牌局紀錄，完成牌局後就會開始產生房間走勢。</div>'
+  const ordered=[...sessions].sort((a,b)=>a.createdAt.localeCompare(b.createdAt))
+  const players=[]
+  ordered.forEach(ss=>Object.keys(sessionNets(ss)).forEach(p=>{if(!players.includes(p)) players.push(p)}))
+  if(!players.length) return '<div class="muted">尚無玩家資料</div>'
+  const cumulative=Object.fromEntries(players.map(p=>[p,0]))
+  const points=[{label:'開始',fullLabel:'開始',values:{...cumulative}}]
+  ordered.forEach(ss=>{
+    const nets=sessionNets(ss)
+    players.forEach(p=>{ cumulative[p]+=Number(nets[p]||0) })
+    const d=new Date(ss.createdAt)
+    const label=`${d.getMonth()+1}/${d.getDate()}`
+    const time=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+    points.push({label,fullLabel:`${label} ${time}`,values:{...cumulative}})
+  })
+  const W=680,H=290,pad={l:54,r:18,t:24,b:48}
+  const vals=points.flatMap(pt=>players.map(p=>Number(pt.values[p]||0)))
+  let maxAbs=Math.max(100,...vals.map(v=>Math.abs(v))); maxAbs=Math.ceil(maxAbs/100)*100
+  const x=i=>pad.l+(points.length===1?0:(W-pad.l-pad.r)*i/(points.length-1))
+  const y=v=>pad.t+(H-pad.t-pad.b)*(maxAbs-v)/(maxAbs*2)
+  const colors=['#6caa8b','#cf7f91','#8aa8cf','#b394cf','#d4a65a','#65aeb2','#d28a62','#829c67']
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="房間長期累積輸贏折線圖">`
+  svg+=`<line x1="${pad.l}" y1="${y(0)}" x2="${W-pad.r}" y2="${y(0)}" stroke="#b9b1b4" stroke-width="1.5" stroke-dasharray="5 5"/>`
+  ;[-maxAbs,0,maxAbs].forEach(v=>svg+=`<text x="${pad.l-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8b8388">${v>0?'+':''}${v}</text>`)
+  const step=Math.max(1,Math.ceil((points.length-1)/6))
+  points.forEach((pt,i)=>{ if(i===0||i===points.length-1||i%step===0) svg+=`<text x="${x(i)}" y="${H-16}" text-anchor="middle" font-size="10" fill="#8b8388">${pt.label}</text>` })
+  players.forEach((p,pi)=>{
+    const path=points.map((pt,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(pt.values[p]||0).toFixed(1)}`).join(' ')
+    svg+=`<path d="${path}" fill="none" stroke="${colors[pi%colors.length]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
+    points.forEach((pt,i)=>svg+=`<circle cx="${x(i)}" cy="${y(pt.values[p]||0)}" r="3.2" fill="${colors[pi%colors.length]}"><title>${pt.fullLabel}・${p} ${Number(pt.values[p]||0)>=0?'+':''}$${Number(pt.values[p]||0).toLocaleString()}</title></circle>`)
+  })
+  svg+='</svg>'
+  const legend=players.map((p,i)=>`<span><i class="trend-dot" style="background:${colors[i%colors.length]}"></i>${p}</span>`).join('')
+  return svg+`<div class="trend-legend">${legend}</div>`
+}
+
 function renderRoomDashboard(){
   ensureAppData()
   let room=appData.rooms.find(r=>r.id===currentRoomId)
@@ -4998,6 +5081,7 @@ function renderRoomDashboard(){
     <div class="career-stat"><div class="k">參與玩家</div><div class="v">${rows.length}</div></div>
     <div class="career-stat"><div class="k">目前雀王</div><div class="v">${rows[0]?.name||'—'}</div></div>`
   document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 場・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
+  const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
   document.getElementById('roomSessionCount').textContent=`${ss.length} 場`
   document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(sessionRowHtml).join(''):'還沒有歷史牌局'
