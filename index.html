@@ -1234,7 +1234,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   </div>
 
   <div class="card goal-card">
-    <div class="toprow"><h2>🎯 我的目標</h2><button class="link filled-link" onclick="addMyGoal()">＋新增目標</button></div>
+    <div class="toprow"><h2>🎯 我的目標</h2><button type="button" class="link filled-link" onclick="addMyGoal()">＋新增目標</button></div>
     <div id="myGoalContent"></div>
   </div>
 
@@ -2171,6 +2171,7 @@ const ACTIVE_GAME_KEY='shuiYuZhengFengActiveGameV1'
 const STORAGE_BACKUP_KEY='shuiYuZhengFengV2_backup'
 const STORAGE_EMERGENCY_KEY='shuiYuZhengFengV2_emergency'
 const ROOM_VAULT_KEY='shuiYuZhengFengV2_rooms_vault'
+const GOAL_VAULT_KEY='shuiYuZhengFengV2_goals_vault'
 const DB_NAME='shuiYuZhengFengDB'
 const DB_STORE='app'
 const DB_KEY='main'
@@ -4900,11 +4901,36 @@ function mergeRooms(baseRooms, vaultRooms){
   return [...map.values()]
 }
 function saveRoomVault(){
-  if(!appData || !Array.isArray(appData.rooms) || appData.rooms.length===0) return
+  if(!appData || !Array.isArray(appData.rooms)) return
   try{ localStorage.setItem(ROOM_VAULT_KEY,JSON.stringify(appData.rooms)) }catch(e){ console.warn('房間獨立備份失敗',e) }
 }
+function readGoalVault(){
+  try{
+    const raw=localStorage.getItem(GOAL_VAULT_KEY)
+    const goals=raw?JSON.parse(raw):[]
+    return Array.isArray(goals)?goals:[]
+  }catch(e){ return [] }
+}
+function mergeGoals(baseGoals,vaultGoals){
+  const map=new Map()
+  ;[...(Array.isArray(baseGoals)?baseGoals:[]), ...(Array.isArray(vaultGoals)?vaultGoals:[])].forEach(g=>{
+    if(!g) return
+    const id=g.id||makeId('goal')
+    map.set(id,{...g,id})
+  })
+  return [...map.values()]
+}
+function saveGoalVault(){
+  if(!appData?.profile || !Array.isArray(appData.profile.goals)) return
+  try{ localStorage.setItem(GOAL_VAULT_KEY,JSON.stringify(appData.profile.goals)) }catch(e){ console.warn('目標獨立備份失敗',e) }
+}
 function ensureAppData(){
-  if(appData) return appData
+  if(appData){
+    appData=normalizeAppData(appData)
+    appData.rooms=mergeRooms(appData.rooms,readRoomVault())
+    appData.profile.goals=mergeGoals(appData.profile.goals,readGoalVault())
+    return appData
+  }
   const primary=safeParseStored(STORAGE_KEY)
   const backup=safeParseStored(STORAGE_BACKUP_KEY)
   const emergency=safeParseStored(STORAGE_EMERGENCY_KEY)
@@ -4914,6 +4940,7 @@ function ensureAppData(){
     || normalizeAppData({version:2,profile:{name:''},rooms:[],sessions:[]})
   // 房間使用獨立保險庫保存；空白 appData 絕不能覆蓋既有房間。
   appData.rooms=mergeRooms(appData.rooms,readRoomVault())
+  appData.profile.goals=mergeGoals(appData.profile.goals,readGoalVault())
   persistAppData()
   // 再從 IndexedDB 檢查一份獨立備份；若較完整會自動救回。
   setTimeout(restoreIndexedBackup,0)
@@ -4931,6 +4958,7 @@ function persistAppData(){
     localStorage.setItem(STORAGE_KEY,payload)
     localStorage.setItem(STORAGE_EMERGENCY_KEY,payload)
     saveRoomVault()
+    saveGoalVault()
     // 立即回讀驗證，避免瀏覽器表面成功但實際沒有保存。
     if(localStorage.getItem(STORAGE_KEY)!==payload) throw new Error('localStorage verification failed')
     saveIndexedBackup(JSON.parse(payload))
@@ -4962,8 +4990,10 @@ function addMyGoal(){
   if(raw===null) return
   const amount=Number(String(raw).replace(/[$,，\s]/g,''))
   if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
+  appData.profile=appData.profile||{}
+  appData.profile.goals=Array.isArray(appData.profile.goals)?appData.profile.goals:[]
   appData.profile.goals.push({id:makeId('goal'),name,amount:Math.round(amount)})
-  persistAppData(); renderHomeDashboard()
+  saveGoalVault(); persistAppData(); renderHomeDashboard()
 }
 function editMyGoal(id){
   ensureAppData()
@@ -4974,21 +5004,21 @@ function editMyGoal(id){
   const amount=Number(String(raw).replace(/[$,，\s]/g,''))
   if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
   g.name=name; g.amount=Math.round(amount)
-  persistAppData(); renderHomeDashboard()
+  saveGoalVault(); persistAppData(); renderHomeDashboard()
 }
 function deleteMyGoal(id){
   ensureAppData()
   const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
   if(!confirm(`刪除目標「${g.name}」？`)) return
   appData.profile.goals=appData.profile.goals.filter(x=>x.id!==id)
-  persistAppData(); renderHomeDashboard()
+  saveGoalVault(); persistAppData(); renderHomeDashboard()
 }
 function setMyGoal(){ addMyGoal() }
 function renderMyGoal(currentNet){
   const box=document.getElementById('myGoalContent'); if(!box) return
   const goals=Array.isArray(appData.profile?.goals)?appData.profile.goals:[]
   if(!goals.length){
-    box.innerHTML=`<button class="primary" style="margin-top:10px" onclick="addMyGoal()">＋ 新增第一個目標</button>`
+    box.innerHTML=`<button class="primary" style="margin-top:10px" type="button" onclick="addMyGoal()">＋ 新增第一個目標</button>`
     return
   }
   box.innerHTML=`<div class="goal-list">${goals.map(g=>{
