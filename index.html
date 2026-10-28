@@ -1343,6 +1343,18 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .account-chip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .account-email{font-size:12px;color:#8a837b;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+
+
+/* ===== V25 全站自製彈窗 ===== */
+.app-dialog-backdrop{position:fixed;inset:0;z-index:99999;background:rgba(31,38,48,.42);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);display:flex;align-items:flex-end;justify-content:center;padding:18px;animation:dlgFade .18s ease}
+.app-dialog{width:min(100%,440px);background:rgba(255,255,255,.98);border:1px solid rgba(255,255,255,.75);border-radius:26px;box-shadow:0 24px 70px rgba(31,38,48,.24);padding:22px 20px calc(20px + env(safe-area-inset-bottom));animation:dlgUp .22s cubic-bezier(.2,.8,.2,1)}
+.app-dialog-icon{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;margin:0 auto 12px;background:#fff2f4;font-size:24px}.app-dialog.danger .app-dialog-icon{background:#fff0f1}.app-dialog.success .app-dialog-icon{background:#edf9f1}
+.app-dialog-title{text-align:center;font-weight:900;font-size:20px;line-height:1.3;color:#263238;margin-bottom:8px}.app-dialog-message{text-align:center;color:#66737b;font-size:14px;line-height:1.65;white-space:pre-line;margin:0 auto 16px;max-width:360px}
+.app-dialog-input{width:100%;box-sizing:border-box;border:1.5px solid #e4e7ea;border-radius:16px;background:#f8fafb;padding:14px 15px;font:inherit;font-size:16px;color:#263238;outline:none;margin:2px 0 16px}.app-dialog-input:focus{border-color:#e7a5b0;background:#fff;box-shadow:0 0 0 4px rgba(231,165,176,.13)}textarea.app-dialog-input{min-height:120px;resize:vertical;line-height:1.5}
+.app-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.app-dialog-actions.single{grid-template-columns:1fr}.app-dialog-btn{border:0;border-radius:16px;padding:13px 14px;font:inherit;font-weight:800;font-size:15px;cursor:pointer}.app-dialog-btn.cancel{background:#f1f3f5;color:#66737b}.app-dialog-btn.ok{background:#37474f;color:#fff}.app-dialog-btn.danger{background:#c85b67;color:#fff}.app-dialog-btn:active{transform:scale(.985)}
+@keyframes dlgFade{from{opacity:0}to{opacity:1}}@keyframes dlgUp{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+@media(min-width:600px){.app-dialog-backdrop{align-items:center}.app-dialog{padding:24px}}
+
 </style>
 </head>
 
@@ -2252,6 +2264,28 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
 <script>
 
+/* ===== V25：全站自製彈窗（取代瀏覽器 alert / confirm / prompt） ===== */
+function appDialogBase({title='',message='',icon='🀄',kind='',input=false,value='',placeholder='',multiline=false,okText='確定',cancelText='取消',showCancel=false,danger=false}={}){
+  return new Promise(resolve=>{
+    const old=document.getElementById('appDialogBackdrop'); if(old) old.remove()
+    const wrap=document.createElement('div'); wrap.id='appDialogBackdrop'; wrap.className='app-dialog-backdrop'
+    const safe=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+    const field=input?(multiline?`<textarea id="appDialogInput" class="app-dialog-input" placeholder="${safe(placeholder)}">${safe(value)}</textarea>`:`<input id="appDialogInput" class="app-dialog-input" value="${safe(value)}" placeholder="${safe(placeholder)}" autocomplete="off">`):''
+    wrap.innerHTML=`<div class="app-dialog ${safe(kind)}"><div class="app-dialog-icon">${safe(icon)}</div><div class="app-dialog-title">${safe(title)}</div>${message?`<div class="app-dialog-message">${safe(message)}</div>`:''}${field}<div class="app-dialog-actions ${showCancel?'':'single'}">${showCancel?`<button type="button" class="app-dialog-btn cancel" data-action="cancel">${safe(cancelText)}</button>`:''}<button type="button" class="app-dialog-btn ${danger?'danger':'ok'}" data-action="ok">${safe(okText)}</button></div></div>`
+    document.body.appendChild(wrap)
+    const finish=(ok)=>{const val=input?(document.getElementById('appDialogInput')?.value??''):ok;wrap.remove();resolve(input?(ok?val:null):ok)}
+    wrap.querySelector('[data-action="ok"]')?.addEventListener('click',()=>finish(true))
+    wrap.querySelector('[data-action="cancel"]')?.addEventListener('click',()=>finish(false))
+    wrap.addEventListener('click',e=>{if(e.target===wrap&&showCancel) finish(false)})
+    const inp=document.getElementById('appDialogInput'); if(inp){setTimeout(()=>{inp.focus(); if(!multiline) inp.select()},60);inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!multiline){e.preventDefault();finish(true)}else if(e.key==='Escape')finish(false)})}
+  })
+}
+function uiAlert(message,title='提醒',opts={}){return appDialogBase({title,message,icon:opts.icon||'🀄',kind:opts.kind||'',okText:opts.okText||'知道了'})}
+function uiConfirm(message,title='請確認',opts={}){return appDialogBase({title,message,icon:opts.icon||(opts.danger?'⚠️':'🀄'),kind:opts.danger?'danger':'',showCancel:true,okText:opts.okText||'確定',cancelText:opts.cancelText||'取消',danger:!!opts.danger})}
+function uiPrompt(title,value='',opts={}){return appDialogBase({title,message:opts.message||'',icon:opts.icon||'✏️',input:true,value,placeholder:opts.placeholder||'',multiline:!!opts.multiline,showCancel:true,okText:opts.okText||'確定',cancelText:'取消'})}
+window.alert=(message)=>{void uiAlert(String(message??''))}
+
+
 /* ===== v23：PocketBase Auth + Rooms（NAS / Cloudflare Quick Tunnel） ===== */
 const PB_BASE_URL='https://birmingham-factor-details-released.trycloudflare.com'
 const PB_AUTH_KEY='shuiYuZhengFengPocketBaseAuthV1'
@@ -2344,7 +2378,7 @@ async function joinPocketBaseRoom(inviteCode){
 }
 async function joinRoomPrompt(prefill=''){
   if(!pbAuth?.token){ alert('請先登入帳號'); return }
-  const code=prompt('請輸入 6 位數房間邀請碼',prefill||'')
+  const code=await uiPrompt('加入房間',prefill||'',{message:'請輸入朋友分享給你的 6 位數邀請碼',placeholder:'例如 123456',icon:'🔑',okText:'加入房間'})
   if(code===null) return
   const clean=code.trim()
   if(!/^\d{6}$/.test(clean)){ alert('邀請碼是 6 位數字'); return }
@@ -2404,7 +2438,7 @@ async function shareCurrentRoom(){
     await navigator.clipboard.writeText(text)
     alert('邀請內容已複製，可以直接貼到 LINE 給朋友。')
   }catch(e){
-    prompt('複製下面的邀請內容傳給朋友',text)
+    await uiPrompt('分享房間',text,{message:'長按複製下面內容，再貼到 LINE 給朋友',multiline:true,icon:'↗️',okText:'完成'})
   }
 }
 
@@ -2457,7 +2491,7 @@ function renderAccountHeader(){
 async function editAccountName(){
   if(!pbAuth?.record?.id) return
   const current=pbAuth.record.name||''
-  const name=prompt('修改暱稱',current)
+  const name=await uiPrompt('修改暱稱',current,{placeholder:'輸入你的暱稱',icon:'✏️',okText:'儲存'})
   if(name===null) return
   const clean=name.trim()
   if(!clean){alert('暱稱不能空白');return}
@@ -2468,8 +2502,8 @@ async function editAccountName(){
     renderHomeDashboard(); renderAccountHeader()
   }catch(e){ alert('暱稱修改失敗：'+e.message) }
 }
-function logoutAccount(){
-  if(!confirm('要登出誰與爭鋒嗎？')) return
+async function logoutAccount(){
+  if(!await uiConfirm('登出後，下次需要重新輸入帳號密碼。','要登出誰與爭鋒嗎？',{icon:'👋',okText:'登出'})) return
   savePocketBaseAuth(null)
   setAuthMode('login')
   document.getElementById('authForm')?.reset()
@@ -5274,10 +5308,10 @@ function persistAppData(){
     return false
   }
 }
-function setMyNickname(){
+async function setMyNickname(){
   ensureAppData()
   const current=(appData.profile&&appData.profile.name)||''
-  const name=prompt('請輸入你的固定暱稱',current)
+  const name=await uiPrompt('設定固定暱稱',current,{placeholder:'你的暱稱',icon:'✏️',okText:'儲存'})
   if(name===null) return
   const clean=name.trim()
   if(!clean){ alert('暱稱不能空白'); return }
@@ -5286,13 +5320,13 @@ function setMyNickname(){
   persistAppData()
   renderHomeDashboard()
 }
-function addMyGoal(){
+async function addMyGoal(){
   ensureAppData()
-  const nameRaw=prompt('目標名稱','我的新目標')
+  const nameRaw=await uiPrompt('目標名稱','我的新目標',{placeholder:'例如：今年贏 15,000',icon:'🎯',okText:'下一步'})
   if(nameRaw===null) return
   const name=nameRaw.trim()
   if(!name){ alert('請輸入目標名稱'); return }
-  const amountRaw=prompt('目標金額','15000')
+  const amountRaw=await uiPrompt('目標金額','15000',{message:'輸入你想達成的累積金額',placeholder:'15000',icon:'💰',okText:'建立目標'})
   if(amountRaw===null) return
   const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
   if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
@@ -5301,21 +5335,21 @@ function addMyGoal(){
   if(!persistAppData()) appData.profile.goals=appData.profile.goals.filter(g=>g.id!==goal.id)
   renderHomeDashboard()
 }
-function editMyGoal(id){
+async function editMyGoal(id){
   ensureAppData()
   const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
-  const nameRaw=prompt('修改目標名稱',g.name); if(nameRaw===null) return
+  const nameRaw=await uiPrompt('修改目標名稱',g.name,{icon:'🎯',okText:'下一步'}); if(nameRaw===null) return
   const name=nameRaw.trim(); if(!name){ alert('目標名稱不能空白'); return }
-  const amountRaw=prompt('修改目標金額',String(g.amount)); if(amountRaw===null) return
+  const amountRaw=await uiPrompt('修改目標金額',String(g.amount),{icon:'💰',okText:'儲存'}); if(amountRaw===null) return
   const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
   if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
   g.name=name; g.amount=Math.round(amount)
   persistAppData(); renderHomeDashboard()
 }
-function deleteMyGoal(id){
+async function deleteMyGoal(id){
   ensureAppData()
   const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
-  if(!confirm(`刪除目標「${g.name}」？`)) return
+  if(!await uiConfirm(`刪除後無法復原。`,`刪除目標「${g.name}」？`,{danger:true,okText:'刪除'})) return
   appData.profile.goals=appData.profile.goals.filter(x=>x.id!==id)
   persistAppData(); renderHomeDashboard()
 }
@@ -5458,13 +5492,15 @@ function resumeActiveGame(){
   tai=0; winner=''; discarder=''; result='胡牌'; fraudTai={}; selectedPatterns=[]
   renderGame(); show('game')
 }
-function discardActiveGame(){
-  if(!confirm('確定要放棄這場未完成牌局嗎？\n已記錄的進度會從本機刪除。')) return
+async function discardActiveGame(){
+  if(!await uiConfirm('已記錄的進度會從本機刪除。','放棄這場未完成牌局？',{danger:true,okText:'放棄牌局'})) return
   clearActiveGame(); renderHomeDashboard()
 }
-function guardNewGame(){
+async function guardNewGame(){
   if(!getActiveGame()) return true
-  return confirm('目前還有一場未完成的牌局。\n按「取消」回首頁繼續舊牌局；按「確定」才會放棄舊牌局並開新牌局。') ? (clearActiveGame(),true) : false
+  const ok=await uiConfirm('目前還有一場未完成的牌局。放棄後才會開始新的牌局。','要放棄舊牌局嗎？',{danger:true,okText:'放棄並開新局',cancelText:'繼續舊牌局'})
+  if(ok){clearActiveGame();return true}
+  return false
 }
 function renderHomeDashboard(){
   ensureAppData()
@@ -5510,7 +5546,7 @@ async function deleteCurrentRoom(){
   const room=appData.rooms.find(r=>r.id===currentRoomId)
   if(!room) return
   const count=appData.sessions.filter(s=>s.roomId===room.id).length
-  if(!confirm(`確定要刪除「${room.name}」嗎？\n這個房間的 ${count} 場本機歷史牌局也會一起刪除，而且無法復原。`)) return
+  if(!await uiConfirm(`這個房間的 ${count} 場本機歷史牌局也會一起刪除，而且無法復原。`,`刪除「${room.name}」？`,{danger:true,okText:'刪除房間'})) return
   try{
     if(room.pocketbase){
       await pbRequest(`/api/collections/rooms/records/${encodeURIComponent(room.id)}`,{method:'DELETE'})
@@ -5523,12 +5559,12 @@ async function deleteCurrentRoom(){
     show('home')
   }catch(e){ alert('刪除房間失敗：'+e.message) }
 }
-function deleteSessionById(id){
+async function deleteSessionById(id){
   ensureAppData()
   const ss=appData.sessions.find(s=>s.id===id)
   if(!ss) return
   const date=new Date(ss.createdAt).toLocaleDateString('zh-TW')
-  if(!confirm(`確定要刪除 ${date} 這一場嗎？\n刪除後，長期戰績、排行榜、名人堂都會重新計算。`)) return
+  if(!await uiConfirm('刪除後，長期戰績、排行榜、名人堂都會重新計算。',`刪除 ${date} 這一場？`,{danger:true,okText:'刪除牌局'})) return
   appData.sessions=appData.sessions.filter(s=>s.id!==id)
   if(!persistAppData()) return
   // 重新讀回剛剛實際寫入 localStorage 的資料，首頁不再使用刪除前的記憶體快取
@@ -5542,7 +5578,7 @@ function deleteSessionById(id){
 }
 async function createRoomPrompt(){
   if(!pbAuth?.token){ alert('請先登入帳號'); return }
-  const name=prompt('新房間叫什麼名字？')
+  const name=await uiPrompt('建立新房間','',{message:'幫這個麻將群取一個名字',placeholder:'例如：週五麻將團',icon:'🀄',okText:'建立房間'})
   if(!name||!name.trim()) return
   const clean=name.trim()
   try{
@@ -5558,14 +5594,14 @@ async function createRoomPrompt(){
     }
   }catch(e){ alert('建立房間失敗：'+(e.message||'請稍後再試')) }
 }
-function quickStartGame(){
-  ensureAppData(); if(!guardNewGame()) return; currentRoomId=''
+async function quickStartGame(){
+  ensureAppData(); if(!await guardNewGame()) return; currentRoomId=''
   document.getElementById('room').value=''
   ;[1,2,3,4].forEach(i=>{ const el=document.getElementById('player'+i); if(el) el.value=(i===1?(appData.profile?.name||''):'') })
   show('setup')
 }
-function startFromCurrentRoom(){
-  ensureAppData(); if(!guardNewGame()) return; const r=appData.rooms.find(x=>x.id===currentRoomId)
+async function startFromCurrentRoom(){
+  ensureAppData(); if(!await guardNewGame()) return; const r=appData.rooms.find(x=>x.id===currentRoomId)
   if(!r) return show('home')
   document.getElementById('room').value=r.name
   const me=appData.profile?.name||''
@@ -5819,29 +5855,29 @@ function exportAllData(){
 function importAllData(event){
   const file=event.target.files&&event.target.files[0]; if(!file) return
   const reader=new FileReader()
-  reader.onload=()=>{
+  reader.onload=async ()=>{
     try{
       const data=JSON.parse(reader.result)
       if(!data||data.version!==2||!Array.isArray(data.rooms)||!Array.isArray(data.sessions)) throw new Error('格式不符')
-      if(!confirm(`要匯入 ${data.sessions.length} 場紀錄嗎？\n目前資料會被這份備份取代。`)) return
+      if(!await uiConfirm('目前資料會被這份備份取代。',`要匯入 ${data.sessions.length} 場紀錄嗎？`,{danger:true,okText:'匯入並取代'})) return
       appData=data; persistAppData(); currentRoomId=''; show('home'); alert('匯入完成')
     }catch(e){ alert('這不是有效的「誰與爭鋒」備份檔。') }
     event.target.value=''
   }
   reader.readAsText(file)
 }
-function clearTestData(){
+async function clearTestData(){
   ensureAppData()
-  if(!confirm(`確定要清除全部 ${appData.sessions.length} 場測試戰績嗎？\n房間會保留，但牌局紀錄無法從這個按鈕復原。`)) return
+  if(!await uiConfirm('房間會保留，但牌局紀錄無法從這個按鈕復原。',`清除全部 ${appData.sessions.length} 場測試戰績？`,{danger:true,okText:'清除戰績'})) return
   appData.sessions=[]; persistAppData(); show('home'); alert('測試戰績已清除')
 }
 
-function clearAllLocalData(){
+async function clearAllLocalData(){
   ensureAppData()
   const sessionCount=Array.isArray(appData.sessions)?appData.sessions.length:0
   const roomCount=Array.isArray(appData.rooms)?appData.rooms.length:0
-  if(!confirm(`確定要把這台裝置上的測試資料全部清空嗎？\n\n目前有 ${roomCount} 個房間、${sessionCount} 場牌局。\n房間、歷史牌局、長期戰績、目標、暱稱、未完成牌局都會一起清除。`)) return
-  const typed=prompt('這個動作無法復原。\n請輸入「清除」確認：','')
+  if(!await uiConfirm(`目前有 ${roomCount} 個房間、${sessionCount} 場牌局。\n房間、歷史牌局、長期戰績、目標、暱稱、未完成牌局都會一起清除。`,'清空這台裝置的測試資料？',{danger:true,okText:'繼續清除'})) return
+  const typed=await uiPrompt('最後確認','',{message:'這個動作無法復原。請輸入「清除」確認。',placeholder:'輸入：清除',icon:'⚠️',okText:'確認清除'})
   if(typed!=='清除'){
     if(typed!==null) alert('沒有輸入「清除」，資料未變更。')
     return
