@@ -2781,22 +2781,24 @@ async function createRemoteGameSession(){
     const map=await loadRoomPlayerMap(currentRoomId)
     const playerIds=P.map(n=>map[n]?.id).filter(Boolean)
     const dealerId=map[dealer]?.id||''
-    if(playerIds.length!==4 || !dealerId){
-      console.warn('V28：room_players 尚未包含本桌四位玩家，這場先維持本機計分，不影響牌局。')
-      return null
+    // V29：即使 room_players 尚未建立完整，也一定先建立 active game_session。
+    // 這樣同房間的其他正式成員可以先看見「牌局進行中」；
+    // 玩家 relation 完整時再一併寫入，避免 V28 因 playerIds 不足直接放棄建立遠端牌局。
+    const sessionPayload={
+      room:currentRoomId,status:'active',recorder:pbAuth.record.id,
+      round:getRoundName(roundIndex),dealer_repeats:repeats,
+      hand_number:hands.length+1,started_at:new Date().toISOString()
     }
+    if(playerIds.length===4) sessionPayload.players=playerIds
+    if(dealerId) sessionPayload.dealer=dealerId
     const rec=await pbRequest('/api/collections/game_sessions/records',{
       method:'POST',
-      body:JSON.stringify({
-        room:currentRoomId,status:'active',players:playerIds,dealer:dealerId,
-        recorder:pbAuth.record.id,round:getRoundName(roundIndex),dealer_repeats:repeats,
-        hand_number:hands.length+1,started_at:new Date().toISOString()
-      })
+      body:JSON.stringify(sessionPayload)
     })
     remoteSessionId=rec.id
     return rec
   }catch(e){
-    console.warn('V28：建立遠端牌局失敗，本機計分照常運作',e)
+    console.warn('V29：建立遠端牌局失敗，本機計分照常運作',e)
     return null
   }
 }
@@ -2845,7 +2847,7 @@ async function syncCurrentRoomLiveSession(){
     const data=await pbRequest(`/api/collections/game_sessions/records?perPage=20&sort=-created&filter=${filter}`)
     const ss=(data.items||[])[0]
     if(!ss){ box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>'; return }
-    box.innerHTML=`<div class="notice ok"><b>${escapeHtml(ss.round||'牌局進行中')}</b>・第 ${Number(ss.hand_number||1)} 把<br><span class="muted">已確認的紀錄會從 NAS 同步，不會改動紀錄者手機。</span></div><button class="primary" style="margin-top:10px" onclick="openLiveSession('${ss.id}')">👀 觀看直播</button>`
+    box.innerHTML=`<div class="notice ok"><b>🟢 牌局進行中</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把<br><span class="muted">已確認的紀錄會從 NAS 同步，不會改動紀錄者手機。</span></div><button class="primary" style="margin-top:10px" onclick="openLiveSession('${ss.id}')">👀 觀看直播</button>`
   }catch(e){
     box.innerHTML='<div class="muted">目前無法讀取即時牌局。若剛設定 API Rules，請重新整理後再試。</div>'
   }
