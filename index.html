@@ -1444,7 +1444,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
-    <div class="auth-note">目前是 V27 莊家醒目版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
+    <div class="auth-note">目前是 V28 多人直播第一階段。原本計分仍保留本機自動存檔，並開始同步已確認牌局到 NAS PocketBase。</div>
   </div>
 </section>
 
@@ -1511,6 +1511,16 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   <div class="card room-members-card">
     <div class="toprow"><h2>👥 房間成員</h2><span id="roomMemberCount" class="season-chip">讀取中</span></div>
     <div id="roomMembers" class="room-members-list"><div class="muted">正在讀取房間成員…</div></div>
+  </div>
+
+  <div class="card">
+    <div class="toprow"><h2>📡 即時牌局</h2><button class="link" onclick="syncCurrentRoomLiveSession()">重新整理</button></div>
+    <div id="roomLiveSession"><div class="muted">正在確認目前是否有進行中的牌局…</div></div>
+  </div>
+
+  <div class="card">
+    <div class="toprow"><h2>🔐 加入／觀看申請</h2><span class="muted">只有房主可以核准</span></div>
+    <div id="roomJoinRequests"><div class="muted">正在讀取申請…</div></div>
   </div>
 
   <div class="card">
@@ -2329,6 +2339,9 @@ const PB_BASE_URL='https://birmingham-factor-details-released.trycloudflare.com'
 const PB_AUTH_KEY='shuiYuZhengFengPocketBaseAuthV1'
 let authMode='login'
 let pbAuth=loadPocketBaseAuth()
+let remoteSessionId=''
+let remoteRoomPlayerMap={}
+let liveViewerMode=false
 
 function loadPocketBaseAuth(){
   try{
@@ -2742,6 +2755,146 @@ function getPlayers(){
 /* =========================
    開始
 ========================= */
+
+
+function pbFilterValue(v){ return String(v??'').replace(/\\/g,'\\\\').replace(/"/g,'\\"') }
+
+async function loadRoomPlayerMap(roomId=currentRoomId){
+  if(!roomId || !pbAuth?.token) return {}
+  try{
+    const filter=encodeURIComponent(`room="${pbFilterValue(roomId)}" && status="active"`)
+    const data=await pbRequest(`/api/collections/room_players/records?perPage=200&filter=${filter}`)
+    const map={}
+    ;(data.items||[]).forEach(x=>{ if(x.display_name) map[x.display_name]=x })
+    remoteRoomPlayerMap=map
+    return map
+  }catch(e){
+    console.warn('room_players 尚未可讀取',e)
+    return {}
+  }
+}
+
+async function createRemoteGameSession(){
+  remoteSessionId=''
+  if(!pbAuth?.record?.id || !currentRoomId || mode!=='detailed') return null
+  try{
+    const map=await loadRoomPlayerMap(currentRoomId)
+    const playerIds=P.map(n=>map[n]?.id).filter(Boolean)
+    const dealerId=map[dealer]?.id||''
+    if(playerIds.length!==4 || !dealerId){
+      console.warn('V28：room_players 尚未包含本桌四位玩家，這場先維持本機計分，不影響牌局。')
+      return null
+    }
+    const rec=await pbRequest('/api/collections/game_sessions/records',{
+      method:'POST',
+      body:JSON.stringify({
+        room:currentRoomId,status:'active',players:playerIds,dealer:dealerId,
+        recorder:pbAuth.record.id,round:getRoundName(roundIndex),dealer_repeats:repeats,
+        hand_number:hands.length+1,started_at:new Date().toISOString()
+      })
+    })
+    remoteSessionId=rec.id
+    return rec
+  }catch(e){
+    console.warn('V28：建立遠端牌局失敗，本機計分照常運作',e)
+    return null
+  }
+}
+
+async function syncRemoteConfirmedHand(hand){
+  if(!remoteSessionId || !pbAuth?.record?.id || !hand) return
+  try{
+    const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
+    const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
+    const handNo=hands.length
+    const payload={
+      session:remoteSessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
+      dealer:map[hand.dealer]?.id||'',dealer_repeats:Number(hand.repeats||0),
+      result:resultMap[hand.result]||'draw',winner:map[hand.winner]?.id||'',
+      discarder:map[hand.discarder]?.id||'',tai:Number(hand.tai||0),
+      patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...balances},
+      recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
+    }
+    await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+    await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
+      method:'PATCH',
+      body:JSON.stringify({
+        dealer:map[dealer]?.id||payload.dealer,round:getRoundName(roundIndex),
+        dealer_repeats:repeats,hand_number:hands.length+1
+      })
+    })
+  }catch(e){ console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e) }
+}
+
+async function completeRemoteSession(reason='normal'){
+  if(!remoteSessionId) return
+  try{
+    await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
+      method:'PATCH',
+      body:JSON.stringify({status:'completed',ended_reason:reason,ended_at:new Date().toISOString()})
+    })
+  }catch(e){ console.warn('V28：遠端結束狀態同步失敗',e) }
+}
+
+async function syncCurrentRoomLiveSession(){
+  const box=document.getElementById('roomLiveSession')
+  if(!box || !currentRoomId || !pbAuth?.token) return
+  box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
+  try{
+    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
+    const data=await pbRequest(`/api/collections/game_sessions/records?perPage=20&sort=-created&filter=${filter}`)
+    const ss=(data.items||[])[0]
+    if(!ss){ box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>'; return }
+    box.innerHTML=`<div class="notice ok"><b>${escapeHtml(ss.round||'牌局進行中')}</b>・第 ${Number(ss.hand_number||1)} 把<br><span class="muted">已確認的紀錄會從 NAS 同步，不會改動紀錄者手機。</span></div><button class="primary" style="margin-top:10px" onclick="openLiveSession('${ss.id}')">👀 觀看直播</button>`
+  }catch(e){
+    box.innerHTML='<div class="muted">目前無法讀取即時牌局。若剛設定 API Rules，請重新整理後再試。</div>'
+  }
+}
+
+async function openLiveSession(sessionId){
+  try{
+    const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
+    const roomMap=await loadRoomPlayerMap(ss.room)
+    const byId=Object.fromEntries(Object.values(roomMap).map(x=>[x.id,x]))
+    const names=(ss.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
+    if(names.length!==4) throw new Error('這場的玩家資料尚未完整')
+    const hf=encodeURIComponent(`session="${pbFilterValue(sessionId)}"`)
+    const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
+    P=[...names]; seats=[...names]
+    dealer=byId[ss.dealer]?.display_name||names[0]
+    dealerSeatIndex=Math.max(0,seats.indexOf(dealer))
+    recorderPlayer=names[0]
+    roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round))
+    repeats=Number(ss.dealer_repeats||0)
+    hands=(hd.items||[]).map(h=>({
+      round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,
+      winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',
+      tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:byId[h.dealer]?.display_name||dealer,
+      repeats:Number(h.dealer_repeats||0)
+    }))
+    const last=(hd.items||[]).slice(-1)[0]
+    balances=last?.balances_after||Object.fromEntries(P.map(n=>[n,0]))
+    currentRule=stakeRules[selectedStake]||stakeRules['100/20']
+    liveViewerMode=true
+    renderGame(); show('game')
+    const game=document.getElementById('game')
+    game.classList.add('projection-mode')
+    document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn').forEach(el=>el.style.display='none')
+  }catch(e){ alert('目前無法開啟直播：'+(e.message||'請稍後再試')) }
+}
+
+async function syncRoomJoinRequests(){
+  const box=document.getElementById('roomJoinRequests')
+  if(!box || !currentRoomId || !pbAuth?.token) return
+  try{
+    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="pending"`)
+    const data=await pbRequest(`/api/collections/room_join_requests/records?perPage=100&sort=-created&filter=${filter}`)
+    const items=data.items||[]
+    box.innerHTML=items.length?items.map(x=>`<div class="room-member-row"><div><b>${escapeHtml(x.guest_name||'加入申請')}</b><div class="muted">${x.request_type==='viewer'?'只觀看這場':'申請加入房間'}</div></div><span class="season-chip">待房主核准</span></div>`).join(''):'<div class="muted">目前沒有待處理申請。</div>'
+  }catch(e){
+    box.innerHTML='<div class="muted">申請讀取權限尚未開放；不影響現有房間與計分。</div>'
+  }
+}
 
 function startGame(){
 
@@ -3184,7 +3337,7 @@ function selectRecorder(player,element){
 }
 
 
-function confirmDealer(){
+async function confirmDealer(){
 
   if(!dealer){
 
@@ -3201,6 +3354,7 @@ function confirmDealer(){
 
   renderGame()
   persistActiveGame()
+  await createRemoteGameSession()
 
   show('game')
 
@@ -4589,6 +4743,8 @@ function saveHand(){
   }
 
 
+  void syncRemoteConfirmedHand(hand)
+
   if(autoEndAfterHand){
     persistActiveGame()
     autoEndAfterHand=false
@@ -5099,6 +5255,7 @@ function finishDetailedGame(){
 
 
   saveCurrentSession('detailed')
+  void completeRemoteSession('normal')
   clearActiveGame()
   show('done')
 
@@ -5522,6 +5679,7 @@ function renderResumeGameCard(){
   if(info) info.innerHTML=`<b>${room?.name||'未完成牌局'}</b>・${getRoundName(g.roundIndex||0)}・第 ${(g.hands||[]).length+1} 場<br>${(g.P||[]).join('・')}`
 }
 function resumeActiveGame(){
+  remoteSessionId=''
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
   currentRoomId=g.currentRoomId||''; P=g.P||[]; seats=g.seats||[...P]; selectedStake=g.selectedStake||selectedStake
   currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; hands=g.hands||[]
@@ -5764,6 +5922,8 @@ function renderRoomDashboard(){
   document.getElementById('roomDashboardTitle').textContent=room.name
   const inviteEl=document.getElementById('roomInviteCodeDisplay'); if(inviteEl) inviteEl.innerHTML=room.invite_code?`<span>邀請碼 <b>${room.invite_code}</b></span><button type="button" class="link" style="margin-left:8px;padding:5px 9px" onclick="shareCurrentRoom()" aria-label="分享房間邀請">↗ 分享</button>`:''
   syncCurrentRoomMembers()
+  syncCurrentRoomLiveSession()
+  syncRoomJoinRequests()
   document.getElementById('roomSummary').innerHTML=`
     <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
