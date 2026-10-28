@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fffaf5">
-<title>麻將日記</title>
+<title>誰與爭鋒</title>
 
 <style>
 :root{
@@ -512,10 +512,30 @@ input{
 
 .player-stats{
   display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:9px;
+  grid-template-columns:1fr 1fr 1fr;
+  grid-template-areas:
+    '. top .'
+    'left . right'
+    '. bottom .';
+  gap:10px;
   margin-top:14px;
+  align-items:center;
 }
+.player-card.pos-top{grid-area:top}
+.player-card.pos-left{grid-area:left}
+.player-card.pos-right{grid-area:right}
+.player-card.pos-bottom{grid-area:bottom}
+.player-card.pos-bottom{box-shadow:0 0 0 2px rgba(108,170,139,.22) inset}
+.player-wind{font-size:12px;font-weight:950;color:#8b8388;margin-bottom:3px}
+.recorder-tag{display:inline-block;margin-left:5px;padding:2px 6px;border-radius:999px;background:var(--mint);font-size:10px;font-weight:900;color:#5f8f78}
+@media(max-width:560px){
+  .player-stats{grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);gap:8px}
+  .player-card{min-height:132px}
+  .player-content{padding:11px}
+  .current-money{font-size:23px}
+  .winrate,.water-label{font-size:10px}
+}
+
 
 .player-card{
   position:relative;
@@ -1338,6 +1358,10 @@ input{
       style="margin-top:15px"
     ></div>
 
+    <h3 style="margin-top:22px;margin-bottom:6px">誰拿手機記錄？</h3>
+    <div class="muted">選擇後，這位玩家會固定顯示在畫面最下方。</div>
+    <div id="recorderChoices" style="margin-top:12px"></div>
+
 
     <div class="notice">
 
@@ -1951,6 +1975,7 @@ let repeats=0
 
 let dealer=''
 let dealerSeatIndex=0
+let recorderPlayer=''
 
 let selectedPatterns=[]
 
@@ -2432,6 +2457,7 @@ function goDealer(){
   }
 
   dealer=''
+  recorderPlayer=''
 
   document
     .getElementById('dealerChoices')
@@ -2453,6 +2479,13 @@ function goDealer(){
         </button>
 
       `).join('')
+
+  document.getElementById('recorderChoices').innerHTML=
+    seats.map((player,index)=>`
+      <button class="dealer-choice recorder-choice" onclick="selectRecorder('${player}',this)">
+        <b>${winds[index]}位</b>・${player}
+      </button>
+    `).join('')
 
   show('dealerSetup')
 
@@ -2480,6 +2513,13 @@ function selectDealer(
 }
 
 
+function selectRecorder(player,element){
+  recorderPlayer=player
+  document.querySelectorAll('.recorder-choice').forEach(x=>x.classList.remove('active'))
+  element.classList.add('active')
+}
+
+
 function confirmDealer(){
 
   if(!dealer){
@@ -2488,6 +2528,11 @@ function confirmDealer(){
 
     return
 
+  }
+
+  if(!recorderPlayer){
+    alert('請選擇今天拿手機記錄的人')
+    return
   }
 
   renderGame()
@@ -3434,6 +3479,20 @@ function getWaterHeight(amount){
    即時戰況
 ========================= */
 
+function getTablePosition(player){
+  const recorderIndex=seats.indexOf(recorderPlayer)
+  const playerIndex=seats.indexOf(player)
+  if(recorderIndex<0 || playerIndex<0) return 'top'
+  const diff=(playerIndex-recorderIndex+4)%4
+  return ['bottom','left','top','right'][diff]
+}
+
+function getPlayerWind(player){
+  const i=seats.indexOf(player)
+  return i>=0?winds[i]:''
+}
+
+
 function renderLiveStats(){
 
   const maxBalance=
@@ -3465,7 +3524,7 @@ function renderLiveStats(){
 
           <div
             class="
-              player-card
+              player-card pos-${getTablePosition(player)}
               ${amount===maxBalance
                 ?'leader'
                 :''}
@@ -3487,6 +3546,7 @@ function renderLiveStats(){
 
             <div class="player-content">
 
+              <div class="player-wind">${getPlayerWind(player)}家${player===recorderPlayer?'<span class="recorder-tag">記錄者</span>':''}</div>
               <div class="player-name">
 
                 ${roundLeaders.includes(player)
@@ -4622,6 +4682,15 @@ function ensureAppData(){
   try{ appData=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null') }catch(e){ appData=null }
   if(!appData || appData.version!==2){
     appData={version:2, profile:{name:'之之'}, rooms:[], sessions:[]}
+  }
+  // 舊版預設測試房間直接移除；同房間的舊測試場次也一併清除。
+  const legacyDefaultRooms=['之之麻將團','之芝麻醬團']
+  if(Array.isArray(appData.rooms)){
+    const legacyRoomIds=appData.rooms.filter(r=>legacyDefaultRooms.includes(r.name)).map(r=>r.id)
+    appData.rooms=appData.rooms.filter(r=>!legacyDefaultRooms.includes(r.name))
+    if(Array.isArray(appData.sessions) && legacyRoomIds.length){
+      appData.sessions=appData.sessions.filter(s=>!legacyRoomIds.includes(s.roomId))
+    }
   }
   persistAppData()
   return appData
