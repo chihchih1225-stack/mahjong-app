@@ -2164,7 +2164,6 @@ let roundLeaders=[]
 /* 誰與爭鋒 V2 長期資料 */
 const STORAGE_KEY='shuiYuZhengFengV2'
 const ACTIVE_GAME_KEY='shuiYuZhengFengActiveGameV1'
-const CLEAN_START_KEY='shuiYuZhengFengCleanStart20261028V1'
 let appData=null
 let currentRoomId=''
 let sessionSaved=false
@@ -4827,22 +4826,7 @@ function ensureAppData(){
     const oldGoal=Number(appData.profile.goal||0)
     appData.profile.goals=oldGoal>0?[{id:makeId('goal'),name:'我的目標',amount:oldGoal}]:[]
   }
-  // 舊版預設測試房間直接移除；同房間的舊測試場次也一併清除。
-  const legacyDefaultRooms=['之之麻將團','之芝麻醬團']
-  if(Array.isArray(appData.rooms)){
-    const legacyRoomIds=appData.rooms.filter(r=>legacyDefaultRooms.includes(r.name)).map(r=>r.id)
-    appData.rooms=appData.rooms.filter(r=>!legacyDefaultRooms.includes(r.name))
-    if(Array.isArray(appData.sessions) && legacyRoomIds.length){
-      appData.sessions=appData.sessions.filter(s=>!legacyRoomIds.includes(s.roomId))
-    }
-  }
-  // 這個測試版只執行一次：清空更新前建立的測試房間與牌局，之後新資料不再自動刪除。
-  if(!localStorage.getItem(CLEAN_START_KEY)){
-    appData.rooms=[]
-    appData.sessions=[]
-    localStorage.removeItem(ACTIVE_GAME_KEY)
-    localStorage.setItem(CLEAN_START_KEY,'done')
-  }
+  // 房間、歷史牌局與進行中牌局都只由使用者主動刪除；啟動時絕不自動清資料。
   persistAppData()
   return appData
 }
