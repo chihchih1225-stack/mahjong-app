@@ -5263,25 +5263,30 @@ function renderRoomDashboard(){
 }
 function badgeHtml(rows,sessions){
   if(!rows.length) return '<div class="muted">累積幾場後，這裡會開始產生房間徽章。</div>'
-  const winners=(key,low=false,eligible=rows)=>{
-    if(!eligible.length) return []
-    const values=eligible.map(r=>Number(r[key])||0), target=low?Math.min(...values):Math.max(...values)
-    return eligible.filter(r=>(Number(r[key])||0)===target)
+  const winners=(key,low=false,eligible=rows,requirePositive=false)=>{
+    let pool=eligible.filter(r=>Number.isFinite(Number(r[key])))
+    if(requirePositive) pool=pool.filter(r=>Number(r[key])>0)
+    if(!pool.length) return []
+    const values=pool.map(r=>Number(r[key])||0), target=low?Math.min(...values):Math.max(...values)
+    return pool.filter(r=>(Number(r[key])||0)===target)
   }
   const specs=[
-    ['👑','雀王','net',false,'累積贏最多'],['💰','財神爺','maxWin',false,'單場最高獲利'],['🌸','自摸王','selfdraws',false,'自摸次數最多'],
-    ['🎯','神槍手','discardWins',false,'胡別人放槍最多'],['💣','煙火大師','discards',false,'放槍次數最多'],['🀄','超會清一色','cleanSuit',false,'清一色次數最多'],
-    ['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多'],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多']
+    ['👑','雀王','net',false,'累積贏最多',false],['💰','財神爺','maxWin',false,'單場最高獲利',false],['🌸','自摸王','selfdraws',false,'自摸次數最多',true],
+    ['🎯','神槍手','discardWins',false,'胡別人放槍最多',true],['💣','煙火大師','discards',false,'放槍次數最多',true],['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],
+    ['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true]
   ]
-  const cards=specs.map(([icon,title,key,low,desc])=>{
-    const ws=winners(key,low), names=ws.map(x=>x.name).join('・'), v=Number(ws[0]?.[key])||0
+  const cards=specs.map(([icon,title,key,low,desc,requirePositive])=>{
+    const ws=winners(key,low,rows,requirePositive)
+    if(!ws.length) return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">尚未產生</div><div class="badge-desc">${desc}</div></div>`
+    const names=ws.map(x=>x.name).join('・'), v=Number(ws[0]?.[key])||0
     const value=(key==='net'||key==='maxWin')?money(v):`${v} 次`
-    return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">${names||'—'}</div><div class="badge-desc">${value}・${desc}</div></div>`
+    return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">${names}</div><div class="badge-desc">${value}・${desc}</div></div>`
   })
   const eligible=rows.filter(r=>r.handAppearances>0)
-  const minRate=eligible.length?Math.min(...eligible.map(r=>r.discardRate)):null
+  const hasAnyDiscard=eligible.some(r=>(Number(r.discards)||0)>0)
+  const minRate=(eligible.length&&hasAnyDiscard)?Math.min(...eligible.map(r=>r.discardRate)):null
   const shields=minRate===null?[]:eligible.filter(r=>Math.abs(r.discardRate-minRate)<1e-12)
-  cards.splice(4,0,`<div class="badge-card"><div class="badge-icon">🛡️</div><div class="badge-title">金鐘罩</div><div class="badge-winner">${shields.map(x=>x.name).join('・')||'—'}</div><div class="badge-desc">${minRate===null?'需逐局紀錄':(minRate*100).toFixed(1)+'%'}・放槍率最低</div></div>`)
+  cards.splice(4,0,`<div class="badge-card"><div class="badge-icon">🛡️</div><div class="badge-title">金鐘罩</div><div class="badge-winner">${shields.length?shields.map(x=>x.name).join('・'):'尚未產生'}</div><div class="badge-desc">${minRate===null?'尚無放槍紀錄':(minRate*100).toFixed(1)+'%・放槍率最低'}</div></div>`)
   return cards.join('')
 }
 function sessionRowHtml(ss){
@@ -5293,15 +5298,23 @@ function sessionRowHtml(ss){
 function sessionDetailStatsHtml(ss){
   const players=ss.players||Object.keys(sessionNets(ss))
   const hands=Array.isArray(ss.hands)?ss.hands:[]
-  if(!hands.length) return '<div class="career-note">這場只有最終結算，沒有逐把資料，因此只顯示最終輸贏。</div>'
-  const stats=Object.fromEntries(players.map(p=>[p,{wins:0,selfdraws:0,discards:0}]))
+  if(!hands.length) return '<div class="career-note">這場只有最終結算，沒有逐把資料，因此胡牌、自摸、放槍與最高／最低水位顯示為 —。</div>'
+  const stats=Object.fromEntries(players.map(p=>[p,{wins:0,selfdraws:0,discards:0,high:0,low:0,current:0}]))
   hands.forEach(h=>{
     if(h.result==='胡牌' && h.winner && stats[h.winner]) stats[h.winner].wins++
     if(h.result==='自摸' && h.winner && stats[h.winner]) stats[h.winner].selfdraws++
     if(h.result==='胡牌' && h.discarder && stats[h.discarder]) stats[h.discarder].discards++
+    players.forEach(p=>{
+      const before=Number(h.balancesBefore?.[p])
+      const change=Number(h.changes?.[p])||0
+      const after=Number.isFinite(before)?before+change:stats[p].current+change
+      stats[p].current=after
+      stats[p].high=Math.max(stats[p].high,after)
+      stats[p].low=Math.min(stats[p].low,after)
+    })
   })
   const nets=sessionNets(ss)
-  return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${players.map(p=>`<div class="career-stat"><div class="k">${escapeHtml(p)}</div><div class="v" style="font-size:18px">${money(nets[p]||0)}</div><div class="muted" style="margin-top:5px">胡 ${stats[p].wins}・自摸 ${stats[p].selfdraws}・放槍 ${stats[p].discards}</div></div>`).join('')}</div></div>`
+  return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${players.map(p=>`<div class="career-stat"><div class="k">${escapeHtml(p)}</div><div class="v" style="font-size:18px">${money(nets[p]||0)}</div><div class="muted" style="margin-top:5px;line-height:1.7">胡 ${stats[p].wins}・自摸 ${stats[p].selfdraws}・放槍 ${stats[p].discards}<br>最高水位 ${money(stats[p].high)}・最低水位 ${money(stats[p].low)}</div></div>`).join('')}</div></div>`
 }
 function showSessionDetail(id){
   ensureAppData(); const ss=appData.sessions.find(s=>s.id===id); if(!ss) return
@@ -5396,3 +5409,8 @@ renderHomeDashboard()
 
 </body>
 </html>
+
+/* ===== v12：投影入口固定只留紀錄頁最底部 ===== */
+#game:not(.projection-mode) #projectionToggleBtn{display:none !important}
+#game:not(.projection-mode) .projection-only-launch{display:flex !important;order:999;margin:14px 0 2px}
+#game:not(.projection-mode) .projection-only-launch .projection-btn{width:100%;max-width:none}
