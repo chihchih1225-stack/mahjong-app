@@ -494,7 +494,7 @@ input{
 }
 
 .round-big{
-  font-size:56px;
+  font-size:68px;
   line-height:1;
   font-weight:950;
   color:#66977e;
@@ -620,12 +620,12 @@ input{
 .pie:after{
   content:"";
   position:absolute;
-  width:70px;
-  height:70px;
+  width:50%;
+  height:50%;
   border-radius:50%;
   background:white;
-  left:35px;
-  top:35px;
+  left:25%;
+  top:25%;
 }
 
 .legend-item{
@@ -870,10 +870,10 @@ input{
   }
 
   .pie:after{
-    width:94px;
-    height:94px;
-    left:48px;
-    top:48px;
+    width:50%;
+    height:50%;
+    left:25%;
+    top:25%;
   }
 
 }
@@ -1054,16 +1054,6 @@ input{
     <div id="recentSessions" class="muted">還沒有紀錄</div>
   </div>
 
-  <div class="card">
-    <div class="toprow"><h2>資料管理</h2><span class="muted">測試期間也能安心備份</span></div>
-    <div class="grid2" style="margin-top:12px">
-      <button class="rule-btn" onclick="exportAllData()">匯出備份</button>
-      <button class="rule-btn" onclick="document.getElementById('importDataFile').click()">匯入備份</button>
-    </div>
-    <input id="importDataFile" type="file" accept="application/json,.json" class="hidden" onchange="importAllData(event)">
-    <button class="link" style="width:100%;margin-top:12px;color:#b85f72" onclick="clearTestData()">清除全部測試戰績</button>
-  </div>
-
   <button class="primary" onclick="quickStartGame()">＋ 開始新牌局</button>
 </section>
 
@@ -1125,8 +1115,8 @@ input{
 
     <input
       id="room"
-      value="之之麻將團"
-      placeholder="房間名稱"
+      value=""
+      placeholder="輸入房間名稱"
     >
 
 
@@ -1138,14 +1128,14 @@ input{
     >
 
 
-    <label>
-      四位玩家（逗號分隔）
-    </label>
+    <label>四位玩家</label>
 
-    <input
-      id="players"
-      value="之之,Amy,小美,小王"
-    >
+    <div class="grid2" style="margin-top:8px">
+      <input id="player1" placeholder="玩家 1">
+      <input id="player2" placeholder="玩家 2">
+      <input id="player3" placeholder="玩家 3">
+      <input id="player4" placeholder="玩家 4">
+    </div>
 
 
     <h3>
@@ -1168,6 +1158,14 @@ input{
         onclick="setStake('100/50',this)"
       >
         <strong>100 / 50</strong>
+      </button>
+
+
+      <button
+        class="stake"
+        onclick="setStake('200/40',this)"
+      >
+        <strong>200 / 40</strong>
       </button>
 
 
@@ -1408,14 +1406,16 @@ input{
         <div
           id="handCounter"
           style="
-            font-size:15px;
+            font-size:24px;
             font-weight:900
+            line-height:1.15;
           "
         >
           第 1 把
         </div>
 
         <button
+          id="projectionToggleBtn"
           class="projection-btn"
           onclick="toggleProjectionMode()"
           type="button"
@@ -1904,6 +1904,12 @@ const stakeRules={
     water:5000
   },
 
+  '200/40':{
+    base:200,
+    tai:40,
+    water:4000
+  },
+
   '200/50':{
     base:200,
     tai:50,
@@ -2042,15 +2048,9 @@ function setMode(value){
 ========================= */
 
 function getPlayers(){
-
-  return document
-    .getElementById('players')
-    .value
-    .split(/[,，]/)
-    .map(x=>x.trim())
+  return [1,2,3,4]
+    .map(i=>(document.getElementById('player'+i)?.value||'').trim())
     .filter(Boolean)
-    .slice(0,4)
-
 }
 
 
@@ -2062,7 +2062,8 @@ function startGame(){
 
   ensureAppData()
   sessionSaved=false
-  const roomName=(document.getElementById('room').value||'我的麻將房').trim()
+  const roomName=(document.getElementById('room').value||'').trim()
+  if(!roomName){ alert('請輸入房間名稱'); return }
   currentRoomId=ensureRoom(roomName).id
 
   P=getPlayers()
@@ -3501,7 +3502,7 @@ function renderLiveStats(){
 
               <div class="current-money">
 
-                $${amount.toLocaleString()}
+                ${net>=0?'+':''}$${net.toLocaleString()}
 
               </div>
 
@@ -3602,7 +3603,7 @@ function renderMoneyPie(){
     .getElementById('totalTableMoney')
     .textContent=
 
-      `桌上 $${total.toLocaleString()}`
+      `本場輸贏以 $0 起算`
 
 
   if(total<=0){
@@ -3679,7 +3680,7 @@ function renderMoneyPie(){
 
               ・
 
-              $${balances[player].toLocaleString()}
+              ${(balances[player]-currentRule.water)>=0?'+':''}$${(balances[player]-currentRule.water).toLocaleString()}
 
               ・
 
@@ -4622,7 +4623,6 @@ function ensureAppData(){
   if(!appData || appData.version!==2){
     appData={version:2, profile:{name:'之之'}, rooms:[], sessions:[]}
   }
-  if(!appData.rooms.length) ensureRoom('之之麻將團')
   persistAppData()
   return appData
 }
@@ -4687,7 +4687,7 @@ function renderHomeDashboard(){
     <div class="career-stat"><div class="k">放槍 / 放槍率</div><div class="v">${mine.discards||0} / ${rate}</div></div>
     <div class="career-stat"><div class="k">最佳單場</div><div class="v">${money(best)}</div></div>
     <div class="career-stat"><div class="k">最慘單場</div><div class="v">${money(worst)}</div></div>
-    <div class="career-stat"><div class="k">詳細紀錄把數</div><div class="v">${mine.handAppearances||0} 把</div></div>`
+    <div class="career-stat"><div class="k">詳細紀錄場數</div><div class="v">${mySessions.filter(s=>(s.hands||[]).length>0).length} 場</div></div>`
   const recentMine=[...mySessions].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5).reverse()
   document.getElementById('myCareerTrend').textContent=recentMine.length?`最近 ${recentMine.length} 場：`+recentMine.map(s=>money(sessionNets(s)[me]||0)).join(' → '):'第一場牌局結束後，這裡就會開始累積你的麻將生涯。'
   document.getElementById('roomList').innerHTML=appData.rooms.map(r=>{
@@ -4712,15 +4712,17 @@ function createRoomPrompt(){
   const r=ensureRoom(name.trim()); currentRoomId=r.id; roomTimeFilter='all'; show('roomDashboard')
 }
 function quickStartGame(){
-  ensureAppData(); const room=appData.rooms[0]||ensureRoom('之之麻將團'); currentRoomId=room.id
-  document.getElementById('room').value=room.name; show('setup')
+  ensureAppData(); currentRoomId=''
+  document.getElementById('room').value=''
+  ;[1,2,3,4].forEach(i=>{ const el=document.getElementById('player'+i); if(el) el.value='' })
+  show('setup')
 }
 function startFromCurrentRoom(){
   ensureAppData(); const r=appData.rooms.find(x=>x.id===currentRoomId)
   if(!r) return show('home')
   document.getElementById('room').value=r.name
   const a=aggregateSessions(roomSessions(r.id)).sort((x,y)=>y.sessions-x.sessions).slice(0,4)
-  if(a.length===4) document.getElementById('players').value=a.map(x=>x.name).join(',')
+  ;[1,2,3,4].forEach((i,idx)=>{ const el=document.getElementById('player'+i); if(el) el.value=a[idx]?.name||'' })
   show('setup')
 }
 function renderRoomDashboard(){
@@ -4822,8 +4824,13 @@ function clearTestData(){
 ========================= */
 function toggleProjectionMode(){
   const game=document.getElementById('game')
+  const btn=document.getElementById('projectionToggleBtn')
   const entering=!game.classList.contains('projection-mode')
   game.classList.toggle('projection-mode',entering)
+
+  if(btn){
+    btn.textContent=entering?'✍️ 回到紀錄':'📺 投影'
+  }
 
   if(entering){
     if(document.documentElement.requestFullscreen){
@@ -4833,9 +4840,16 @@ function toggleProjectionMode(){
       screen.orientation.lock('landscape').catch(()=>{})
     }
   }else{
+    if(screen.orientation && screen.orientation.unlock){
+      try{ screen.orientation.unlock() }catch(e){}
+    }
     if(document.fullscreenElement && document.exitFullscreen){
       document.exitFullscreen().catch(()=>{})
     }
+    setTimeout(()=>{
+      const entry=document.querySelector('.game-entry-card')
+      if(entry) entry.scrollIntoView({behavior:'smooth',block:'start'})
+    },250)
   }
   window.scrollTo(0,0)
 }
