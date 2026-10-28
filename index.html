@@ -1182,7 +1182,6 @@ input{
     <div class="toprow"><h2>我的長期戰績</h2><span class="season-chip">ALL TIME</span></div>
     <div class="profile-row"><div><div class="muted">我的暱稱</div><div id="profileNameDisplay" class="profile-name">尚未設定</div></div><button class="link filled-link" onclick="setMyNickname()">設定暱稱</button></div>
     <div id="myCareerStats" class="career-grid"></div>
-    <div id="myCareerTrend" class="career-note"></div>
   </div>
 
   <div id="resumeGameCard" class="card hidden" style="border:2px solid #ead88b;background:#fffdf2">
@@ -1205,10 +1204,6 @@ input{
     <div id="roomList"></div>
   </div>
 
-  <div class="card">
-    <div class="toprow"><h2>最近牌局</h2><span class="muted">自動保存</span></div>
-    <div id="recentSessions" class="muted">還沒有紀錄</div>
-  </div>
 
   <button class="primary" onclick="quickStartGame()">＋ 開始新牌局</button>
 </section>
@@ -1300,6 +1295,7 @@ input{
       <input id="player3" placeholder="玩家 3">
       <input id="player4" placeholder="玩家 4">
     </div>
+    <div class="muted" style="margin-top:8px">沒有帳號也可以直接輸入名字，系統會以訪客玩家保留這個房間的戰績。</div>
 
 
     <h3>
@@ -2242,7 +2238,8 @@ function startGame(){
   sessionSaved=false
   const roomName=(document.getElementById('room').value||'').trim()
   if(!roomName){ alert('請輸入房間名稱'); return }
-  currentRoomId=ensureRoom(roomName).id
+  const activeRoom=ensureRoom(roomName)
+  currentRoomId=activeRoom.id
 
   P=getPlayers()
 
@@ -2253,6 +2250,13 @@ function startGame(){
     return
 
   }
+  if(new Set(P).size!==4){
+    alert('四位玩家名稱不能重複')
+    return
+  }
+
+  // 沒有帳號的玩家也能參加：以房間內固定 guest ID 保存，未來可再綁定正式帳號。
+  ensureRoomMembers(activeRoom,P)
 
   currentRule=stakeRules[selectedStake]
 
@@ -4953,7 +4957,7 @@ function renderMyGoal(currentNet){
   const box=document.getElementById('myGoalContent'); if(!box) return
   const goal=Number(appData.profile?.goal||0)
   if(goal<=0){
-    box.innerHTML=`<div class="career-note" style="margin-top:8px">還沒有設定目標。可以先設定一個想贏到的累積金額，例如 $15,000。</div><button class="primary" style="margin-top:10px" onclick="setMyGoal()">＋ 設定我的目標</button>`
+    box.innerHTML=`<button class="primary" style="margin-top:10px" onclick="setMyGoal()">＋ 設定我的目標</button>`
     return
   }
   const progress=Math.max(0,Math.min(100,currentNet/goal*100))
@@ -4970,8 +4974,32 @@ function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.rand
 function ensureRoom(name){
   ensureAppData()
   let room=appData.rooms.find(r=>r.name===name)
-  if(!room){ room={id:makeId('room'),name,createdAt:new Date().toISOString()}; appData.rooms.push(room); persistAppData() }
+  if(!room){ room={id:makeId('room'),name,createdAt:new Date().toISOString(),members:[]}; appData.rooms.push(room); persistAppData() }
+  if(!Array.isArray(room.members)) room.members=[]
   return room
+}
+function ensureRoomMembers(room, names){
+  if(!room) return
+  if(!Array.isArray(room.members)) room.members=[]
+  const myName=(appData.profile?.name||'').trim()
+  names.forEach(name=>{
+    let member=room.members.find(m=>m.name===name)
+    const isMyAccount=!!myName && name===myName
+    if(!member){
+      member={
+        id:isMyAccount?'local_profile':makeId('guest'),
+        name,
+        type:isMyAccount?'account':'guest',
+        linkedUserId:isMyAccount?'local_profile':null,
+        createdAt:new Date().toISOString()
+      }
+      room.members.push(member)
+    }else if(isMyAccount){
+      member.type='account'
+      member.linkedUserId='local_profile'
+    }
+  })
+  persistAppData()
 }
 function roomSessions(roomId){ ensureAppData(); return appData.sessions.filter(x=>x.roomId===roomId) }
 function money(n){ return (n>=0?'+':'-')+'$'+Math.abs(n||0).toLocaleString() }
@@ -5070,14 +5098,10 @@ function renderHomeDashboard(){
     <div class="career-stat"><div class="k">最佳單場</div><div class="v">${money(best)}</div></div>
     <div class="career-stat"><div class="k">最慘單場</div><div class="v">${money(worst)}</div></div>
     <div class="career-stat"><div class="k">詳細紀錄場數</div><div class="v">${mySessions.filter(s=>(s.hands||[]).length>0).length} 場</div></div>`
-  const recentMine=[...mySessions].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5).reverse()
-  document.getElementById('myCareerTrend').textContent=recentMine.length?`最近 ${recentMine.length} 場：`+recentMine.map(s=>money(sessionNets(s)[me]||0)).join(' → '):'第一場牌局結束後，這裡就會開始累積你的麻將生涯。'
   document.getElementById('roomList').innerHTML=appData.rooms.map(r=>{
     const ss=roomSessions(r.id), a=aggregateSessions(ss), meRow=a.find(x=>x.name===me)
     return `<div class="room-row" onclick="openRoom('${r.id}')"><div><div class="room-name">🀄 ${r.name}</div><div class="room-meta">${ss.length} 場・我的戰績 ${money(meRow?meRow.net:0)}</div></div><div class="room-arrow">›</div></div>`
   }).join('')
-  const recent=[...appData.sessions].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5)
-  document.getElementById('recentSessions').innerHTML=recent.length?recent.map(sessionRowHtml).join(''):'還沒有紀錄'
 }
 let roomTimeFilter='all'
 function setRoomFilter(v){ roomTimeFilter=v; renderRoomDashboard() }
