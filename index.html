@@ -1399,7 +1399,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
-    <div class="auth-note">目前是 V23 多人房間測試版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
+    <div class="auth-note">目前是 V24 多人房間測試版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
   </div>
 </section>
 
@@ -2342,9 +2342,9 @@ async function joinPocketBaseRoom(inviteCode){
     body:JSON.stringify({invite_code:inviteCode,nickname})
   })
 }
-async function joinRoomPrompt(){
+async function joinRoomPrompt(prefill=''){
   if(!pbAuth?.token){ alert('請先登入帳號'); return }
-  const code=prompt('請輸入 6 位數房間邀請碼')
+  const code=prompt('請輸入 6 位數房間邀請碼',prefill||'')
   if(code===null) return
   const clean=code.trim()
   if(!/^\d{6}$/.test(clean)){ alert('邀請碼是 6 位數字'); return }
@@ -2353,9 +2353,58 @@ async function joinRoomPrompt(){
     await syncRoomsFromPocketBase()
     const roomId=result?.room?.id
     if(roomId){ currentRoomId=roomId; roomTimeFilter='all'; show('roomDashboard') }
-    alert(result?.already_member?'你原本就已經在這個房間裡。':'加入房間成功！')
+    clearInviteFromUrl()
+    alert(result?.room?.already_member||result?.already_member?'你原本就已經在這個房間裡。':'加入房間成功！')
   }catch(e){
     alert('加入房間失敗：'+(e.message||'請稍後再試'))
+  }
+}
+
+function getInviteFromUrl(){
+  try{
+    const code=(new URLSearchParams(location.search).get('invite')||'').trim()
+    return /^\d{6}$/.test(code)?code:''
+  }catch(e){ return '' }
+}
+function clearInviteFromUrl(){
+  try{
+    const url=new URL(location.href)
+    url.searchParams.delete('invite')
+    history.replaceState({},'',url.pathname+url.search+url.hash)
+  }catch(e){}
+}
+async function handleInviteFromUrl(){
+  const code=getInviteFromUrl()
+  if(!code||!pbAuth?.token) return
+  const key='mahjongInvitePrompted:'+code
+  if(sessionStorage.getItem(key)) return
+  sessionStorage.setItem(key,'1')
+  await joinRoomPrompt(code)
+}
+function roomInviteUrl(code){
+  const url=new URL(location.origin+location.pathname)
+  url.searchParams.set('invite',code)
+  return url.toString()
+}
+async function shareCurrentRoom(){
+  ensureAppData()
+  const room=appData.rooms.find(r=>r.id===currentRoomId)
+  if(!room?.invite_code){ alert('這個房間目前沒有邀請碼'); return }
+  const url=roomInviteUrl(room.invite_code)
+  const text=`🀄 一起來「誰與爭鋒」打麻將！\n房間：${room.name}\n邀請碼：${room.invite_code}\n\n點這裡加入房間：\n${url}`
+  if(navigator.share){
+    try{
+      await navigator.share({title:`誰與爭鋒｜${room.name}`,text})
+      return
+    }catch(e){
+      if(e?.name==='AbortError') return
+    }
+  }
+  try{
+    await navigator.clipboard.writeText(text)
+    alert('邀請內容已複製，可以直接貼到 LINE 給朋友。')
+  }catch(e){
+    prompt('複製下面的邀請內容傳給朋友',text)
   }
 }
 
@@ -2392,11 +2441,12 @@ function syncLocalProfileFromAccount(){
   if(pbAuth.record.name) appData.profile.name=pbAuth.record.name
   persistAppData()
 }
-function enterAppAfterLogin(){
+async function enterAppAfterLogin(){
   syncLocalProfileFromAccount()
   show('home')
   renderAccountHeader()
-  syncRoomsFromPocketBase()
+  await syncRoomsFromPocketBase()
+  await handleInviteFromUrl()
 }
 function renderAccountHeader(){
   const name=pbAuth?.record?.name||''
@@ -5607,7 +5657,7 @@ function renderRoomDashboard(){
   const labels={all:'全部',year:'今年',month:'本月',week:'本週'}
   document.getElementById('roomFilterLabel').textContent=labels[roomTimeFilter]
   document.getElementById('roomDashboardTitle').textContent=room.name
-  const inviteEl=document.getElementById('roomInviteCodeDisplay'); if(inviteEl) inviteEl.textContent=room.invite_code?`邀請碼 ${room.invite_code}`:''
+  const inviteEl=document.getElementById('roomInviteCodeDisplay'); if(inviteEl) inviteEl.innerHTML=room.invite_code?`<span>邀請碼 <b>${room.invite_code}</b></span><button type="button" class="link" style="margin-left:8px;padding:5px 9px" onclick="shareCurrentRoom()" aria-label="分享房間邀請">↗ 分享</button>`:''
   document.getElementById('roomSummary').innerHTML=`
     <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
