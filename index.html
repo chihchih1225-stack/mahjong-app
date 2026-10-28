@@ -1092,22 +1092,33 @@ input{
 
 /* ===== 個人目標 ===== */
 .goal-card{overflow:hidden}
-.goal-wrap{display:grid;grid-template-columns:132px 1fr;gap:18px;align-items:center}
-.goal-ring{--goal-progress:0%;width:126px;aspect-ratio:1;border-radius:50%;background:conic-gradient(#9fcdb6 var(--goal-progress),#f1ece7 0);display:grid;place-items:center;position:relative;margin:auto}
-.goal-ring::after{content:"";width:88px;aspect-ratio:1;border-radius:50%;background:#fffdf9;position:absolute}
+.goal-list{display:grid;gap:12px}
+.goal-item{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:18px;background:#fffdf9}
+.goal-ring{--goal-progress:0%;width:90px;aspect-ratio:1;border-radius:50%;background:conic-gradient(#9fcdb6 var(--goal-progress),#f1ece7 0);display:grid;place-items:center;position:relative;margin:auto}
+.goal-ring::after{content:"";width:64px;aspect-ratio:1;border-radius:50%;background:#fffdf9;position:absolute}
 .goal-ring-center{position:relative;z-index:1;text-align:center;line-height:1.15}
-.goal-percent{font-size:25px;font-weight:950}
-.goal-small{font-size:10px;color:#8a8185;font-weight:850;margin-top:4px}
-.goal-current{font-size:25px;font-weight:950;margin-top:4px}
-.goal-target{font-size:12px;color:#81777c;margin-top:4px}
-.goal-remain{margin-top:10px;padding:9px 11px;border-radius:12px;background:#f6fbf8;font-size:12px;font-weight:850}
-@media(max-width:420px){.goal-wrap{grid-template-columns:112px 1fr;gap:12px}.goal-ring{width:108px}.goal-ring::after{width:76px}.goal-percent{font-size:21px}.goal-current{font-size:21px}}
+.goal-percent{font-size:20px;font-weight:950}
+.goal-small{font-size:9px;color:#8a8185;font-weight:850;margin-top:3px}
+.goal-name{font-size:16px;font-weight:950;margin-bottom:5px}
+.goal-current{font-size:20px;font-weight:950;margin-top:2px}
+.goal-target{font-size:11px;color:#81777c;margin-top:3px}
+.goal-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.goal-actions button{width:auto;padding:6px 9px;font-size:11px}
+@media(max-width:420px){.goal-item{grid-template-columns:82px minmax(0,1fr);gap:10px;padding:10px}.goal-ring{width:78px}.goal-ring::after{width:56px}.goal-percent{font-size:18px}.goal-current{font-size:18px}}
 
 /* 一般計分時，座位表放進計分卡；投影時才顯示上方戰況座位表 */
 #game:not(.projection-mode) .game-status-card #playerStats{display:none}
 #game.projection-mode #playerStats{display:grid}
 .seat-picker-wrap{margin:14px 0 10px}
-.seat-picker-title{font-size:12px;font-weight:900;color:#81777c;margin-bottom:8px;text-align:center}
+.seat-picker-title{font-size:12px;font-weight:900;color:#81777c;margin-bottom:6px;text-align:center}
+#seatPicker{gap:6px;margin-top:6px}
+#seatPicker .player-card{min-height:96px;border-radius:16px}
+#seatPicker .player-card.pos-top,#seatPicker .player-card.pos-bottom{width:min(72%,220px)}
+#seatPicker .player-content{padding:8px}
+#seatPicker .current-money{font-size:18px}
+#seatPicker .player-name{font-size:14px}
+#seatPicker .winrate,#seatPicker .water-label{font-size:9px}
+@media(max-width:560px){#seatPicker .player-card{min-height:90px}#seatPicker .player-card.pos-top,#seatPicker .player-card.pos-bottom{width:min(74%,210px)}}
 
 /* ===== 誰與爭鋒 V2：長期戰績 / 房間 ===== */
 .compact-hero{padding-bottom:18px}
@@ -1195,7 +1206,7 @@ input{
   </div>
 
   <div class="card goal-card">
-    <div class="toprow"><h2>🎯 我的目標</h2><button class="link filled-link" onclick="setMyGoal()">修改目標</button></div>
+    <div class="toprow"><h2>🎯 我的目標</h2><button class="link filled-link" onclick="addMyGoal()">＋新增目標</button></div>
     <div id="myGoalContent"></div>
   </div>
 
@@ -1650,8 +1661,10 @@ input{
     </h2>
 
 
-    <div id="personQuestion" class="player-pick-hint">請直接點上方座位卡選擇胡牌者</div>
-
+    <div class="seat-picker-wrap">
+      <div class="seat-picker-title">座位表</div>
+      <div id="seatPicker" class="player-stats"></div>
+    </div>
 
     <div
       id="winnerBtns"
@@ -1703,11 +1716,7 @@ input{
 
     </div>
 
-    <div class="seat-picker-wrap">
-      <div class="seat-picker-title">直接點座位選擇玩家</div>
-      <div id="seatPicker" class="player-stats"></div>
-    </div>
-
+    <div id="personQuestion" class="player-pick-hint">選擇結果後，直接點上方座位</div>
 
     <!-- 放槍 -->
 
@@ -1988,12 +1997,10 @@ input{
   </div>
 
 
-  <button
-    class="primary"
-    onclick="show('home')"
-  >
-    回首頁
-  </button>
+  <div class="grid2" style="margin-top:12px">
+    <button class="secondary" onclick="show('home')">🏠 回首頁</button>
+    <button class="primary" onclick="backToFinishedRoom()">🀄 回到房間</button>
+  </div>
 
 </section>
 
@@ -4906,7 +4913,11 @@ function ensureAppData(){
     appData={version:2, profile:{name:''}, rooms:[], sessions:[]}
   }
   appData.profile=appData.profile||{name:''}
-  if(!Number.isFinite(Number(appData.profile.goal))) appData.profile.goal=0
+  if(!Array.isArray(appData.profile.goals)) appData.profile.goals=[]
+  if(Number.isFinite(Number(appData.profile.goal)) && Number(appData.profile.goal)>0 && appData.profile.goals.length===0){
+    appData.profile.goals=[{id:makeId('goal'),name:'我的目標',amount:Math.round(Number(appData.profile.goal))}]
+  }
+  delete appData.profile.goal
   // 舊版預設測試房間直接移除；同房間的舊測試場次也一併清除。
   const legacyDefaultRooms=['之之麻將團','之芝麻醬團']
   if(Array.isArray(appData.rooms)){
@@ -4941,34 +4952,51 @@ function setMyNickname(){
   persistAppData()
   renderHomeDashboard()
 }
-function setMyGoal(){
+function addMyGoal(){
   ensureAppData()
-  const current=Number(appData.profile?.goal||0)
-  const raw=prompt('設定你的累積獲利目標（例如 15000）',current>0?current:'15000')
-  if(raw===null) return
-  const goal=Number(String(raw).replace(/[$,，\s]/g,''))
-  if(!Number.isFinite(goal)||goal<=0){ alert('請輸入大於 0 的金額'); return }
-  appData.profile=appData.profile||{}
-  appData.profile.goal=Math.round(goal)
-  persistAppData()
-  renderHomeDashboard()
+  const nameRaw=prompt('目標名稱（例如：名古屋旅費）','我的新目標')
+  if(nameRaw===null) return
+  const name=nameRaw.trim(); if(!name){alert('目標名稱不能空白');return}
+  const amountRaw=prompt('目標金額（例如 15000）','15000')
+  if(amountRaw===null) return
+  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
+  if(!Number.isFinite(amount)||amount<=0){alert('請輸入大於 0 的金額');return}
+  appData.profile.goals=appData.profile.goals||[]
+  appData.profile.goals.push({id:makeId('goal'),name,amount:Math.round(amount)})
+  persistAppData(); renderHomeDashboard()
 }
+function editMyGoal(id){
+  ensureAppData(); const goal=(appData.profile.goals||[]).find(g=>g.id===id); if(!goal) return
+  const nameRaw=prompt('修改目標名稱',goal.name); if(nameRaw===null) return
+  const name=nameRaw.trim(); if(!name){alert('目標名稱不能空白');return}
+  const amountRaw=prompt('修改目標金額',goal.amount); if(amountRaw===null) return
+  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
+  if(!Number.isFinite(amount)||amount<=0){alert('請輸入大於 0 的金額');return}
+  goal.name=name; goal.amount=Math.round(amount); persistAppData(); renderHomeDashboard()
+}
+function deleteMyGoal(id){
+  ensureAppData(); const goal=(appData.profile.goals||[]).find(g=>g.id===id); if(!goal) return
+  if(!confirm(`確定刪除目標「${goal.name}」嗎？`)) return
+  appData.profile.goals=appData.profile.goals.filter(g=>g.id!==id); persistAppData(); renderHomeDashboard()
+}
+function setMyGoal(){ addMyGoal() }
 function renderMyGoal(currentNet){
   const box=document.getElementById('myGoalContent'); if(!box) return
-  const goal=Number(appData.profile?.goal||0)
-  if(goal<=0){
-    box.innerHTML=`<button class="primary" style="margin-top:10px" onclick="setMyGoal()">＋ 設定我的目標</button>`
+  const goals=appData.profile?.goals||[]
+  if(!goals.length){
+    box.innerHTML=`<button class="primary" style="margin-top:10px" onclick="addMyGoal()">＋ 新增第一個目標</button>`
     return
   }
-  const progress=Math.max(0,Math.min(100,currentNet/goal*100))
-  const remain=Math.max(0,goal-currentNet)
-  const achieved=currentNet>=goal
-  const extra=Math.max(0,currentNet-goal)
-  box.innerHTML=`<div class="goal-wrap">
-    <div class="goal-ring" style="--goal-progress:${progress}%"><div class="goal-ring-center"><div class="goal-percent">${Math.round(progress)}%</div><div class="goal-small">完成度</div></div></div>
-    <div><div class="muted">目前累積輸贏</div><div class="goal-current">${money(currentNet)}</div><div class="goal-target">目標 +$${goal.toLocaleString()}</div>
-    <div class="goal-remain">${achieved?`🎉 目標達成！超過目標 $${extra.toLocaleString()}`:`距離目標還差 $${remain.toLocaleString()}`}</div></div>
-  </div>`
+  box.innerHTML=`<div class="goal-list">${goals.map(goal=>{
+    const amount=Number(goal.amount)||0
+    const progress=amount>0?Math.max(0,Math.min(100,currentNet/amount*100)):0
+    const achieved=amount>0&&currentNet>=amount
+    return `<div class="goal-item">
+      <div class="goal-ring" style="--goal-progress:${progress}%"><div class="goal-ring-center"><div class="goal-percent">${Math.round(progress)}%</div><div class="goal-small">${achieved?'已達成':'完成度'}</div></div></div>
+      <div><div class="goal-name">${escapeHtml(goal.name||'我的目標')}</div><div class="goal-current">${money(currentNet)}</div><div class="goal-target">目標 +$${amount.toLocaleString()}</div>
+      <div class="goal-actions"><button class="link" onclick="editMyGoal('${goal.id}')">修改</button><button class="link" style="color:#b94f5f" onclick="deleteMyGoal('${goal.id}')">刪除</button></div></div>
+    </div>`
+  }).join('')}</div>`
 }
 function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7) }
 function ensureRoom(name){
@@ -5255,6 +5283,12 @@ function showSessionDetail(id){
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
   div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
+}
+
+function backToFinishedRoom(){
+  ensureAppData()
+  if(currentRoomId && appData.rooms.some(r=>r.id===currentRoomId)) show('roomDashboard')
+  else show('home')
 }
 
 function saveCurrentSession(kind, finalValues){
