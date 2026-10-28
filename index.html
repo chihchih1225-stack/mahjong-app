@@ -1043,13 +1043,14 @@ input{
   #game .game-trend-card{ order:4; }
   #game .game-history-card{ order:5; }
   #game .game-finish-btn{ order:6; }
+  #game #projectionBottom{order:7 !important;}
   #game .game-entry-card{
     margin-top:0;
   }
 }
 
 @media (orientation: landscape){
-  #game:not(.hidden){
+  #game.projection-mode:not(.hidden){
     display:grid;
     grid-template-columns:minmax(0,1fr) minmax(300px,.8fr);
     gap:14px;
@@ -1231,6 +1232,12 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   #game.projection-mode .pie{width:min(26vw,190px)!important;height:min(26vw,190px)!important}
 }
 
+
+/* ===== v14：投影入口固定只留紀錄頁最底部 ===== */
+#game:not(.projection-mode) #projectionBottom{display:flex !important;order:9999;margin:14px 0 2px}
+#game:not(.projection-mode) #projectionBottom{width:100%}
+#game:not(.projection-mode) .projection-only-launch .projection-btn{width:100%;max-width:none}
+
 </style>
 </head>
 
@@ -1335,6 +1342,11 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   <div class="card">
     <div class="toprow"><h2>🎖️ 麻將名人堂</h2><span class="muted">依房間紀錄自動更新</span></div>
     <div id="roomBadges" class="badge-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="toprow"><h2>👑 王座更替史</h2><span class="muted">依累積輸贏自動更新</span></div>
+    <div id="roomKingHistory"></div>
   </div>
 
   <div class="card">
@@ -1598,17 +1610,6 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     <div id="recorderChoices" style="margin-top:12px"></div>
 
 
-    <div class="notice">
-
-      <br>
-
-      <br>
-
-      <br>
-
-      
-
-    </div>
 
   </div>
 
@@ -1671,15 +1672,6 @@ body:has(#game:not(.hidden)) > header{display:none !important}
         >
           第 1 把
         </div>
-
-        <button
-          id="projectionToggleBtn"
-          class="projection-btn"
-          onclick="toggleProjectionMode()"
-          type="button"
-        >
-          📺 投影
-        </button>
 
         <div
           id="stakeDisplay"
@@ -2025,7 +2017,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     提前結束牌局
   </button>
 
-  <div class="projection-only-launch"><button class="projection-btn" onclick="toggleProjectionMode()" type="button">📺 投影</button></div>
+  <div id="projectionBottom" class="projection-only-launch"><button class="projection-btn" onclick="toggleProjectionMode()" type="button">📺 投影</button></div>
 
 </section>
 
@@ -5051,12 +5043,13 @@ function sessionNets(session){ return session.nets||{} }
 function aggregateSessions(sessions){
   const players={}
   const touch=name=>players[name]||(players[name]={
-    name,net:0,sessions:0,wins:0,selfdraws:0,discardWins:0,discards:0,frauds:0,maxWin:-Infinity,minWin:Infinity,
-    cleanSuit:0,mixedSuit:0,pongPong:0,handAppearances:0
+    name,net:0,sessions:0,wins:0,selfdraws:0,discardWins:0,discards:0,frauds:0,maxWin:-Infinity,minWin:Infinity,maxLoss:0,
+    sessionWins:0,winRate:0,maxStreak:0,currentStreak:0,cleanSuit:0,mixedSuit:0,pongPong:0,handAppearances:0
   })
   sessions.forEach(ss=>{
     Object.entries(sessionNets(ss)).forEach(([name,net])=>{
-      const x=touch(name); x.net+=net; x.sessions++; x.maxWin=Math.max(x.maxWin,net); x.minWin=Math.min(x.minWin,net)
+      const x=touch(name); x.net+=net; x.sessions++; x.maxWin=Math.max(x.maxWin,net); x.minWin=Math.min(x.minWin,net); x.maxLoss=Math.max(x.maxLoss,Math.max(0,-Number(net||0)));
+      if(Number(net)>0){ x.sessionWins++; x.currentStreak++; x.maxStreak=Math.max(x.maxStreak,x.currentStreak) } else { x.currentStreak=0 }
     })
     const detailedHands=ss.hands||[]
     if(detailedHands.length) (ss.players||Object.keys(sessionNets(ss))).forEach(name=>touch(name).handAppearances+=detailedHands.length)
@@ -5075,7 +5068,7 @@ function aggregateSessions(sessions){
       }
     })
   })
-  return Object.values(players).map(x=>({...x,discardRate:x.handAppearances?x.discards/x.handAppearances:null}))
+  return Object.values(players).map(x=>({...x,winRate:x.sessions?x.sessionWins/x.sessions:0,discardRate:x.handAppearances?x.discards/x.handAppearances:null}))
 }
 function activeGameSnapshot(){
   return {
@@ -5240,6 +5233,29 @@ function roomTrendChartHtml(sessions){
   return svg+`<div class="trend-legend">${legend}</div>`
 }
 
+function roomKingHistoryHtml(sessions){
+  if(!sessions||!sessions.length) return '<div class="muted">完成牌局後，這裡會開始記錄王座更替。</div>'
+  const ordered=[...sessions].sort((a,b)=>a.createdAt.localeCompare(b.createdAt))
+  const totals={}, reigns=[]
+  let currentKing='', startAt=null
+  ordered.forEach(ss=>{
+    Object.entries(sessionNets(ss)).forEach(([p,v])=>totals[p]=(totals[p]||0)+Number(v||0))
+    const max=Math.max(...Object.values(totals))
+    const leaders=Object.keys(totals).filter(p=>totals[p]===max)
+    const nextKing=(currentKing&&leaders.includes(currentKing))?currentKing:leaders[0]
+    if(nextKing!==currentKing){
+      if(currentKing) reigns[reigns.length-1].endAt=ss.createdAt
+      currentKing=nextKing; startAt=ss.createdAt
+      reigns.push({name:currentKing,startAt,endAt:null})
+    }
+  })
+  const now=new Date()
+  const fmt=d=>{const x=new Date(d);return `${x.getMonth()+1}/${x.getDate()}`}
+  const days=(a,b)=>Math.max(1,Math.ceil((new Date(b||now)-new Date(a))/86400000))
+  return `<div class="career-note" style="margin-bottom:10px">王座歷經 ${reigns.length} 任｜現任 ${escapeHtml(currentKing||'—')}</div>`+
+    reigns.map((r,i)=>`<div class="rank-row"><div class="rank-no">${i===reigns.length-1?'👑':i+1}</div><div><b>${escapeHtml(r.name)}</b><div class="muted">${fmt(r.startAt)}${r.endAt?' → '+fmt(r.endAt):' → 現任'}</div></div><div class="rank-money">${days(r.startAt,r.endAt)}天</div></div>`).join('')
+}
+
 function renderRoomDashboard(){
   ensureAppData()
   let room=appData.rooms.find(r=>r.id===currentRoomId)
@@ -5258,6 +5274,7 @@ function renderRoomDashboard(){
   document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 場・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
   const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
+  const kingHistory=document.getElementById('roomKingHistory'); if(kingHistory) kingHistory.innerHTML=roomKingHistoryHtml(allSs)
   document.getElementById('roomSessionCount').textContent=`${ss.length} 場`
   document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(sessionRowHtml).join(''):'還沒有歷史牌局'
 }
@@ -5271,22 +5288,23 @@ function badgeHtml(rows,sessions){
     return pool.filter(r=>(Number(r[key])||0)===target)
   }
   const specs=[
-    ['👑','雀王','net',false,'累積贏最多',false],['💰','財神爺','maxWin',false,'單場最高獲利',false],['🌸','自摸王','selfdraws',false,'自摸次數最多',true],
-    ['🎯','神槍手','discardWins',false,'胡別人放槍最多',true],['💣','煙火大師','discards',false,'放槍次數最多',true],['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],
-    ['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true]
+    ['👑','雀王','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單場贏分最高',true],['📅','出席王','sessions',false,'出席場次最多',true],
+    ['📈','最高勝率','winRate',false,'單場獲利場次比例最高',true],['🔥','連勝王','maxStreak',false,'連續單場獲利最多',true],['🎁','最大貢獻獎','maxLoss',false,'單場貢獻最高',true],
+    ['🌸','自摸王','selfdraws',false,'自摸次數最多',true],['🎯','神槍手','discardWins',false,'胡別人放槍最多',true],['💣','煙火大師','discards',false,'放槍次數最多',true],
+    ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true]
   ]
   const cards=specs.map(([icon,title,key,low,desc,requirePositive])=>{
     const ws=winners(key,low,rows,requirePositive)
     if(!ws.length) return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">尚未產生</div><div class="badge-desc">${desc}</div></div>`
     const names=ws.map(x=>x.name).join('・'), v=Number(ws[0]?.[key])||0
-    const value=(key==='net'||key==='maxWin')?money(v):`${v} 次`
+    const value=(key==='net'||key==='maxWin')?money(v):key==='maxLoss'?`$${v.toLocaleString()}`:key==='winRate'?`${(v*100).toFixed(1)}%`:key==='sessions'?`${v} 場`:`${v} 次`
     return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">${names}</div><div class="badge-desc">${value}・${desc}</div></div>`
   })
   const eligible=rows.filter(r=>r.handAppearances>0)
   const hasAnyDiscard=eligible.some(r=>(Number(r.discards)||0)>0)
   const minRate=(eligible.length&&hasAnyDiscard)?Math.min(...eligible.map(r=>r.discardRate)):null
   const shields=minRate===null?[]:eligible.filter(r=>Math.abs(r.discardRate-minRate)<1e-12)
-  cards.splice(4,0,`<div class="badge-card"><div class="badge-icon">🛡️</div><div class="badge-title">金鐘罩</div><div class="badge-winner">${shields.length?shields.map(x=>x.name).join('・'):'尚未產生'}</div><div class="badge-desc">${minRate===null?'尚無放槍紀錄':(minRate*100).toFixed(1)+'%・放槍率最低'}</div></div>`)
+  cards.splice(8,0,`<div class="badge-card"><div class="badge-icon">🛡️</div><div class="badge-title">金鐘罩</div><div class="badge-winner">${shields.length?shields.map(x=>x.name).join('・'):'尚未產生'}</div><div class="badge-desc">${minRate===null?'尚無放槍紀錄':(minRate*100).toFixed(1)+'%・放槍率最低'}</div></div>`)
   return cards.join('')
 }
 function sessionRowHtml(ss){
@@ -5298,12 +5316,42 @@ function sessionRowHtml(ss){
 function sessionDetailStatsHtml(ss){
   const players=ss.players||Object.keys(sessionNets(ss))
   const hands=Array.isArray(ss.hands)?ss.hands:[]
-  if(!hands.length) return '<div class="career-note">這場只有最終結算，沒有逐把資料，因此胡牌、自摸、放槍與最高／最低水位顯示為 —。</div>'
-  const stats=Object.fromEntries(players.map(p=>[p,{wins:0,selfdraws:0,discards:0,high:0,low:0,current:0}]))
+  if(!hands.length) return '<div class="career-note">這場只有最終結算，沒有逐把資料，因此胡牌、自摸、被胡、被自摸、放槍與最高／最低水位顯示為 —。</div>'
+
+  const stats=Object.fromEntries(players.map(p=>[p,{
+    wins:0,selfdraws:0,discards:0,gotDiscarded:0,gotSelfdrawn:0,
+    high:0,low:0,current:0,wonFrom:{},lostTo:{},selfdrawnBy:{}
+  }]))
+  const duel={}
+  const handCounts={win:0,selfdraw:0,fraud:0,draw:0,other:0}
+
   hands.forEach(h=>{
-    if(h.result==='胡牌' && h.winner && stats[h.winner]) stats[h.winner].wins++
-    if(h.result==='自摸' && h.winner && stats[h.winner]) stats[h.winner].selfdraws++
-    if(h.result==='胡牌' && h.discarder && stats[h.discarder]) stats[h.discarder].discards++
+    if(h.result==='胡牌'){
+      handCounts.win++
+      if(h.winner && stats[h.winner]) stats[h.winner].wins++
+      if(h.discarder && stats[h.discarder]) stats[h.discarder].discards++
+      if(h.winner && h.discarder && stats[h.winner] && stats[h.discarder]){
+        stats[h.discarder].gotDiscarded++
+        stats[h.winner].wonFrom[h.discarder]=(stats[h.winner].wonFrom[h.discarder]||0)+1
+        stats[h.discarder].lostTo[h.winner]=(stats[h.discarder].lostTo[h.winner]||0)+1
+        const key=h.winner+'\u0000'+h.discarder
+        duel[key]=(duel[key]||0)+1
+      }
+    }else if(h.result==='自摸'){
+      handCounts.selfdraw++
+      if(h.winner && stats[h.winner]){
+        stats[h.winner].selfdraws++
+        players.forEach(p=>{
+          if(p!==h.winner && stats[p]){
+            stats[p].gotSelfdrawn++
+            stats[p].selfdrawnBy[h.winner]=(stats[p].selfdrawnBy[h.winner]||0)+1
+          }
+        })
+      }
+    }else if(h.result==='詐胡') handCounts.fraud++
+    else if(h.result==='流局') handCounts.draw++
+    else handCounts.other++
+
     players.forEach(p=>{
       const before=Number(h.balancesBefore?.[p])
       const change=Number(h.changes?.[p])||0
@@ -5313,18 +5361,49 @@ function sessionDetailStatsHtml(ss){
       stats[p].low=Math.min(stats[p].low,after)
     })
   })
+
+  const relationText=obj=>{
+    const arr=Object.entries(obj).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1])
+    return arr.length?arr.map(([name,n])=>`${escapeHtml(name)} ${n}次`).join('、'):'—'
+  }
   const nets=sessionNets(ss)
-  return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${players.map(p=>`<div class="career-stat"><div class="k">${escapeHtml(p)}</div><div class="v" style="font-size:18px">${money(nets[p]||0)}</div><div class="muted" style="margin-top:5px;line-height:1.7">胡 ${stats[p].wins}・自摸 ${stats[p].selfdraws}・放槍 ${stats[p].discards}<br>最高水位 ${money(stats[p].high)}・最低水位 ${money(stats[p].low)}</div></div>`).join('')}</div></div>`
+  const duelRows=Object.entries(duel)
+    .map(([key,n])=>{ const [w,l]=key.split('\u0000'); return {w,l,n} })
+    .sort((a,b)=>b.n-a.n || a.w.localeCompare(b.w,'zh-TW'))
+  const duelHtml=duelRows.length
+    ? `<div style="margin-top:16px"><h3>誰胡誰</h3><div class="career-note" style="line-height:1.9">${duelRows.map(x=>`<b>${escapeHtml(x.w)}</b> → <b>${escapeHtml(x.l)}</b>：${x.n}次`).join('<br>')}</div></div>`
+    : `<div style="margin-top:16px"><h3>誰胡誰</h3><div class="career-note">這場還沒有胡牌放槍紀錄。</div></div>`
+
+  const counted=handCounts.win+handCounts.selfdraw+handCounts.fraud+handCounts.draw+handCounts.other
+  const verifyHtml=`<div class="career-note" style="margin-top:12px;line-height:1.8"><b>逐把核對：</b>共 ${hands.length}把・胡牌 ${handCounts.win}把・自摸 ${handCounts.selfdraw}把・詐胡 ${handCounts.fraud}把・流局 ${handCounts.draw}把${handCounts.other?`・其他 ${handCounts.other}把`:''}<br>${counted===hands.length?'✓ 加總與本場紀錄吻合':'⚠️ 加總與本場紀錄不吻合，請檢查資料'}</div>`
+
+  const cards=players.map(p=>`<div class="career-stat">
+    <div class="k">${escapeHtml(p)}</div>
+    <div class="v" style="font-size:18px">${money(nets[p]||0)}</div>
+    <div class="muted" style="margin-top:5px;line-height:1.75">
+      胡牌 ${stats[p].wins}次・自摸 ${stats[p].selfdraws}次<br>
+      被胡 ${stats[p].gotDiscarded}次・被自摸 ${stats[p].gotSelfdrawn}次・放槍 ${stats[p].discards}次<br>
+      胡過：${relationText(stats[p].wonFrom)}<br>
+      被胡：${relationText(stats[p].lostTo)}<br>
+      被自摸：${relationText(stats[p].selfdrawnBy)}<br>
+      最高水位 ${money(stats[p].high)}・最低水位 ${money(stats[p].low)}
+    </div>
+  </div>`).join('')
+
+  return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${cards}</div>${duelHtml}${verifyHtml}</div>`
 }
 function showSessionDetail(id){
   ensureAppData(); const ss=appData.sessions.find(s=>s.id===id); if(!ss) return
   const old=document.getElementById('sessionDetailModal'); if(old) old.remove()
   const date=new Date(ss.createdAt).toLocaleString('zh-TW')
-  const rows=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="session-head"><b>${n}</b><b>${money(v)}</b></div>`).join('')
+  const netEntries=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1])
+  const rows=netEntries.map(([n,v])=>`<div class="session-head"><b>${escapeHtml(n)}</b><b>${money(v)}</b></div>`).join('')
+  const sessionTotal=netEntries.reduce((sum,[,v])=>sum+Number(v||0),0)
+  const totalHtml=`<div class="session-head" style="margin-top:8px;padding-top:10px;border-top:2px solid var(--line)"><b>單場加總</b><b style="color:${sessionTotal===0?'#6caa8b':'#cf7f91'}">${sessionTotal===0?'0':money(sessionTotal)}</b></div><div class="muted" style="text-align:right;margin-top:4px">${sessionTotal===0?'✓ 本場收支吻合':'⚠️ 本場收支不為 0，請檢查紀錄'}</div>`
   const statsHtml=sessionDetailStatsHtml(ss)
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
+  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
 }
 
@@ -5409,8 +5488,3 @@ renderHomeDashboard()
 
 </body>
 </html>
-
-/* ===== v12：投影入口固定只留紀錄頁最底部 ===== */
-#game:not(.projection-mode) #projectionToggleBtn{display:none !important}
-#game:not(.projection-mode) .projection-only-launch{display:flex !important;order:999;margin:14px 0 2px}
-#game:not(.projection-mode) .projection-only-launch .projection-btn{width:100%;max-width:none}
