@@ -494,8 +494,8 @@ input{
 }
 
 .round-big{
-  font-size:68px;
-  line-height:1;
+  font-size:82px;
+  line-height:.95;
   font-weight:950;
   color:#66977e;
 }
@@ -512,24 +512,25 @@ input{
 
 .player-stats{
   display:grid;
-  grid-template-columns:1fr 1fr 1fr;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   grid-template-areas:
-    '. top .'
-    'left . right'
-    '. bottom .';
+    'top top'
+    'left right'
+    'bottom bottom';
   gap:10px;
   margin-top:14px;
   align-items:center;
 }
-.player-card.pos-top{grid-area:top}
-.player-card.pos-left{grid-area:left}
-.player-card.pos-right{grid-area:right}
-.player-card.pos-bottom{grid-area:bottom}
+.player-card.pos-top{grid-area:top;justify-self:center;width:min(76%,280px)}
+.player-card.pos-left{grid-area:left;min-width:0}
+.player-card.pos-right{grid-area:right;min-width:0}
+.player-card.pos-bottom{grid-area:bottom;justify-self:center;width:min(76%,280px)}
 .player-card.pos-bottom{box-shadow:0 0 0 2px rgba(108,170,139,.22) inset}
 .player-wind{font-size:12px;font-weight:950;color:#8b8388;margin-bottom:3px}
 .recorder-tag{display:inline-block;margin-left:5px;padding:2px 6px;border-radius:999px;background:var(--mint);font-size:10px;font-weight:900;color:#5f8f78}
 @media(max-width:560px){
-  .player-stats{grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);gap:8px}
+  .player-stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+  .player-card.pos-top,.player-card.pos-bottom{width:min(82%,250px)}
   .player-card{min-height:132px}
   .player-content{padding:11px}
   .current-money{font-size:23px}
@@ -899,6 +900,24 @@ input{
 }
 
 /* ===== 手機計分優先 / 橫向投影 ===== */
+/* 投影模式固定返回按鈕：不可跟 live-head 一起被隱藏 */
+.projection-exit-btn{
+  display:none;
+  position:fixed;
+  right:14px;
+  top:calc(env(safe-area-inset-top, 0px) + 12px);
+  z-index:99999;
+  border:0;
+  border-radius:999px;
+  padding:11px 16px;
+  background:#fff3b8;
+  color:#514a42;
+  font-size:16px;
+  font-weight:900;
+  box-shadow:0 5px 18px rgba(0,0,0,.18);
+}
+#game.projection-mode .projection-exit-btn{display:block !important;}
+
 .projection-btn{
   margin-top:8px;
   border:0;
@@ -925,7 +944,8 @@ input{
   display:none !important;
 }
 #game.projection-mode .game-status-card,
-#game.projection-mode .game-chart-card{
+#game.projection-mode .game-chart-card,
+#game.projection-mode .game-trend-card{
   display:block !important;
 }
 #game.projection-mode .player-stats{
@@ -939,7 +959,8 @@ input{
   height:min(32vw,280px);
 }
 #game.projection-mode .game-status-card,
-#game.projection-mode .game-chart-card{
+#game.projection-mode .game-chart-card,
+#game.projection-mode .game-trend-card{
   padding:22px;
 }
 
@@ -952,8 +973,9 @@ input{
   #game .game-entry-card{ order:1; }
   #game .game-status-card{ order:2; }
   #game .game-chart-card{ order:3; }
-  #game .game-history-card{ order:4; }
-  #game .game-finish-btn{ order:5; }
+  #game .game-trend-card{ order:4; }
+  #game .game-history-card{ order:5; }
+  #game .game-finish-btn{ order:6; }
   #game .game-entry-card{
     margin-top:0;
   }
@@ -967,7 +989,8 @@ input{
     align-items:start;
   }
   #game .game-status-card,
-  #game .game-chart-card{
+  #game .game-chart-card,
+  #game .game-trend-card{
     display:block;
     margin:0;
   }
@@ -988,6 +1011,17 @@ input{
   }
 }
 
+
+
+/* ===== 四人輸贏曲線 ===== */
+.trend-card h2{margin-bottom:4px}
+.trend-chart{width:100%;min-height:250px;overflow:hidden}
+.trend-chart svg{display:block;width:100%;height:auto}
+.trend-legend{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:8px;font-size:11px;font-weight:850}
+.trend-legend span{display:inline-flex;align-items:center;gap:5px}
+.trend-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding:10px 12px;border-radius:14px;background:#f6fbf8}
+.profile-name{font-weight:950;font-size:16px}
 
 /* ===== 誰與爭鋒 V2：長期戰績 / 房間 ===== */
 .compact-hero{padding-bottom:18px}
@@ -1060,6 +1094,7 @@ input{
 
   <div class="card">
     <div class="toprow"><h2>我的長期戰績</h2><span class="season-chip">ALL TIME</span></div>
+    <div class="profile-row"><div><div class="muted">我的暱稱</div><div id="profileNameDisplay" class="profile-name">尚未設定</div></div><button class="link filled-link" onclick="setMyNickname()">設定暱稱</button></div>
     <div id="myCareerStats" class="career-grid"></div>
     <div id="myCareerTrend" class="career-note"></div>
   </div>
@@ -1394,6 +1429,8 @@ input{
   id="game"
   class="hidden"
 >
+  <button id="projectionExitBtn" class="projection-exit-btn" type="button" onclick="toggleProjectionMode()">✍️ 回到紀錄</button>
+
 
 
   <!-- 即時戰況 -->
@@ -1430,9 +1467,9 @@ input{
         <div
           id="handCounter"
           style="
-            font-size:24px;
-            font-weight:900
-            line-height:1.15;
+            font-size:34px;
+            font-weight:950;
+            line-height:1.05;
           "
         >
           第 1 把
@@ -1497,13 +1534,18 @@ input{
 
   </div>
 
+  <div class="card trend-card game-trend-card">
+    <div class="toprow"><h2>本場輸贏走勢</h2><span class="muted">每場自動更新</span></div>
+    <div id="liveTrendChart" class="trend-chart"></div>
+  </div>
+
 
   <!-- 記錄 -->
 
   <div class="card game-entry-card">
 
     <h2 id="entryTitle">
-      記錄這一把
+      記錄這一場
     </h2>
 
 
@@ -1741,7 +1783,7 @@ input{
       style="margin-top:13px"
       onclick="saveHand()"
     >
-      記錄這一把
+      記錄這一場
     </button>
 
   </div>
@@ -1761,7 +1803,7 @@ input{
         class="link undo-btn"
         onclick="undoHand()"
       >
-        復原上一把
+        復原上一場
       </button>
 
     </div>
@@ -1919,37 +1961,37 @@ const stakeRules={
   '100/20':{
     base:100,
     tai:20,
-    water:2000
+    water:0
   },
 
   '100/50':{
     base:100,
     tai:50,
-    water:5000
+    water:0
   },
 
   '200/40':{
     base:200,
     tai:40,
-    water:4000
+    water:0
   },
 
   '200/50':{
     base:200,
     tai:50,
-    water:5000
+    water:0
   },
 
   '300/50':{
     base:300,
     tai:50,
-    water:5000
+    water:0
   },
 
   '300/100':{
     base:300,
     tai:100,
-    water:10000
+    water:0
   }
 
 }
@@ -2107,7 +2149,7 @@ function startGame(){
 
   P.forEach(player=>{
 
-    balances[player]=currentRule.water
+    balances[player]=0
 
   })
 
@@ -3001,7 +3043,7 @@ function renderPaymentPreview(){
   box.innerHTML=
     lines
     ||
-    '這一把目前沒有金額變動。'
+    '這一場目前沒有金額變動。'
 
 }
 
@@ -3009,6 +3051,40 @@ function renderPaymentPreview(){
 /* =========================
    遊戲畫面
 ========================= */
+
+function buildTrendSeries(sessionHands, players){
+  const points=[{label:'開始',values:Object.fromEntries(players.map(p=>[p,0]))}]
+  sessionHands.forEach((h,i)=>{
+    const vals={}
+    players.forEach(p=>{ vals[p]=(h.balancesBefore?.[p]||0)+(h.changes?.[p]||0) })
+    points.push({label:`${i+1}`,round:h.round||'',values:vals})
+  })
+  return points
+}
+function trendChartHtml(sessionHands, players){
+  if(!players||!players.length) return '<div class="muted">尚無資料</div>'
+  const pts=buildTrendSeries(sessionHands||[],players), W=680,H=270,pad={l:48,r:18,t:22,b:42}
+  const vals=pts.flatMap(pt=>players.map(p=>Number(pt.values[p]||0)))
+  let maxAbs=Math.max(100,...vals.map(v=>Math.abs(v))); maxAbs=Math.ceil(maxAbs/100)*100
+  const x=i=>pad.l+(pts.length===1?0:(W-pad.l-pad.r)*i/(pts.length-1))
+  const y=v=>pad.t+(H-pad.t-pad.b)*(maxAbs-v)/(maxAbs*2)
+  const colors=['#6caa8b','#cf7f91','#8aa8cf','#b394cf']
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="四人輸贏曲線圖">`
+  svg+=`<line x1="${pad.l}" y1="${y(0)}" x2="${W-pad.r}" y2="${y(0)}" stroke="#b9b1b4" stroke-width="1.5" stroke-dasharray="5 5"/>`
+  ;[-maxAbs,0,maxAbs].forEach(v=>svg+=`<text x="${pad.l-7}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8b8388">${v>0?'+':''}${v}</text>`)
+  pts.forEach((pt,i)=>{ if(i===0||i===pts.length-1||i%Math.max(1,Math.ceil(pts.length/6))===0) svg+=`<text x="${x(i)}" y="${H-15}" text-anchor="middle" font-size="10" fill="#8b8388">${i===0?'0':i}</text>` })
+  players.forEach((p,pi)=>{
+    const path=pts.map((pt,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(pt.values[p]||0).toFixed(1)}`).join(' ')
+    svg+=`<path d="${path}" fill="none" stroke="${colors[pi%colors.length]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
+    pts.forEach((pt,i)=>svg+=`<circle cx="${x(i)}" cy="${y(pt.values[p]||0)}" r="3.3" fill="${colors[pi%colors.length]}"><title>${i===0?'開始':`第 ${i} 場 ${pt.round||''}`}・${p} ${(pt.values[p]||0)>=0?'+':''}$${Number(pt.values[p]||0).toLocaleString()}</title></circle>`)
+  })
+  svg+='</svg>'
+  const legend=players.map((p,i)=>`<span><i class="trend-dot" style="background:${colors[i%colors.length]}"></i>${p}</span>`).join('')
+  return svg+`<div class="trend-legend">${legend}</div>`
+}
+function renderLiveTrend(){
+  const el=document.getElementById('liveTrendChart'); if(el) el.innerHTML=trendChartHtml(hands,P)
+}
 
 function renderGame(){
 
@@ -3039,7 +3115,7 @@ function renderGame(){
     .getElementById('handCounter')
     .textContent=
 
-      `第 ${hands.length+1} 把`
+      `第 ${hands.length+1} 場`
 
 
   document
@@ -3053,7 +3129,7 @@ function renderGame(){
     .getElementById('entryTitle')
     .textContent=
 
-      `第 ${hands.length+1} 把・${roundName}`
+      `第 ${hands.length+1} 場・${roundName}`
 
       +(
         repeats>0
@@ -3196,6 +3272,8 @@ function renderGame(){
   syncPatterns()
 
   renderLiveStats()
+
+  renderLiveTrend()
 
   renderHistory()
 
@@ -3449,30 +3527,22 @@ function getPlayerStats(player){
 
 function getWaterHeight(amount){
 
-  const base=
-    currentRule.water
+  // 水位一律從 0 開始；依目前四人的最大輸贏動態呈現。
+  const maxAbs=Math.max(
+    1,
+    ...P.map(player=>Math.abs(balances[player]||0))
+  )
 
-  const ratio=
-    (amount-base)/base
+  const ratio=amount/maxAbs
+  let height=50+(ratio*42)
 
-  let height=
-    50+(ratio*40)
-
-  if(height>92){
-
-    height=92
-
-  }
-
-  if(height<8){
-
-    height=8
-
-  }
+  if(height>92) height=92
+  if(height<8) height=8
 
   return height
 
 }
+
 
 
 /* =========================
@@ -3511,7 +3581,7 @@ function renderLiveStats(){
           balances[player]
 
         const net=
-          amount-currentRule.water
+          amount
 
         const stats=
           getPlayerStats(player)
@@ -3740,7 +3810,7 @@ function renderMoneyPie(){
 
               ・
 
-              ${(balances[player]-currentRule.water)>=0?'+':''}$${(balances[player]-currentRule.water).toLocaleString()}
+              ${(balances[player])>=0?'+':''}$${(balances[player]).toLocaleString()}
 
               ・
 
@@ -4036,7 +4106,7 @@ function syncResultButtons(){
 
 
 /* =========================
-   復原上一把
+   復原上一場
 ========================= */
 
 function undoHand(){
@@ -4420,8 +4490,6 @@ function finishDetailedGame(){
 
         const net=
           balances[player]
-          -
-          currentRule.water
 
 
         return `
@@ -4468,8 +4536,8 @@ function finishDetailedGame(){
 
               <div class="muted">
 
-                水位
-                $${balances[player].toLocaleString()}
+                水位（0 起算）
+                ${(balances[player]>=0?'+':'')}$${balances[player].toLocaleString()}
 
               </div>
 
@@ -4681,8 +4749,9 @@ function ensureAppData(){
   if(appData) return appData
   try{ appData=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null') }catch(e){ appData=null }
   if(!appData || appData.version!==2){
-    appData={version:2, profile:{name:'之之'}, rooms:[], sessions:[]}
+    appData={version:2, profile:{name:''}, rooms:[], sessions:[]}
   }
+  appData.profile=appData.profile||{name:''}
   // 舊版預設測試房間直接移除；同房間的舊測試場次也一併清除。
   const legacyDefaultRooms=['之之麻將團','之芝麻醬團']
   if(Array.isArray(appData.rooms)){
@@ -4697,6 +4766,18 @@ function ensureAppData(){
 }
 function persistAppData(){
   if(appData) localStorage.setItem(STORAGE_KEY,JSON.stringify(appData))
+}
+function setMyNickname(){
+  ensureAppData()
+  const current=(appData.profile&&appData.profile.name)||''
+  const name=prompt('請輸入你的固定暱稱',current)
+  if(name===null) return
+  const clean=name.trim()
+  if(!clean){ alert('暱稱不能空白'); return }
+  appData.profile=appData.profile||{}
+  appData.profile.name=clean
+  persistAppData()
+  renderHomeDashboard()
 }
 function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7) }
 function ensureRoom(name){
@@ -4739,7 +4820,8 @@ function aggregateSessions(sessions){
 }
 function renderHomeDashboard(){
   ensureAppData()
-  const me=appData.profile.name
+  const me=(appData.profile&&appData.profile.name)||''
+  const pd=document.getElementById('profileNameDisplay'); if(pd) pd.textContent=me||'尚未設定'
   const all=aggregateSessions(appData.sessions)
   const mine=all.find(x=>x.name===me)||{net:0,sessions:0,wins:0,selfdraws:0,discards:0}
   const mySessions=appData.sessions.filter(s=>Object.prototype.hasOwnProperty.call(sessionNets(s),me))
@@ -4783,15 +4865,18 @@ function createRoomPrompt(){
 function quickStartGame(){
   ensureAppData(); currentRoomId=''
   document.getElementById('room').value=''
-  ;[1,2,3,4].forEach(i=>{ const el=document.getElementById('player'+i); if(el) el.value='' })
+  ;[1,2,3,4].forEach(i=>{ const el=document.getElementById('player'+i); if(el) el.value=(i===1?(appData.profile?.name||''):'') })
   show('setup')
 }
 function startFromCurrentRoom(){
   ensureAppData(); const r=appData.rooms.find(x=>x.id===currentRoomId)
   if(!r) return show('home')
   document.getElementById('room').value=r.name
-  const a=aggregateSessions(roomSessions(r.id)).sort((x,y)=>y.sessions-x.sessions).slice(0,4)
-  ;[1,2,3,4].forEach((i,idx)=>{ const el=document.getElementById('player'+i); if(el) el.value=a[idx]?.name||'' })
+  const me=appData.profile?.name||''
+  const names=aggregateSessions(roomSessions(r.id)).sort((x,y)=>y.sessions-x.sessions).map(x=>x.name)
+  if(me && !names.includes(me)) names.unshift(me)
+  else if(me){ names.splice(names.indexOf(me),1); names.unshift(me) }
+  ;[1,2,3,4].forEach((i,idx)=>{ const el=document.getElementById('player'+i); if(el) el.value=names[idx]||'' })
   show('setup')
 }
 function renderRoomDashboard(){
@@ -4845,13 +4930,15 @@ function sessionRowHtml(ss){
 }
 function showSessionDetail(id){
   ensureAppData(); const ss=appData.sessions.find(s=>s.id===id); if(!ss) return
-  const date=new Date(ss.createdAt).toLocaleString('zh-TW'), nets=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${n} ${money(v)}`).join('\n')
-  let detail=`${date}\n${ss.roomName||''}${ss.place?'・'+ss.place:''}\n${ss.stake||''}\n\n【結算】\n${nets}`
-  if((ss.hands||[]).length){
-    detail+='\n\n【逐局紀錄】\n'+ss.hands.map((h,i)=>`${i+1}. ${h.round||h.roundName||''} ${h.result||''}${h.winner?'・'+h.winner:''}${h.discarder?' ← '+h.discarder:''}${(h.patterns||[]).length?'・'+h.patterns.join('/') :''}`).join('\n')
-  }else detail+='\n\n這場是最終結算模式，沒有逐局明細。'
-  alert(detail)
+  const old=document.getElementById('sessionDetailModal'); if(old) old.remove()
+  const date=new Date(ss.createdAt).toLocaleString('zh-TW')
+  const rows=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="session-head"><b>${n}</b><b>${money(v)}</b></div>`).join('')
+  const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>四人輸贏走勢</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:'<div class="career-note">這場只有最終結算，沒有逐場資料，因此不產生假的曲線。</div>'
+  const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
+  div.innerHTML=`<div class="modal-box" style="max-width:720px;max-height:88vh;overflow:auto"><div class="toprow"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="link" onclick="document.getElementById('sessionDetailModal').remove()">關閉</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}</div>${handsHtml}</div>`
+  document.body.appendChild(div)
 }
+
 function saveCurrentSession(kind, finalValues){
   if(sessionSaved) return
   ensureAppData()
@@ -4859,7 +4946,7 @@ function saveCurrentSession(kind, finalValues){
   if(!room) room=ensureRoom((document.getElementById('room').value||'我的麻將房').trim())
   const nets={}
   if(kind==='final') P.forEach((name,i)=>nets[name]=Number(finalValues[i])||0)
-  else P.forEach(name=>nets[name]=(balances[name]||0)-currentRule.water)
+  else P.forEach(name=>nets[name]=(balances[name]||0))
   const ss={id:makeId('session'),roomId:room.id,roomName:room.name,createdAt:new Date().toISOString(),place:(document.getElementById('place').value||'').trim(),stake:selectedStake,mode:kind,players:[...P],nets,hands:kind==='detailed'?hands.map(h=>JSON.parse(JSON.stringify(h))):[]}
   appData.sessions.push(ss); sessionSaved=true; persistAppData()
 }
