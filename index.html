@@ -1367,26 +1367,14 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .room-member-chip{font-size:12px;font-weight:700;padding:5px 9px;border-radius:999px;background:#f2f0ee;color:#756a63;white-space:nowrap}
 
 
-/* V27：莊家座位強化 — 不改計分邏輯 */
-.player-card.dealer-seat{
-  background:linear-gradient(180deg,#fff8d9 0%,#fff2b8 100%);
-  border:3px solid #d8ad38 !important;
-  box-shadow:0 0 0 4px rgba(216,173,56,.16),0 8px 20px rgba(151,112,19,.14) !important;
-}
-.player-card.dealer-seat .player-name{font-weight:950;color:#6f5310}
-.dealer-seat-tag{
-  display:inline-flex;align-items:center;justify-content:center;
-  margin-left:6px;padding:2px 8px;border-radius:999px;
-  background:#d8ad38;color:#fff;font-size:10px;font-weight:950;
-  line-height:1.5;vertical-align:middle;box-shadow:0 2px 5px rgba(128,91,0,.18);
-}
-#game:not(.projection-mode) #seatPicker .player-card.dealer-seat{
-  border-width:3px !important;
-}
-#game.projection-mode #playerStats .player-card.dealer-seat{
-  border:4px solid #d8ad38 !important;
-  box-shadow:0 0 0 5px rgba(216,173,56,.18),0 8px 24px rgba(151,112,19,.16) !important;
-}
+/* V31：玩家框狀態 — 莊家紅色優先；水位上藍色；水位下淺灰色 */
+.player-card.balance-high{border:3px solid #7db7e8 !important;box-shadow:0 0 0 3px rgba(125,183,232,.12),0 6px 16px rgba(72,126,170,.10) !important}
+.player-card.balance-low{border:3px solid #d9dde2 !important;box-shadow:0 0 0 3px rgba(180,186,194,.10),0 6px 16px rgba(90,96,105,.07) !important}
+.player-card.dealer-seat{background:linear-gradient(180deg,#fff7f7 0%,#ffeaea 100%);border:4px solid #e25555 !important;box-shadow:0 0 0 4px rgba(226,85,85,.16),0 8px 20px rgba(160,52,52,.14) !important}
+.player-card.dealer-seat .player-name{font-weight:950;color:#a92f2f}
+.dealer-seat-tag{display:inline-flex;align-items:center;justify-content:center;margin-left:6px;padding:2px 8px;border-radius:999px;background:#e25555;color:#fff;font-size:10px;font-weight:950;line-height:1.5;vertical-align:middle;box-shadow:0 2px 5px rgba(160,52,52,.18)}
+#game:not(.projection-mode) #seatPicker .player-card.dealer-seat{border-width:4px !important}
+#game.projection-mode #playerStats .player-card.dealer-seat{border:5px solid #e25555 !important;box-shadow:0 0 0 5px rgba(226,85,85,.18),0 8px 24px rgba(160,52,52,.16) !important}
 #game.projection-mode #playerStats .dealer-seat-tag{font-size:12px;padding:3px 10px}
 </style>
 </head>
@@ -1519,7 +1507,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   </div>
 
   <div class="card">
-    <div class="toprow"><h2>🔐 加入／觀看申請</h2><span class="muted">只有房主可以核准</span></div>
+    <div class="toprow"><h2>🔐 加入／觀看申請</h2><button class="link" onclick="syncRoomJoinRequests()">查看／重新整理</button></div>
     <div id="roomJoinRequests"><div class="muted">正在讀取申請…</div></div>
   </div>
 
@@ -2774,6 +2762,25 @@ async function loadRoomPlayerMap(roomId=currentRoomId){
   }
 }
 
+async function loadRoomPlayersList(roomId){
+  if(!roomId || !pbAuth?.token) return []
+  const f=encodeURIComponent(`room="${pbFilterValue(roomId)}" && status="active"`)
+  const data=await pbRequest(`/api/collections/room_players/records?perPage=500&sort=created&filter=${f}`)
+  return data.items||[]
+}
+
+async function closeMyStaleRemoteSessions(){
+  if(!currentRoomId || !pbAuth?.record?.id) return
+  try{
+    const f=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active" && recorder="${pbFilterValue(pbAuth.record.id)}"`)
+    const data=await pbRequest(`/api/collections/game_sessions/records?perPage=100&sort=-created&filter=${f}`)
+    for(const old of (data.items||[])){
+      try{ await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(old.id)}`,{method:'PATCH',body:JSON.stringify({status:'abandoned',ended_reason:'abandoned',ended_at:new Date().toISOString()})}) }
+      catch(e){ console.warn('V31：舊 active session 清理失敗',old.id,e) }
+    }
+  }catch(e){ console.warn('V31：讀取舊 active session 失敗',e) }
+}
+
 async function ensureRemoteRoomPlayers(roomId=currentRoomId){
   if(!roomId || !pbAuth?.record?.id) return {}
   let map=await loadRoomPlayerMap(roomId)
@@ -2811,6 +2818,7 @@ async function createRemoteGameSession(){
   remoteSessionId=''
   if(!pbAuth?.record?.id || !currentRoomId || mode!=='detailed') return null
   try{
+    await closeMyStaleRemoteSessions()
     const map=await ensureRemoteRoomPlayers(currentRoomId)
     const playerIds=P.map(n=>map[n]?.id).filter(Boolean)
     const dealerId=map[dealer]?.id||''
@@ -2831,7 +2839,7 @@ async function createRemoteGameSession(){
     remoteSessionId=rec.id
     return rec
   }catch(e){
-    console.warn('V29：建立遠端牌局失敗，本機計分照常運作',e)
+    console.warn('V31：建立遠端牌局失敗，本機計分照常運作',e)
     return null
   }
 }
@@ -2878,7 +2886,8 @@ async function syncCurrentRoomLiveSession(){
   try{
     const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
     const data=await pbRequest(`/api/collections/game_sessions/records?perPage=20&sort=-created&filter=${filter}`)
-    const ss=(data.items||[])[0]
+    const activeItems=data.items||[]
+    const ss=activeItems.find(x=>Array.isArray(x.players)&&x.players.length===4) || activeItems[0]
     if(!ss){ box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>'; return }
     box.innerHTML=`<div class="notice ok"><b>🟢 牌局進行中</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把<br><span class="muted">已確認的紀錄會從 NAS 同步，不會改動紀錄者手機。</span></div><button class="primary" style="margin-top:10px" onclick="openLiveSession('${ss.id}')">👀 觀看直播</button>`
   }catch(e){
@@ -2889,8 +2898,9 @@ async function syncCurrentRoomLiveSession(){
 async function openLiveSession(sessionId){
   try{
     const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
-    const roomMap=await loadRoomPlayerMap(ss.room)
-    const byId=Object.fromEntries(Object.values(roomMap).map(x=>[x.id,x]))
+    // V31：直接用 room_player ID 解析，避免同名重複資料被名稱 map 覆蓋。
+    const roomPlayers=await loadRoomPlayersList(ss.room)
+    const byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
     const names=(ss.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
     // V30：觀看資格只看「目前登入者是不是房間正式成員」，不要求觀看者本人在這四位玩家內。
     // ss.players 僅代表本局實際上桌四人。
@@ -2920,16 +2930,36 @@ async function openLiveSession(sessionId){
   }catch(e){ alert('目前無法開啟直播：'+(e.message||'請稍後再試')) }
 }
 
+async function getCurrentRoomMembership(){
+  if(!currentRoomId || !pbAuth?.record?.id) return null
+  try{
+    const f=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && user="${pbFilterValue(pbAuth.record.id)}"`)
+    const d=await pbRequest(`/api/collections/room_members/records?perPage=10&filter=${f}`)
+    return (d.items||[])[0]||null
+  }catch(e){ return null }
+}
+
+async function reviewRoomJoinRequest(requestId,decision){
+  if(!['approved','rejected'].includes(decision)) return
+  try{
+    await pbRequest(`/api/collections/room_join_requests/records/${encodeURIComponent(requestId)}`,{method:'PATCH',body:JSON.stringify({status:decision,approved_by:pbAuth.record.id,approved_at:new Date().toISOString()})})
+    await syncRoomJoinRequests()
+  }catch(e){ alert('目前無法更新申請：'+(e.message||'請確認 room_join_requests API Rules')) }
+}
+
 async function syncRoomJoinRequests(){
   const box=document.getElementById('roomJoinRequests')
   if(!box || !currentRoomId || !pbAuth?.token) return
+  box.innerHTML='<div class="muted">正在讀取申請…</div>'
   try{
+    const membership=await getCurrentRoomMembership()
+    const isOwner=membership?.role==='owner'
     const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="pending"`)
     const data=await pbRequest(`/api/collections/room_join_requests/records?perPage=100&sort=-created&filter=${filter}`)
     const items=data.items||[]
-    box.innerHTML=items.length?items.map(x=>`<div class="room-member-row"><div><b>${escapeHtml(x.guest_name||'加入申請')}</b><div class="muted">${x.request_type==='viewer'?'只觀看這場':'申請加入房間'}</div></div><span class="season-chip">待房主核准</span></div>`).join(''):'<div class="muted">目前沒有待處理申請。</div>'
+    box.innerHTML=items.length?items.map(x=>`<div class="room-member-row"><div><b>${escapeHtml(x.guest_name||'加入申請')}</b><div class="muted">${x.request_type==='viewer'?'只觀看這場':'申請加入房間'}</div></div>${isOwner?`<div style="display:flex;gap:6px"><button class="link" onclick="reviewRoomJoinRequest('${x.id}','approved')">同意</button><button class="link" onclick="reviewRoomJoinRequest('${x.id}','rejected')">拒絕</button></div>`:'<span class="season-chip">待房主核准</span>'}</div>`).join(''):'<div class="muted">目前沒有待處理申請。</div>'
   }catch(e){
-    box.innerHTML='<div class="muted">申請讀取權限尚未開放；不影響現有房間與計分。</div>'
+    box.innerHTML='<div class="muted">目前無法讀取申請。房主若要核准／拒絕，需要開放 room_join_requests 的 List/View 權限。</div><button class="link" style="margin-top:8px" onclick="syncRoomJoinRequests()">重新整理申請</button>'
   }
 }
 
@@ -4410,7 +4440,7 @@ function renderLiveStats(){
     const height=getWaterHeight(net)
     const safePlayer=player.replace(/'/g,"\\'")
     return `
-      <div class="player-card pos-${getTablePosition(player)} selectable ${player===dealer?'dealer-seat':''} ${net===maxBalance?'leader':''} ${winner===player?'pick-winner':''} ${discarder===player?'pick-discarder':''}"
+      <div class="player-card pos-${getTablePosition(player)} selectable ${player===dealer?'dealer-seat':''} ${net>=0?'balance-high':'balance-low'} ${net===maxBalance?'leader':''} ${winner===player?'pick-winner':''} ${discarder===player?'pick-discarder':''}"
         onclick="handlePlayerCardClick('${safePlayer}')">
         <div class="water ${net>=0?'high':'low'}" style="height:${height}%"></div>
         <div class="player-content">
