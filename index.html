@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fffaf5">
-<title>誰與爭鋒</title>
+<title>麻將日記</title>
 
 <style>
 :root{
@@ -877,6 +877,125 @@ input{
   }
 
 }
+
+/* ===== 手機計分優先 / 橫向投影 ===== */
+.projection-btn{
+  margin-top:8px;
+  border:0;
+  border-radius:999px;
+  padding:8px 12px;
+  background:#fff3b8;
+  color:#514a42;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 4px 10px rgba(80,70,60,.10);
+}
+.undo-btn{
+  background:#ffe0e7 !important;
+  color:#8b4555 !important;
+  border:1px solid #f3bcc9 !important;
+  border-radius:12px !important;
+  padding:8px 12px !important;
+  font-weight:900 !important;
+}
+#game.projection-mode .game-entry-card,
+#game.projection-mode .game-history-card,
+#game.projection-mode .game-finish-btn,
+#game.projection-mode .live-head{
+  display:none !important;
+}
+#game.projection-mode .game-status-card,
+#game.projection-mode .game-chart-card{
+  display:block !important;
+}
+#game.projection-mode .player-stats{
+  margin-top:0;
+}
+#game.projection-mode .chart-wrap{
+  justify-content:center;
+}
+#game.projection-mode .pie{
+  width:min(32vw,280px);
+  height:min(32vw,280px);
+}
+#game.projection-mode .game-status-card,
+#game.projection-mode .game-chart-card{
+  padding:22px;
+}
+
+@media (max-width: 700px) and (orientation: portrait){
+  #game{
+    display:flex;
+    flex-direction:column;
+  }
+  #game.hidden{ display:none !important; }
+  #game .game-entry-card{ order:1; }
+  #game .game-status-card{ order:2; }
+  #game .game-chart-card{ order:3; }
+  #game .game-history-card{ order:4; }
+  #game .game-finish-btn{ order:5; }
+  #game .game-entry-card{
+    margin-top:0;
+  }
+}
+
+@media (orientation: landscape){
+  #game:not(.hidden){
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(300px,.8fr);
+    gap:14px;
+    align-items:start;
+  }
+  #game .game-status-card,
+  #game .game-chart-card{
+    display:block;
+    margin:0;
+  }
+  #game .game-entry-card,
+  #game .game-history-card,
+  #game .game-finish-btn{
+    display:none !important;
+  }
+  #game .live-head{
+    display:none !important;
+  }
+  #game .pie{
+    width:min(30vw,260px);
+    height:min(30vw,260px);
+  }
+  #game .chart-wrap{
+    grid-template-columns:auto minmax(160px,1fr);
+  }
+}
+
+
+/* ===== 誰與爭鋒 V2：長期戰績 / 房間 ===== */
+.compact-hero{padding-bottom:18px}
+.career-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.career-stat{background:#fffaf3;border:1px solid var(--line);border-radius:16px;padding:12px}
+.career-stat .k{font-size:11px;color:#8a8185;font-weight:800}
+.career-stat .v{font-size:21px;font-weight:950;margin-top:4px}
+.career-note{margin-top:10px;padding:10px 12px;background:#f7f1ff;border-radius:14px;font-size:12px;color:#706777}
+.season-chip{font-size:10px;font-weight:900;padding:6px 9px;border-radius:999px;background:#eef8f2;color:#5d8c73}
+.filled-link{background:#edf8f2!important;border-radius:12px!important;padding:8px 10px!important}
+.room-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+.room-row:last-child{border-bottom:0}
+.room-row .room-name{font-weight:950;font-size:16px}
+.room-row .room-meta{font-size:11px;color:#8a8185;margin-top:4px}
+.room-arrow{font-size:22px;color:#9d9397}
+.rank-row{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:8px;padding:12px 0;border-bottom:1px dashed var(--line)}
+.rank-row:last-child{border-bottom:0}
+.rank-no{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#fff3c8;font-weight:950}
+.rank-money{font-weight:950;font-size:17px;text-align:right}
+.badge-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.badge-card{border-radius:16px;padding:12px;background:#fffaf3;border:1px solid var(--line)}
+.badge-icon{font-size:24px}.badge-title{font-size:11px;color:#81777c;font-weight:900;margin-top:5px}.badge-winner{font-size:15px;font-weight:950;margin-top:3px}.badge-desc{font-size:10px;color:#9b9296;margin-top:3px}
+.session-row{padding:11px 0;border-bottom:1px dashed var(--line)}
+.session-row:last-child{border-bottom:0}
+.session-head{display:flex;justify-content:space-between;gap:8px;font-weight:900}
+.session-result{font-size:11px;color:#847b80;margin-top:5px;line-height:1.6}
+@media(min-width:760px){.career-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.badge-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
 </style>
 </head>
 
@@ -892,8 +1011,8 @@ input{
     </div>
 
     <div>
-      <h1>麻將日記</h1>
-      <p>今晚的戰況，全部記下來</p>
+      <h1>誰與爭鋒</h1>
+      <p>你的每一場，都算進江湖排名</p>
     </div>
 
   </div>
@@ -908,51 +1027,63 @@ input{
 
 <section id="home">
 
-  <div class="card hero">
-
+  <div class="card hero compact-hero">
     <div class="mahjong-art">
-
-      <div class="art-tile red">
-        中
-      </div>
-
-      <div class="art-tile green">
-        發
-      </div>
-
-      <div class="art-tile white-dragon" aria-label="白皮">
-        <div class="white-dragon-frame"></div>
-      </div>
-
-      <div class="art-die" aria-label="骰子">
-        <span class="pip p1"></span>
-        <span class="pip p2"></span>
-        <span class="pip p3"></span>
-        <span class="pip p4"></span>
-        <span class="pip p5"></span>
-      </div>
-
+      <div class="art-tile red">中</div>
+      <div class="art-tile green">發</div>
+      <div class="art-tile white-dragon" aria-label="白皮"><div class="white-dragon-frame"></div></div>
+      <div class="art-die" aria-label="骰子"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span></div>
     </div>
-
-    <div class="hero-title">
-      麻將日記
-    </div>
-
-    <div class="hero-sub">
-      記錄每一場，也記錄每一次逆轉
-    </div>
-
+    <div class="hero-title">誰與爭鋒</div>
+    <div class="hero-sub">我的麻將生涯</div>
   </div>
 
-  <button
-    class="primary"
-    onclick="show('setup')"
-  >
-    ＋ 開新牌局
-  </button>
+  <div class="card">
+    <div class="toprow"><h2>我的長期戰績</h2><span class="season-chip">ALL TIME</span></div>
+    <div id="myCareerStats" class="career-grid"></div>
+    <div id="myCareerTrend" class="career-note"></div>
+  </div>
 
+  <div class="card">
+    <div class="toprow"><h2>我的房間</h2><button class="link filled-link" onclick="createRoomPrompt()">＋新增房間</button></div>
+    <div id="roomList"></div>
+  </div>
+
+  <div class="card">
+    <div class="toprow"><h2>最近牌局</h2><span class="muted">自動保存</span></div>
+    <div id="recentSessions" class="muted">還沒有紀錄</div>
+  </div>
+
+  <button class="primary" onclick="quickStartGame()">＋ 開始新牌局</button>
 </section>
 
+<!-- 房間首頁 -->
+<section id="roomDashboard" class="hidden">
+  <div class="card">
+    <div class="toprow">
+      <div><div class="muted">ROOM</div><h2 id="roomDashboardTitle" style="margin:3px 0 0"></h2></div>
+      <button class="link" onclick="show('home')">返回首頁</button>
+    </div>
+    <div id="roomSummary" class="career-grid" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card">
+    <div class="toprow"><h2>🏆 長期排行榜</h2><span class="season-chip">累積</span></div>
+    <div id="roomRanking"></div>
+  </div>
+
+  <div class="card">
+    <div class="toprow"><h2>🎖️ 麻將名人堂</h2><span class="muted">依房間紀錄自動更新</span></div>
+    <div id="roomBadges" class="badge-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="toprow"><h2>歷史牌局</h2><span id="roomSessionCount" class="muted"></span></div>
+    <div id="roomHistory" class="muted"></div>
+  </div>
+
+  <button class="primary" onclick="startFromCurrentRoom()">＋ 在這個房間開始新牌局</button>
+</section>
 
 <!-- 開局 -->
 
@@ -979,6 +1110,7 @@ input{
     <input
       id="room"
       value="之之麻將團"
+      placeholder="房間名稱"
     >
 
 
@@ -1195,13 +1327,13 @@ input{
 
     <div class="notice">
 
-      莊家胡牌／自摸 → 連莊<br>
+      <br>
 
-      流局 → 連莊<br>
+      <br>
 
-      莊家詐胡 → 下莊<br>
+      <br>
 
-      閒家詐胡 → 原莊連莊
+      
 
     </div>
 
@@ -1228,7 +1360,7 @@ input{
 
   <!-- 即時戰況 -->
 
-  <div class="card live-card">
+  <div class="card live-card game-status-card">
 
     <div class="live-head">
 
@@ -1267,6 +1399,14 @@ input{
           第 1 把
         </div>
 
+        <button
+          class="projection-btn"
+          onclick="toggleProjectionMode()"
+          type="button"
+        >
+          📺 投影
+        </button>
+
         <div
           id="stakeDisplay"
           class="muted"
@@ -1288,7 +1428,7 @@ input{
 
   <!-- 金額圓餅 -->
 
-  <div class="card">
+  <div class="card game-chart-card">
 
     <div class="toprow">
 
@@ -1320,7 +1460,7 @@ input{
 
   <!-- 記錄 -->
 
-  <div class="card">
+  <div class="card game-entry-card">
 
     <h2 id="entryTitle">
       記錄這一把
@@ -1569,7 +1709,7 @@ input{
 
   <!-- 歷史 -->
 
-  <div class="card">
+  <div class="card game-history-card">
 
     <div class="toprow">
 
@@ -1578,7 +1718,7 @@ input{
       </h2>
 
       <button
-        class="link"
+        class="link undo-btn"
         onclick="undoHand()"
       >
         復原上一把
@@ -1598,7 +1738,7 @@ input{
 
 
   <button
-    class="finish"
+    class="finish game-finish-btn"
     onclick="askFinishGame()"
   >
     提前結束牌局
@@ -1795,6 +1935,12 @@ let selectedPatterns=[]
 /* 最近一次完成「一局」後的領先者；同分可多人戴皇冠 */
 let roundLeaders=[]
 
+/* 誰與爭鋒 V2 長期資料 */
+const STORAGE_KEY='shuiYuZhengFengV2'
+let appData=null
+let currentRoomId=''
+let sessionSaved=false
+
 const winds=[
   '東',
   '南',
@@ -1822,6 +1968,9 @@ function show(id){
   document
     .getElementById(id)
     .classList.remove('hidden')
+
+  if(id==='home') renderHomeDashboard()
+  if(id==='roomDashboard') renderRoomDashboard()
 
   window.scrollTo(0,0)
 
@@ -1894,6 +2043,11 @@ function getPlayers(){
 ========================= */
 
 function startGame(){
+
+  ensureAppData()
+  sessionSaved=false
+  const roomName=(document.getElementById('room').value||'我的麻將房').trim()
+  currentRoomId=ensureRoom(roomName).id
 
   P=getPlayers()
 
@@ -4251,6 +4405,7 @@ function finishDetailedGame(){
       }).join('')
 
 
+  saveCurrentSession('detailed')
   show('done')
 
 }
@@ -4436,9 +4591,215 @@ function saveFinal(){
       }).join('')
 
 
+  saveCurrentSession('final', values)
   show('done')
 
 }
+
+
+/* =========================
+   誰與爭鋒 V2：長期資料
+========================= */
+function ensureAppData(){
+  if(appData) return appData
+  try{ appData=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null') }catch(e){ appData=null }
+  if(!appData || appData.version!==2){
+    appData={version:2, profile:{name:'之之'}, rooms:[], sessions:[]}
+  }
+  if(!appData.rooms.length) ensureRoom('之之麻將團')
+  persistAppData()
+  return appData
+}
+function persistAppData(){
+  if(appData) localStorage.setItem(STORAGE_KEY,JSON.stringify(appData))
+}
+function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7) }
+function ensureRoom(name){
+  ensureAppData()
+  let room=appData.rooms.find(r=>r.name===name)
+  if(!room){ room={id:makeId('room'),name,createdAt:new Date().toISOString()}; appData.rooms.push(room); persistAppData() }
+  return room
+}
+function roomSessions(roomId){ ensureAppData(); return appData.sessions.filter(x=>x.roomId===roomId) }
+function money(n){ return (n>=0?'+':'-')+'$'+Math.abs(n||0).toLocaleString() }
+function sessionNets(session){ return session.nets||{} }
+function aggregateSessions(sessions){
+  const players={}
+  const touch=name=>players[name]||(players[name]={
+    name,net:0,sessions:0,wins:0,selfdraws:0,discards:0,frauds:0,maxWin:-Infinity,
+    cleanSuit:0,mixedSuit:0,pongPong:0
+  })
+  sessions.forEach(ss=>{
+    Object.entries(sessionNets(ss)).forEach(([name,net])=>{
+      const x=touch(name)
+      x.net+=net
+      x.sessions++
+      x.maxWin=Math.max(x.maxWin,net)
+    })
+    ;(ss.hands||[]).forEach(h=>{
+      if(h.result==='胡牌'&&h.winner){
+        touch(h.winner).wins++
+        if(h.discarder) touch(h.discarder).discards++
+      }
+      if(h.result==='自摸'&&h.winner){
+        touch(h.winner).wins++
+        touch(h.winner).selfdraws++
+      }
+      if(h.result==='詐胡'&&h.winner) touch(h.winner).frauds++
+
+      if(h.winner && (h.result==='胡牌'||h.result==='自摸')){
+        const patterns=h.patterns||[]
+        if(patterns.includes('清一色')) touch(h.winner).cleanSuit++
+        if(patterns.includes('混一色')) touch(h.winner).mixedSuit++
+        if(patterns.includes('碰碰胡')) touch(h.winner).pongPong++
+      }
+    })
+  })
+  return Object.values(players)
+}
+function renderHomeDashboard(){
+  ensureAppData()
+  const me=appData.profile.name
+  const all=aggregateSessions(appData.sessions)
+  const mine=all.find(x=>x.name===me)||{net:0,sessions:0,wins:0,selfdraws:0,discards:0}
+  const mySessions=appData.sessions.filter(s=>Object.prototype.hasOwnProperty.call(sessionNets(s),me))
+  const best=mySessions.reduce((m,s)=>Math.max(m,sessionNets(s)[me]||0),0)
+  document.getElementById('myCareerStats').innerHTML=`
+    <div class="career-stat"><div class="k">累積輸贏</div><div class="v">${money(mine.net)}</div></div>
+    <div class="career-stat"><div class="k">累積場次</div><div class="v">${mine.sessions} 場</div></div>
+    <div class="career-stat"><div class="k">胡牌 / 自摸</div><div class="v">${mine.wins} / ${mine.selfdraws}</div></div>
+    <div class="career-stat"><div class="k">最佳單場</div><div class="v">${money(best)}</div></div>`
+  document.getElementById('myCareerTrend').textContent=mySessions.length?'所有房間的紀錄都會累積在這裡；正式 App 上線後可整批移轉。':'第一場牌局結束後，這裡就會開始累積你的麻將生涯。'
+  document.getElementById('roomList').innerHTML=appData.rooms.map(r=>{
+    const ss=roomSessions(r.id), a=aggregateSessions(ss), meRow=a.find(x=>x.name===me)
+    return `<div class="room-row" onclick="openRoom('${r.id}')"><div><div class="room-name">🀄 ${r.name}</div><div class="room-meta">${ss.length} 場・我的戰績 ${money(meRow?meRow.net:0)}</div></div><div class="room-arrow">›</div></div>`
+  }).join('')
+  const recent=[...appData.sessions].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5)
+  document.getElementById('recentSessions').innerHTML=recent.length?recent.map(sessionRowHtml).join(''):'還沒有紀錄'
+}
+function openRoom(id){ currentRoomId=id; show('roomDashboard') }
+function createRoomPrompt(){
+  const name=prompt('新房間叫什麼名字？')
+  if(!name||!name.trim()) return
+  const r=ensureRoom(name.trim()); currentRoomId=r.id; show('roomDashboard')
+}
+function quickStartGame(){
+  ensureAppData(); const room=appData.rooms[0]||ensureRoom('之之麻將團'); currentRoomId=room.id
+  document.getElementById('room').value=room.name; show('setup')
+}
+function startFromCurrentRoom(){
+  ensureAppData(); const r=appData.rooms.find(x=>x.id===currentRoomId)
+  if(!r) return show('home')
+  document.getElementById('room').value=r.name
+  const a=aggregateSessions(roomSessions(r.id)).sort((x,y)=>y.sessions-x.sessions).slice(0,4)
+  if(a.length===4) document.getElementById('players').value=a.map(x=>x.name).join(',')
+  show('setup')
+}
+function renderRoomDashboard(){
+  ensureAppData()
+  let room=appData.rooms.find(r=>r.id===currentRoomId)
+  if(!room){room=appData.rooms[0];currentRoomId=room?.id||''}
+  if(!room) return
+  const ss=roomSessions(room.id), rows=aggregateSessions(ss).sort((a,b)=>b.net-a.net)
+  const totalHands=ss.reduce((n,x)=>n+(x.hands||[]).length,0)
+  document.getElementById('roomDashboardTitle').textContent=room.name
+  document.getElementById('roomSummary').innerHTML=`
+    <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
+    <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
+    <div class="career-stat"><div class="k">參與玩家</div><div class="v">${rows.length}</div></div>
+    <div class="career-stat"><div class="k">目前雀王</div><div class="v">${rows[0]?.name||'—'}</div></div>`
+  document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 場・胡 ${x.wins}・自摸 ${x.selfdraws}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'打完第一場後，就會出現房間長期排行榜。'
+  document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
+  document.getElementById('roomSessionCount').textContent=`${ss.length} 場`
+  document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(sessionRowHtml).join(''):'還沒有歷史牌局'
+}
+function badgeHtml(rows,sessions){
+  if(!rows.length) return '<div class="muted">累積幾場後，這裡會開始產生房間徽章。</div>'
+
+  const winners=(key,low=false)=>{
+    const values=rows.map(r=>Number(r[key])||0)
+    const target=low?Math.min(...values):Math.max(...values)
+    return rows.filter(r=>(Number(r[key])||0)===target)
+  }
+
+  const badgeValue=(key,person)=>{
+    const value=Number(person?.[key])||0
+    if(key==='net'||key==='maxWin') return money(value)
+    return `${value} 次`
+  }
+
+  const badges=[
+    ['👑','雀王','net',false,'累積贏最多'],
+    ['💰','財神爺','maxWin',false,'單場最高獲利'],
+    ['🌸','自摸王','selfdraws',false,'自摸次數最多'],
+    ['🎯','神槍手','wins',false,'胡牌總次數最多'],
+    ['🛡️','金鐘罩','discards',true,'放槍次數最少'],
+    ['💣','煙火大師','discards',false,'放槍次數最多'],
+    ['🀄','超會清一色','cleanSuit',false,'清一色次數最多'],
+    ['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多'],
+    ['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多']
+  ]
+
+  return badges.map(([icon,title,key,low,desc])=>{
+    const ws=winners(key,low)
+    const names=ws.map(x=>x.name).join('・')
+    const value=ws.length?badgeValue(key,ws[0]):'—'
+    return `<div class="badge-card">
+      <div class="badge-icon">${icon}</div>
+      <div class="badge-title">${title}</div>
+      <div class="badge-winner">${names||'—'}</div>
+      <div class="badge-desc">${value}・${desc}</div>
+    </div>`
+  }).join('')
+}
+function sessionRowHtml(ss){
+  const room=appData.rooms.find(r=>r.id===ss.roomId)
+  const date=new Date(ss.createdAt).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})
+  const result=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${n} ${money(v)}`).join('・')
+  return `<div class="session-row"><div class="session-head"><span>${date}・${room?.name||ss.roomName||'牌局'}</span><span>${ss.stake||''}</span></div><div class="session-result">${result}</div></div>`
+}
+function saveCurrentSession(kind, finalValues){
+  if(sessionSaved) return
+  ensureAppData()
+  let room=appData.rooms.find(r=>r.id===currentRoomId)
+  if(!room) room=ensureRoom((document.getElementById('room').value||'我的麻將房').trim())
+  const nets={}
+  if(kind==='final') P.forEach((name,i)=>nets[name]=Number(finalValues[i])||0)
+  else P.forEach(name=>nets[name]=(balances[name]||0)-currentRule.water)
+  const ss={id:makeId('session'),roomId:room.id,roomName:room.name,createdAt:new Date().toISOString(),place:(document.getElementById('place').value||'').trim(),stake:selectedStake,mode:kind,players:[...P],nets,hands:kind==='detailed'?hands.map(h=>JSON.parse(JSON.stringify(h))):[]}
+  appData.sessions.push(ss); sessionSaved=true; persistAppData()
+}
+function exportAllData(){
+  ensureAppData()
+  const blob=new Blob([JSON.stringify(appData,null,2)],{type:'application/json'})
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='誰與爭鋒-備份.json';a.click();URL.revokeObjectURL(a.href)
+}
+
+/* =========================
+   投影模式
+========================= */
+function toggleProjectionMode(){
+  const game=document.getElementById('game')
+  const entering=!game.classList.contains('projection-mode')
+  game.classList.toggle('projection-mode',entering)
+
+  if(entering){
+    if(document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(()=>{})
+    }
+    if(screen.orientation && screen.orientation.lock){
+      screen.orientation.lock('landscape').catch(()=>{})
+    }
+  }else{
+    if(document.fullscreenElement && document.exitFullscreen){
+      document.exitFullscreen().catch(()=>{})
+    }
+  }
+  window.scrollTo(0,0)
+}
+
+ensureAppData()
+renderHomeDashboard()
 
 </script>
 
