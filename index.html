@@ -1444,7 +1444,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
-    <div class="auth-note">目前是 V28 多人直播第一階段。原本計分仍保留本機自動存檔，並開始同步已確認牌局到 NAS PocketBase。</div>
+    <div class="auth-note">目前是 V30 房間成員唯讀直播版。房間成員不必參與本局，也能觀看房內正在進行的牌局；本局四位玩家會獨立同步到 NAS PocketBase。</div>
   </div>
 </section>
 
@@ -2774,14 +2774,47 @@ async function loadRoomPlayerMap(roomId=currentRoomId){
   }
 }
 
+async function ensureRemoteRoomPlayers(roomId=currentRoomId){
+  if(!roomId || !pbAuth?.record?.id) return {}
+  let map=await loadRoomPlayerMap(roomId)
+  if(P.every(n=>map[n]?.id)) return map
+
+  // V30：觀看者與本局玩家完全分離。這裡只建立「實際上桌的四位玩家」資料。
+  // 若玩家剛好是正式房間成員，保留其 user 關聯；否則建立穩定 guest player。
+  let members=[]
+  try{
+    const mf=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
+    const md=await pbRequest(`/api/collections/room_members/records?perPage=200&filter=${mf}`)
+    members=md.items||[]
+  }catch(e){ console.warn('V30：讀取正式房間成員失敗，仍可嘗試建立 guest player',e) }
+
+  for(const name of P){
+    if(map[name]?.id) continue
+    const member=members.find(m=>(m.nickname||'').trim()===name)
+    const payload={
+      room:roomId, display_name:name, player_type:member?'member':'guest',
+      status:'active', has_played:true, can_invite:!!member, joined_at:new Date().toISOString()
+    }
+    if(member?.user) payload.user=member.user
+    try{
+      const rec=await pbRequest('/api/collections/room_players/records',{method:'POST',body:JSON.stringify(payload)})
+      map[name]=rec
+    }catch(e){
+      console.warn('V30：建立 room_player 失敗',name,e)
+    }
+  }
+  remoteRoomPlayerMap=map
+  return map
+}
+
 async function createRemoteGameSession(){
   remoteSessionId=''
   if(!pbAuth?.record?.id || !currentRoomId || mode!=='detailed') return null
   try{
-    const map=await loadRoomPlayerMap(currentRoomId)
+    const map=await ensureRemoteRoomPlayers(currentRoomId)
     const playerIds=P.map(n=>map[n]?.id).filter(Boolean)
     const dealerId=map[dealer]?.id||''
-    // V29：即使 room_players 尚未建立完整，也一定先建立 active game_session。
+    // V30：active session 一定先建立；若四位玩家已建立完成，同時寫入 players/dealer。
     // 這樣同房間的其他正式成員可以先看見「牌局進行中」；
     // 玩家 relation 完整時再一併寫入，避免 V28 因 playerIds 不足直接放棄建立遠端牌局。
     const sessionPayload={
@@ -2859,7 +2892,9 @@ async function openLiveSession(sessionId){
     const roomMap=await loadRoomPlayerMap(ss.room)
     const byId=Object.fromEntries(Object.values(roomMap).map(x=>[x.id,x]))
     const names=(ss.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
-    if(names.length!==4) throw new Error('這場的玩家資料尚未完整')
+    // V30：觀看資格只看「目前登入者是不是房間正式成員」，不要求觀看者本人在這四位玩家內。
+    // ss.players 僅代表本局實際上桌四人。
+    if(names.length!==4) throw new Error('本局四位玩家尚未同步完成，請由記錄者重新開一場測試牌局')
     const hf=encodeURIComponent(`session="${pbFilterValue(sessionId)}"`)
     const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
     P=[...names]; seats=[...names]
