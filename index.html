@@ -2165,16 +2165,10 @@ let selectedPatterns=[]
 /* 最近一次完成「一局」後的領先者；同分可多人戴皇冠 */
 let roundLeaders=[]
 
-/* 誰與爭鋒 V2 長期資料 */
-const STORAGE_KEY='shuiYuZhengFengV2'
+/* 誰與爭鋒 V3 長期資料：房間/目標重新建立，單一資料來源 */
+const STORAGE_KEY='shuiYuZhengFengV3'
+const LEGACY_STORAGE_KEY='shuiYuZhengFengV2'
 const ACTIVE_GAME_KEY='shuiYuZhengFengActiveGameV1'
-const STORAGE_BACKUP_KEY='shuiYuZhengFengV2_backup'
-const STORAGE_EMERGENCY_KEY='shuiYuZhengFengV2_emergency'
-const ROOM_VAULT_KEY='shuiYuZhengFengV2_rooms_vault'
-const GOAL_VAULT_KEY='shuiYuZhengFengV2_goals_vault'
-const DB_NAME='shuiYuZhengFengDB'
-const DB_STORE='app'
-const DB_KEY='main'
 let appData=null
 let currentRoomId=''
 let sessionSaved=false
@@ -4836,69 +4830,47 @@ function safeParseStored(key){
 }
 function normalizeAppData(data){
   const d=(data && typeof data==='object')?data:{}
-  d.version=2
+  d.version=3
   d.profile=(d.profile && typeof d.profile==='object')?d.profile:{name:''}
+  d.profile.name=typeof d.profile.name==='string'?d.profile.name:''
+  d.profile.goals=Array.isArray(d.profile.goals)?d.profile.goals:[]
   d.rooms=Array.isArray(d.rooms)?d.rooms:[]
   d.sessions=Array.isArray(d.sessions)?d.sessions:[]
-  if(!Array.isArray(d.profile.goals)){
-    const oldGoal=Number(d.profile.goal||0)
-    d.profile.goals=oldGoal>0?[{id:makeId('goal'),name:'我的目標',amount:oldGoal}]:[]
-  }
   d.rooms.forEach(r=>{ if(!Array.isArray(r.members)) r.members=[] })
   return d
 }
-function mergeRooms(baseRooms, extraRooms){
-  const map=new Map()
-  ;[...(Array.isArray(baseRooms)?baseRooms:[]), ...(Array.isArray(extraRooms)?extraRooms:[])].forEach(r=>{
-    if(!r||!r.id) return
-    const old=map.get(r.id)
-    map.set(r.id,old?{...old,...r,members:(r.members?.length?r.members:old.members)||[]}:r)
+function freshV3Data(){
+  // 第一次進 V3 時，只保留暱稱與既有牌局紀錄；房間與目標從乾淨的新結構開始。
+  const legacy=safeParseStored(LEGACY_STORAGE_KEY)
+  return normalizeAppData({
+    version:3,
+    profile:{name:legacy?.profile?.name||'',goals:[]},
+    rooms:[],
+    sessions:Array.isArray(legacy?.sessions)?legacy.sessions:[]
   })
-  return [...map.values()]
-}
-function mergeGoals(baseGoals,extraGoals){
-  const map=new Map()
-  ;[...(Array.isArray(baseGoals)?baseGoals:[]), ...(Array.isArray(extraGoals)?extraGoals:[])].forEach(g=>{
-    if(!g) return
-    const id=g.id||makeId('goal')
-    map.set(id,{...g,id})
-  })
-  return [...map.values()]
 }
 function ensureAppData(){
   if(appData) return appData
-
-  // 回到原本最單純、已經穩定的 localStorage 流程。
-  // 只在第一次載入時把前幾版留下的 vault 資料救回主資料，之後不再讓多份儲存互相覆蓋。
-  appData=normalizeAppData(safeParseStored(STORAGE_KEY) || {version:2,profile:{name:''},rooms:[],sessions:[]})
-
-  try{
-    const oldRooms=JSON.parse(localStorage.getItem(ROOM_VAULT_KEY)||'[]')
-    if(Array.isArray(oldRooms) && oldRooms.length) appData.rooms=mergeRooms(appData.rooms,oldRooms)
-  }catch(e){}
-  try{
-    const oldGoals=JSON.parse(localStorage.getItem(GOAL_VAULT_KEY)||'[]')
-    if(Array.isArray(oldGoals) && oldGoals.length) appData.profile.goals=mergeGoals(appData.profile.goals,oldGoals)
-  }catch(e){}
-
+  const saved=safeParseStored(STORAGE_KEY)
+  appData=saved?normalizeAppData(saved):freshV3Data()
   persistAppData()
   return appData
 }
 function persistAppData(){
-  if(!appData) return
+  if(!appData) return false
   appData=normalizeAppData(appData)
-  const payload=JSON.stringify(appData)
   try{
+    const payload=JSON.stringify(appData)
     localStorage.setItem(STORAGE_KEY,payload)
-    // 同步保留一份純備份，但讀取時不會拿它反蓋主資料。
-    localStorage.setItem(STORAGE_BACKUP_KEY,payload)
+    const verify=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')
+    if(!verify || !Array.isArray(verify.rooms) || !Array.isArray(verify.profile?.goals)) throw new Error('storage verification failed')
+    return true
   }catch(e){
     console.error('資料保存失敗',e)
-    alert('⚠️ 資料無法保存，請確認不是使用無痕模式。')
+    alert('⚠️ 資料沒有成功保存。請確認瀏覽器沒有使用無痕模式，並允許網站儲存資料。')
+    return false
   }
 }
-function saveRoomVault(){ persistAppData() }
-function saveGoalVault(){ persistAppData() }
 function setMyNickname(){
   ensureAppData()
   const current=(appData.profile&&appData.profile.name)||''
@@ -4913,36 +4885,36 @@ function setMyNickname(){
 }
 function addMyGoal(){
   ensureAppData()
-  const nameRaw=prompt('目標名稱（例如：名古屋旅費）','我的新目標')
+  const nameRaw=prompt('目標名稱','我的新目標')
   if(nameRaw===null) return
   const name=nameRaw.trim()
   if(!name){ alert('請輸入目標名稱'); return }
-  const raw=prompt('目標金額（例如 15000）','15000')
-  if(raw===null) return
-  const amount=Number(String(raw).replace(/[$,，\s]/g,''))
+  const amountRaw=prompt('目標金額','15000')
+  if(amountRaw===null) return
+  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
   if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
-  appData.profile=appData.profile||{}
-  appData.profile.goals=Array.isArray(appData.profile.goals)?appData.profile.goals:[]
-  appData.profile.goals.push({id:makeId('goal'),name,amount:Math.round(amount)})
-  saveGoalVault(); persistAppData(); renderHomeDashboard()
+  const goal={id:makeId('goal'),name,amount:Math.round(amount),createdAt:new Date().toISOString()}
+  appData.profile.goals.push(goal)
+  if(!persistAppData()) appData.profile.goals=appData.profile.goals.filter(g=>g.id!==goal.id)
+  renderHomeDashboard()
 }
 function editMyGoal(id){
   ensureAppData()
   const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
   const nameRaw=prompt('修改目標名稱',g.name); if(nameRaw===null) return
   const name=nameRaw.trim(); if(!name){ alert('目標名稱不能空白'); return }
-  const raw=prompt('修改目標金額',String(g.amount)); if(raw===null) return
-  const amount=Number(String(raw).replace(/[$,，\s]/g,''))
+  const amountRaw=prompt('修改目標金額',String(g.amount)); if(amountRaw===null) return
+  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
   if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
   g.name=name; g.amount=Math.round(amount)
-  saveGoalVault(); persistAppData(); renderHomeDashboard()
+  persistAppData(); renderHomeDashboard()
 }
 function deleteMyGoal(id){
   ensureAppData()
   const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
   if(!confirm(`刪除目標「${g.name}」？`)) return
   appData.profile.goals=appData.profile.goals.filter(x=>x.id!==id)
-  saveGoalVault(); persistAppData(); renderHomeDashboard()
+  persistAppData(); renderHomeDashboard()
 }
 function setMyGoal(){ addMyGoal() }
 function renderMyGoal(currentNet){
@@ -4972,9 +4944,16 @@ function returnToCurrentRoom(){
 function makeId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7) }
 function ensureRoom(name){
   ensureAppData()
-  let room=appData.rooms.find(r=>r.name===name)
-  if(!room){ room={id:makeId('room'),name,createdAt:new Date().toISOString(),members:[]}; appData.rooms.push(room); saveRoomVault(); persistAppData() }
-  if(!Array.isArray(room.members)) room.members=[]
+  const clean=String(name||'').trim()
+  if(!clean) return null
+  let room=appData.rooms.find(r=>r.name===clean)
+  if(room) return room
+  room={id:makeId('room'),name:clean,createdAt:new Date().toISOString(),members:[]}
+  appData.rooms.push(room)
+  if(!persistAppData()){
+    appData.rooms=appData.rooms.filter(r=>r.id!==room.id)
+    return null
+  }
   return room
 }
 function ensureRoomMembers(room, names){
@@ -5139,7 +5118,7 @@ function deleteSessionById(id){
 function createRoomPrompt(){
   const name=prompt('新房間叫什麼名字？')
   if(!name||!name.trim()) return
-  const r=ensureRoom(name.trim()); currentRoomId=r.id; roomTimeFilter='all'; show('roomDashboard')
+  const r=ensureRoom(name.trim()); if(!r) return; currentRoomId=r.id; roomTimeFilter='all'; show('roomDashboard')
 }
 function quickStartGame(){
   ensureAppData(); if(!guardNewGame()) return; currentRoomId=''
