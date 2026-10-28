@@ -1366,6 +1366,28 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .room-owner-chip{font-size:12px;font-weight:800;padding:5px 9px;border-radius:999px;background:#fff1c9;color:#7a5a00;white-space:nowrap}
 .room-member-chip{font-size:12px;font-weight:700;padding:5px 9px;border-radius:999px;background:#f2f0ee;color:#756a63;white-space:nowrap}
 
+
+/* V27：莊家座位強化 — 不改計分邏輯 */
+.player-card.dealer-seat{
+  background:linear-gradient(180deg,#fff8d9 0%,#fff2b8 100%);
+  border:3px solid #d8ad38 !important;
+  box-shadow:0 0 0 4px rgba(216,173,56,.16),0 8px 20px rgba(151,112,19,.14) !important;
+}
+.player-card.dealer-seat .player-name{font-weight:950;color:#6f5310}
+.dealer-seat-tag{
+  display:inline-flex;align-items:center;justify-content:center;
+  margin-left:6px;padding:2px 8px;border-radius:999px;
+  background:#d8ad38;color:#fff;font-size:10px;font-weight:950;
+  line-height:1.5;vertical-align:middle;box-shadow:0 2px 5px rgba(128,91,0,.18);
+}
+#game:not(.projection-mode) #seatPicker .player-card.dealer-seat{
+  border-width:3px !important;
+}
+#game.projection-mode #playerStats .player-card.dealer-seat{
+  border:4px solid #d8ad38 !important;
+  box-shadow:0 0 0 5px rgba(216,173,56,.18),0 8px 24px rgba(151,112,19,.16) !important;
+}
+#game.projection-mode #playerStats .dealer-seat-tag{font-size:12px;padding:3px 10px}
 </style>
 </head>
 
@@ -1422,7 +1444,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
-    <div class="auth-note">目前是 V26 房間成員版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
+    <div class="auth-note">目前是 V27 莊家醒目版。帳號、房間與房間成員會存在你 NAS 的 PocketBase；牌局內容這一版仍暫時沿用 localStorage。</div>
   </div>
 </section>
 
@@ -4197,12 +4219,12 @@ function renderLiveStats(){
     const height=getWaterHeight(net)
     const safePlayer=player.replace(/'/g,"\\'")
     return `
-      <div class="player-card pos-${getTablePosition(player)} selectable ${net===maxBalance?'leader':''} ${winner===player?'pick-winner':''} ${discarder===player?'pick-discarder':''}"
+      <div class="player-card pos-${getTablePosition(player)} selectable ${player===dealer?'dealer-seat':''} ${net===maxBalance?'leader':''} ${winner===player?'pick-winner':''} ${discarder===player?'pick-discarder':''}"
         onclick="handlePlayerCardClick('${safePlayer}')">
         <div class="water ${net>=0?'high':'low'}" style="height:${height}%"></div>
         <div class="player-content">
           <div class="player-wind">${getPlayerWind(player)}家${player===recorderPlayer?'<span class="recorder-tag">記錄者</span>':''}${winner===player?`<span class="player-pick-tag win">${result==='詐胡'?'詐胡':result==='自摸'?'自摸':'胡牌'}</span>`:''}${discarder===player?'<span class="player-pick-tag discard">放槍</span>':''}</div>
-          <div class="player-name">${roundLeaders.includes(player)?'<span class="leader-crown" title="目前局冠軍">👑</span> ':''}${player}${player===dealer?'・莊':''}</div>
+          <div class="player-name">${roundLeaders.includes(player)?'<span class="leader-crown" title="目前局冠軍">👑</span> ':''}${player}${player===dealer?`<span class="dealer-seat-tag">${repeats>0?'莊・連'+repeats:'莊'}</span>`:''}</div>
           <div class="current-money">${net>=0?'+':''}$${net.toLocaleString()}</div>
         </div>
       </div>`
