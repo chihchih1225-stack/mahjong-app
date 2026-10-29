@@ -1376,6 +1376,37 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 #game:not(.projection-mode) #seatPicker .player-card.dealer-seat{border-width:4px !important}
 #game.projection-mode #playerStats .player-card.dealer-seat{border:5px solid #e25555 !important;box-shadow:0 0 0 5px rgba(226,85,85,.18),0 8px 24px rgba(160,52,52,.16) !important}
 #game.projection-mode #playerStats .dealer-seat-tag{font-size:12px;padding:3px 10px}
+
+/* ===== V32：直播觀看 Dashboard ===== */
+#game.live-viewer-mode{display:flex!important;flex-direction:column;gap:8px;padding-bottom:18px}
+#game.live-viewer-mode .projection-exit-btn{display:none!important}
+#game.live-viewer-mode .game-entry-card,#game.live-viewer-mode .game-history-card,#game.live-viewer-mode .game-finish-btn,#game.live-viewer-mode #projectionBottom{display:none!important}
+#game.live-viewer-mode .game-status-card,#game.live-viewer-mode .game-chart-card,#game.live-viewer-mode .game-trend-card{display:block!important;padding:12px 14px;margin:0 0 8px;border-radius:20px}
+#game.live-viewer-mode .live-head{display:flex!important;justify-content:space-between!important;align-items:center;text-align:left!important;margin:0 0 8px}
+#game.live-viewer-mode .live-head>div:first-child{width:auto!important}
+#game.live-viewer-mode .live-head>div:last-child{display:block!important}
+#game.live-viewer-mode .round-big{font-size:32px!important;line-height:1!important}
+#game.live-viewer-mode .dealer-pill{font-size:13px!important;padding:5px 9px!important;margin-top:4px}
+#game.live-viewer-mode #playerStats{display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-areas:none!important;gap:7px;margin-top:8px}
+#game.live-viewer-mode #playerStats .viewer-player-card{min-width:0;border:1px solid #eee6e2;border-radius:15px;padding:9px 10px;background:#fffdfa}
+#game.live-viewer-mode #playerStats .viewer-player-card.dealer{border:2px solid #df5c5c;background:#fff7f7}
+.viewer-player-top{display:flex;justify-content:space-between;align-items:center;gap:6px}.viewer-player-name{font-weight:950;font-size:15px}.viewer-player-money{font-size:19px;font-weight:950}.viewer-player-meta{font-size:10px;color:#8d858a;margin-top:4px;white-space:nowrap}.viewer-dealer-tag{font-size:10px;background:#df5c5c;color:white;border-radius:999px;padding:2px 6px;font-weight:900}
+#game.live-viewer-mode .game-chart-card h2,#game.live-viewer-mode .game-trend-card h2{font-size:16px;margin:0}
+#game.live-viewer-mode .chart-wrap{display:grid!important;grid-template-columns:105px 1fr!important;gap:10px!important;align-items:center!important}
+#game.live-viewer-mode .pie{width:100px!important;height:100px!important}
+#game.live-viewer-mode .legend-item{font-size:11px;margin:3px 0}
+#game.live-viewer-mode .trend-chart{min-height:145px!important}
+#game.live-viewer-mode .trend-chart svg{max-height:130px}
+.live-viewer-back{position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:10000;width:100%;border:0;border-radius:14px;padding:10px 14px;background:#fff3b8;color:#514a42;font-size:14px;font-weight:950;box-shadow:0 4px 12px rgba(0,0,0,.08);margin-bottom:4px}
+.v32-preview-head{font-size:11px;font-weight:900;color:#746c70;margin-bottom:7px;padding-bottom:6px;border-bottom:1px dashed #e8dfdb}.v32-preview-sub{font-size:10px;color:#978f93;margin-left:5px}
+.game-timebar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 8px}
+.game-time-chip{background:#fff8dc;border:1px solid #eee0a9;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:900;color:#665f55}
+#game.live-viewer-mode .game-timebar{margin:0 0 2px}
+#game.live-viewer-mode .game-time-chip{font-size:10px;padding:4px 8px}
+#game.projection-mode .game-timebar{grid-column:1/-1;margin:0 auto 2px}
+.room-access-denied .room-protected{display:none!important}
+.room-access-denied #roomSummary{display:none!important}
+.room-access-denied #roomInviteCodeDisplay{display:none!important}
 </style>
 </head>
 
@@ -1432,7 +1463,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
-    <div class="auth-note">目前是 V30 房間成員唯讀直播版。房間成員不必參與本局，也能觀看房內正在進行的牌局；本局四位玩家會獨立同步到 NAS PocketBase。</div>
+    <div class="auth-note">V34 使用者規則：已註冊且曾在該房間留下牌局紀錄的人，可直接查看房間統計與直播；未註冊玩家只保留牌局名稱與戰績，不具系統存取權。</div>
   </div>
 </section>
 
@@ -1496,22 +1527,22 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     <div id="roomSummary" class="career-grid" style="margin-top:14px"></div>
   </div>
 
-  <div class="card room-members-card">
+  <div id="roomAccessNotice" class="card hidden" style="border:2px solid #ead88b;background:#fffdf2">
+    <b>這個帳號還沒有在此房間留下牌局紀錄</b>
+    <div class="muted" style="margin-top:5px">完成第一次牌局後，才會開放房間統計、歷史與直播觀看。</div>
+  </div>
+
+  <div class="card room-members-card room-protected">
     <div class="toprow"><h2>👥 房間成員</h2><span id="roomMemberCount" class="season-chip">讀取中</span></div>
     <div id="roomMembers" class="room-members-list"><div class="muted">正在讀取房間成員…</div></div>
   </div>
 
-  <div class="card">
+  <div class="card room-protected">
     <div class="toprow"><h2>📡 即時牌局</h2><button class="link" onclick="syncCurrentRoomLiveSession()">重新整理</button></div>
     <div id="roomLiveSession"><div class="muted">正在確認目前是否有進行中的牌局…</div></div>
   </div>
 
-  <div class="card">
-    <div class="toprow"><h2>🔐 加入／觀看申請</h2><button class="link" onclick="syncRoomJoinRequests()">查看／重新整理</button></div>
-    <div id="roomJoinRequests"><div class="muted">正在讀取申請…</div></div>
-  </div>
-
-  <div class="card">
+  <div class="card room-protected">
     <div class="toprow"><h2>🏆 長期排行榜</h2><span id="roomFilterLabel" class="season-chip">全部</span></div>
     <div class="grid2" style="margin:10px 0 14px;grid-template-columns:repeat(4,1fr);gap:7px">
       <button class="rule-btn" style="padding:9px 4px" onclick="setRoomFilter('all')">全部</button>
@@ -1522,22 +1553,22 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     <div id="roomRanking"></div>
   </div>
 
-  <div class="card trend-card room-trend-card">
+  <div class="card trend-card room-trend-card room-protected">
     <div class="toprow"><h2>📈 房間戰績走勢</h2><span class="muted">橫軸：日期・縱軸：累積輸贏</span></div>
     <div id="roomTrendChart" class="trend-chart"></div>
   </div>
 
-  <div class="card">
+  <div class="card room-protected">
     <div class="toprow"><h2>🎖️ 麻將名人堂</h2><span class="muted">依房間紀錄自動更新</span></div>
     <div id="roomBadges" class="badge-grid"></div>
   </div>
 
-  <div class="card">
+  <div class="card room-protected">
     <div class="toprow"><h2>👑 王座更替史</h2><span class="muted">依累積輸贏自動更新</span></div>
     <div id="roomKingHistory"></div>
   </div>
 
-  <div class="card">
+  <div class="card room-protected">
     <div class="toprow"><h2>歷史牌局</h2><span id="roomSessionCount" class="muted"></span></div>
     <div id="roomHistory" class="muted"></div>
   </div>
@@ -1590,7 +1621,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       <input id="player3" placeholder="玩家 3">
       <input id="player4" placeholder="玩家 4">
     </div>
-    <div class="muted" style="margin-top:8px">沒有帳號也可以直接輸入名字，系統會以訪客玩家保留這個房間的戰績。</div>
+    <div class="muted" style="margin-top:8px">沒有帳號的玩家可以直接輸入名字湊滿四人；系統只保留他的牌局名稱與戰績，他本人不能登入、看直播、統計或計分。</div>
 
 
     <h3>
@@ -1820,7 +1851,10 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 >
   <button id="projectionExitBtn" class="projection-exit-btn" type="button" onclick="toggleProjectionMode()">✍️ 回到紀錄</button>
 
-
+  <div id="gameTimeBar" class="game-timebar">
+    <span id="gameStartTime" class="game-time-chip">開始 --:--</span>
+    <span id="gameElapsedTime" class="game-time-chip">已進行 00:00:00</span>
+  </div>
 
 
   <!-- 即時戰況：一般計分隱藏，投影模式才顯示 -->
@@ -2427,7 +2461,7 @@ async function joinRoomPrompt(prefill=''){
     const roomId=result?.room?.id
     if(roomId){ currentRoomId=roomId; roomTimeFilter='all'; show('roomDashboard') }
     clearInviteFromUrl()
-    alert(result?.room?.already_member||result?.already_member?'你原本就已經在這個房間裡。':'加入房間成功！')
+    alert(result?.room?.already_member||result?.already_member?'你已登記在這個房間；有牌局紀錄後即可查看統計與直播。':'已登記房間。完成第一次牌局後，才會開放統計與直播。')
   }catch(e){
     alert('加入房間失敗：'+(e.message||'請稍後再試'))
   }
@@ -2786,8 +2820,8 @@ async function ensureRemoteRoomPlayers(roomId=currentRoomId){
   let map=await loadRoomPlayerMap(roomId)
   if(P.every(n=>map[n]?.id)) return map
 
-  // V30：觀看者與本局玩家完全分離。這裡只建立「實際上桌的四位玩家」資料。
-  // 若玩家剛好是正式房間成員，保留其 user 關聯；否則建立穩定 guest player。
+  // V34：只建立實際上桌的四位玩家。未註冊者只是 guest 名稱，不取得任何系統權限。
+  // 已註冊且已登記房間者保留 user 關聯；打過後 has_played=true，才取得房間統計與直播資格。
   let members=[]
   try{
     const mf=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
@@ -2828,7 +2862,7 @@ async function createRemoteGameSession(){
     const sessionPayload={
       room:currentRoomId,status:'active',recorder:pbAuth.record.id,
       round:getRoundName(roundIndex),dealer_repeats:repeats,
-      hand_number:hands.length+1,started_at:new Date().toISOString()
+      hand_number:hands.length+1,started_at:gameStartedAt||new Date().toISOString()
     }
     if(playerIds.length===4) sessionPayload.players=playerIds
     if(dealerId) sessionPayload.dealer=dealerId
@@ -2879,10 +2913,29 @@ async function completeRemoteSession(reason='normal'){
   }catch(e){ console.warn('V28：遠端結束狀態同步失敗',e) }
 }
 
+async function getCurrentRoomPlayerAccess(roomId=currentRoomId){
+  if(!roomId || !pbAuth?.record?.id) return null
+  try{
+    const f=encodeURIComponent(`room="${pbFilterValue(roomId)}" && user="${pbFilterValue(pbAuth.record.id)}" && status="active" && has_played=true`)
+    const d=await pbRequest(`/api/collections/room_players/records?perPage=10&filter=${f}`)
+    return (d.items||[])[0]||null
+  }catch(e){ return null }
+}
+async function applyCurrentRoomAccess(){
+  const page=document.getElementById('roomDashboard'), notice=document.getElementById('roomAccessNotice')
+  if(!page) return false
+  const access=await getCurrentRoomPlayerAccess(currentRoomId)
+  const allowed=!!access
+  page.classList.toggle('room-access-denied',!allowed)
+  if(notice) notice.classList.toggle('hidden',allowed)
+  return allowed
+}
+
 async function syncCurrentRoomLiveSession(){
   const box=document.getElementById('roomLiveSession')
   if(!box || !currentRoomId || !pbAuth?.token) return
   box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
+  if(!await getCurrentRoomPlayerAccess(currentRoomId)){ box.innerHTML='<div class="muted">完成此房間第一場牌局後，才可觀看直播。</div>'; return }
   try{
     const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
     const data=await pbRequest(`/api/collections/game_sessions/records?perPage=20&sort=-created&filter=${filter}`)
@@ -2897,6 +2950,7 @@ async function syncCurrentRoomLiveSession(){
 
 async function openLiveSession(sessionId){
   try{
+    if(!await getCurrentRoomPlayerAccess(currentRoomId)) throw new Error('只有已註冊且曾在此房間打過的玩家可以觀看直播')
     const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
     // V31：直接用 room_player ID 解析，避免同名重複資料被名稱 map 覆蓋。
     const roomPlayers=await loadRoomPlayersList(ss.room)
@@ -2939,29 +2993,7 @@ async function getCurrentRoomMembership(){
   }catch(e){ return null }
 }
 
-async function reviewRoomJoinRequest(requestId,decision){
-  if(!['approved','rejected'].includes(decision)) return
-  try{
-    await pbRequest(`/api/collections/room_join_requests/records/${encodeURIComponent(requestId)}`,{method:'PATCH',body:JSON.stringify({status:decision,approved_by:pbAuth.record.id,approved_at:new Date().toISOString()})})
-    await syncRoomJoinRequests()
-  }catch(e){ alert('目前無法更新申請：'+(e.message||'請確認 room_join_requests API Rules')) }
-}
-
-async function syncRoomJoinRequests(){
-  const box=document.getElementById('roomJoinRequests')
-  if(!box || !currentRoomId || !pbAuth?.token) return
-  box.innerHTML='<div class="muted">正在讀取申請…</div>'
-  try{
-    const membership=await getCurrentRoomMembership()
-    const isOwner=membership?.role==='owner'
-    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="pending"`)
-    const data=await pbRequest(`/api/collections/room_join_requests/records?perPage=100&sort=-created&filter=${filter}`)
-    const items=data.items||[]
-    box.innerHTML=items.length?items.map(x=>`<div class="room-member-row"><div><b>${escapeHtml(x.guest_name||'加入申請')}</b><div class="muted">${x.request_type==='viewer'?'只觀看這場':'申請加入房間'}</div></div>${isOwner?`<div style="display:flex;gap:6px"><button class="link" onclick="reviewRoomJoinRequest('${x.id}','approved')">同意</button><button class="link" onclick="reviewRoomJoinRequest('${x.id}','rejected')">拒絕</button></div>`:'<span class="season-chip">待房主核准</span>'}</div>`).join(''):'<div class="muted">目前沒有待處理申請。</div>'
-  }catch(e){
-    box.innerHTML='<div class="muted">目前無法讀取申請。房主若要核准／拒絕，需要開放 room_join_requests 的 List/View 權限。</div><button class="link" style="margin-top:8px" onclick="syncRoomJoinRequests()">重新整理申請</button>'
-  }
-}
+// V34：取消加入／觀看申請。系統只保留「已註冊且曾在房間打過」與「未註冊玩家名稱」兩種身分。
 
 function startGame(){
 
@@ -3419,7 +3451,10 @@ async function confirmDealer(){
     return
   }
 
+  gameStartedAt=new Date().toISOString()
+  gameEndedAt=''
   renderGame()
+  v33StartGameClock()
   persistActiveGame()
   await createRemoteGameSession()
 
@@ -5322,6 +5357,7 @@ function finishDetailedGame(){
 
 
   saveCurrentSession('detailed')
+  v33StopGameClock()
   void completeRemoteSession('normal')
   clearActiveGame()
   show('done')
@@ -5724,7 +5760,7 @@ function activeGameSnapshot(){
   return {
     savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
     balances:{...balances}, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
-    dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders]
+    dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt
   }
 }
 function persistActiveGame(){
@@ -5752,11 +5788,14 @@ function resumeActiveGame(){
   currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; hands=g.hands||[]
   roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
   recorderPlayer=g.recorderPlayer||P[0]||''; roundLeaders=g.roundLeaders||[]; sessionSaved=false
+  gameStartedAt=g.gameStartedAt||g.savedAt||new Date().toISOString(); gameEndedAt=g.gameEndedAt||''
   tai=0; winner=''; discarder=''; result='胡牌'; fraudTai={}; selectedPatterns=[]
-  renderGame(); show('game')
+  renderGame(); v33StartGameClock(); show('game')
 }
 async function discardActiveGame(){
   if(!await uiConfirm('已記錄的進度會從本機刪除。','放棄這場未完成牌局？',{danger:true,okText:'放棄牌局'})) return
+  if(remoteSessionId) await completeRemoteSession('abandoned')
+  else v33StopGameClock()
   clearActiveGame(); renderHomeDashboard()
 }
 async function guardNewGame(){
@@ -5989,8 +6028,7 @@ function renderRoomDashboard(){
   document.getElementById('roomDashboardTitle').textContent=room.name
   const inviteEl=document.getElementById('roomInviteCodeDisplay'); if(inviteEl) inviteEl.innerHTML=room.invite_code?`<span>邀請碼 <b>${room.invite_code}</b></span><button type="button" class="link" style="margin-left:8px;padding:5px 9px" onclick="shareCurrentRoom()" aria-label="分享房間邀請">↗ 分享</button>`:''
   syncCurrentRoomMembers()
-  syncCurrentRoomLiveSession()
-  syncRoomJoinRequests()
+  applyCurrentRoomAccess().then(ok=>{ if(ok) syncCurrentRoomLiveSession() })
   document.getElementById('roomSummary').innerHTML=`
     <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
@@ -6241,6 +6279,129 @@ ensureAppData()
 renderHomeDashboard()
 bootAccount()
 
+
+
+
+/* ===== V33：同一牌局開始時間 + 計時 ===== */
+let gameStartedAt=''
+let gameEndedAt=''
+let gameClockTimer=null
+function v33ParseTime(v){
+  const d=v?new Date(v):null
+  return d && !isNaN(d.getTime()) ? d : null
+}
+function v33FormatClock(ms){
+  const sec=Math.max(0,Math.floor(ms/1000))
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+}
+function v33RenderGameClock(){
+  const start=v33ParseTime(gameStartedAt)
+  const a=document.getElementById('gameStartTime'), b=document.getElementById('gameElapsedTime')
+  if(!a||!b) return
+  if(!start){ a.textContent='開始 --:--'; b.textContent='已進行 00:00:00'; return }
+  a.textContent=`開始 ${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`
+  const end=v33ParseTime(gameEndedAt)
+  b.textContent=`已進行 ${v33FormatClock((end||new Date()).getTime()-start.getTime())}`
+}
+function v33StartGameClock(){
+  if(gameClockTimer) clearInterval(gameClockTimer)
+  v33RenderGameClock()
+  if(!gameEndedAt) gameClockTimer=setInterval(v33RenderGameClock,1000)
+}
+function v33StopGameClock(endAt){
+  gameEndedAt=endAt||new Date().toISOString()
+  if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}
+  v33RenderGameClock()
+}
+
+/* ===== V32：直播狀態、觀看 Dashboard、台數核對 ===== */
+let v32LivePollTimer=null
+let v32HeartbeatTimer=null
+let v32ViewingSessionId=''
+function v32StopLivePoll(){ if(v32LivePollTimer){clearInterval(v32LivePollTimer);v32LivePollTimer=null} }
+function v32StartRecorderHeartbeat(){
+  if(v32HeartbeatTimer) clearInterval(v32HeartbeatTimer)
+  v32HeartbeatTimer=setInterval(async()=>{
+    if(!remoteSessionId || liveViewerMode || document.getElementById('game')?.classList.contains('hidden')) return
+    try{ await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{method:'PATCH',body:JSON.stringify({hand_number:hands.length+1})}) }catch(e){}
+  },15000)
+}
+function v32SessionIsFresh(ss){
+  const t=new Date(ss.updated||ss.created||0).getTime()
+  return !!t && (Date.now()-t)<90000
+}
+async function syncCurrentRoomLiveSession(){
+  const box=document.getElementById('roomLiveSession')
+  if(!box || !currentRoomId || !pbAuth?.token) return
+  box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
+  try{
+    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
+    const data=await pbRequest(`/api/collections/game_sessions/records?perPage=20&sort=-updated&filter=${filter}`)
+    const activeItems=(data.items||[]).filter(x=>Array.isArray(x.players)&&x.players.length===4&&v32SessionIsFresh(x))
+    const ss=activeItems[0]
+    if(!ss){ box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>'; return }
+    box.innerHTML=`<div class="notice ok"><b>🟢 牌局進行中</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把</div><button class="primary" style="margin-top:10px" onclick="openLiveSession('${ss.id}')">👀 觀看直播</button>`
+  }catch(e){ box.innerHTML='<div class="muted">目前無法讀取即時牌局。</div>' }
+}
+function v32ViewerStatsHtml(){
+  const counts=Object.fromEntries(P.map(p=>[p,{win:0,self:0,discard:0}]))
+  hands.forEach(h=>{
+    if(h.result==='胡牌'&&counts[h.winner]) counts[h.winner].win++
+    if(h.result==='自摸'&&counts[h.winner]) counts[h.winner].self++
+    if(h.result==='胡牌'&&counts[h.discarder]) counts[h.discarder].discard++
+  })
+  return P.map(p=>{const c=counts[p]||{win:0,self:0,discard:0};const n=Number(balances[p]||0);return `<div class="viewer-player-card ${p===dealer?'dealer':''}"><div class="viewer-player-top"><span class="viewer-player-name">${escapeHtml(p)} ${p===dealer?'<span class="viewer-dealer-tag">莊</span>':''}</span><span class="viewer-player-money" style="color:${n>=0?'#6caa8b':'#cf7f91'}">${n>=0?'+':''}$${n.toLocaleString()}</span></div><div class="viewer-player-meta">胡 ${c.win}・自摸 ${c.self}・放槍 ${c.discard}</div></div>`}).join('')
+}
+function v32RenderViewerDashboard(){
+  const game=document.getElementById('game'); if(!game) return
+  game.classList.remove('projection-mode');game.classList.add('live-viewer-mode')
+  let back=document.getElementById('liveViewerBackBtn')
+  if(!back){back=document.createElement('button');back.id='liveViewerBackBtn';back.className='live-viewer-back';back.textContent='← 返回房間';back.onclick=exitLiveViewer;game.prepend(back)}
+  const stats=document.getElementById('playerStats');if(stats) stats.innerHTML=v32ViewerStatsHtml()
+  document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn,#projectionBottom').forEach(el=>el.style.display='none')
+}
+async function v32LoadLiveSession(sessionId,first=false){
+  const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
+  if(ss.status!=='active' || !v32SessionIsFresh(ss)){ if(!first){v32StopLivePoll();alert('這場牌局已經結束');exitLiveViewer()} return }
+  const roomPlayers=await loadRoomPlayersList(ss.room), byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
+  const names=(ss.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
+  if(names.length!==4) throw new Error('本局四位玩家尚未同步完成')
+  const hf=encodeURIComponent(`session="${pbFilterValue(sessionId)}"`)
+  const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
+  P=[...names];seats=[...names];dealer=byId[ss.dealer]?.display_name||names[0];dealerSeatIndex=Math.max(0,seats.indexOf(dealer));recorderPlayer=names[0]
+  roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round));repeats=Number(ss.dealer_repeats||0)
+  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:byId[h.dealer]?.display_name||dealer,repeats:Number(h.dealer_repeats||0)}))
+  const last=(hd.items||[]).slice(-1)[0];balances=last?.balances_after||Object.fromEntries(P.map(n=>[n,0]));currentRule=stakeRules[selectedStake]||stakeRules['100/20']
+  gameStartedAt=ss.started_at||ss.created||gameStartedAt;gameEndedAt=ss.ended_at||''
+  liveViewerMode=true;v32ViewingSessionId=sessionId;renderGame();v33StartGameClock();if(first) show('game');v32RenderViewerDashboard()
+}
+async function openLiveSession(sessionId){
+  try{v32StopLivePoll();await v32LoadLiveSession(sessionId,true);v32LivePollTimer=setInterval(()=>v32LoadLiveSession(sessionId,false).catch(()=>{}),4000)}catch(e){alert('目前無法開啟直播：'+(e.message||'請稍後再試'))}
+}
+function exitLiveViewer(){
+  v32StopLivePoll();if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}liveViewerMode=false;v32ViewingSessionId=''
+  const game=document.getElementById('game');if(game){game.classList.remove('live-viewer-mode','projection-mode');const b=document.getElementById('liveViewerBackBtn');if(b)b.remove()}
+  document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn,#projectionBottom').forEach(el=>el.style.display='')
+  returnToCurrentRoom()
+}
+// 建立遠端牌局後啟動紀錄者心跳；離開牌局 90 秒後房間頁不再把殘留 session 當成直播。
+const v32OriginalCreateRemoteGameSession=createRemoteGameSession
+createRemoteGameSession=async function(){const r=await v32OriginalCreateRemoteGameSession.apply(this,arguments);if(r)v32StartRecorderHeartbeat();return r}
+const v32OriginalCompleteRemoteSession=completeRemoteSession
+completeRemoteSession=async function(reason='normal'){v33StopGameClock();const r=await v32OriginalCompleteRemoteSession(reason);if(v32HeartbeatTimer){clearInterval(v32HeartbeatTimer);v32HeartbeatTimer=null}return r}
+// 台數 + 金額核對：直接顯示本場台數，以及目前莊家的連莊實際台數。
+function renderPaymentPreview(){
+  const box=document.getElementById('calculationPreview');if(!box)return
+  if(result==='流局'){box.innerHTML='流局不產生金額變動，原莊連莊。';return}
+  if(!winner){box.innerHTML=result==='詐胡'?'請先選擇誰詐胡。':'請先選擇胡牌的人。';return}
+  if(result==='胡牌'&&!discarder){box.innerHTML='請選擇放槍的人。';return}
+  const changes=calculateHandPayments()
+  const dealerTai=getDealerBonusTai();const dealerText=repeats>0?`連${repeats}拉${repeats}・莊家 ${dealerTai} 台`:`莊家 ${dealerTai} 台`
+  const baseTaiText=result==='詐胡'?'詐胡各家依設定台數':`本場 ${tai} 台`
+  const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;return `<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0"><span>${escapeHtml(p)}${t?`<span class="v32-preview-sub">${t}</span>`:''}</span><b style="color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}$${a.toLocaleString()}</b></div>`}).join('')
+  box.innerHTML=`<div class="v32-preview-head">${baseTaiText}｜${escapeHtml(dealer)}：${dealerText}</div>${lines||'這一場目前沒有金額變動。'}`
+}
 </script>
 
 </body>
