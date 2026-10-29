@@ -1340,6 +1340,12 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .auth-form{display:grid;gap:10px}
 .auth-form label{font-size:13px;font-weight:800;color:#746e67}
 .auth-form input{width:100%;box-sizing:border-box;border:1px solid #ddd6cc;border-radius:14px;padding:13px 14px;font-size:16px;background:#fff}
+.auth-password-wrap{position:relative}
+.auth-password-wrap input{padding-right:52px}
+.auth-password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:12px;background:transparent;display:grid;place-items:center;font-size:20px;cursor:pointer;color:#746e67;padding:0}
+.auth-password-toggle:active{background:#f3efe9}
+.auth-remember{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:#746e67;cursor:pointer;width:max-content}
+.auth-remember input{width:18px;height:18px;margin:0;accent-color:#657853}
 .auth-note{font-size:12px;line-height:1.6;color:#8a837b;margin-top:10px}
 .auth-error{display:none;background:#fff0f2;color:#a94e5d;border:1px solid #efcbd1;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:13px}
 .account-chip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
@@ -1509,12 +1515,22 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       </div>
       <div>
         <label for="authPassword">密碼</label>
-        <input id="authPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="至少 8 個字元">
+        <div class="auth-password-wrap">
+          <input id="authPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="至少 8 個字元">
+          <button class="auth-password-toggle" type="button" onclick="togglePasswordVisibility('authPassword',this)" aria-label="顯示密碼" title="顯示密碼">👁️</button>
+        </div>
       </div>
       <div id="authConfirmWrap" class="hidden">
         <label for="authPasswordConfirm">再次輸入密碼</label>
-        <input id="authPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="再輸入一次密碼">
+        <div class="auth-password-wrap">
+          <input id="authPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="再輸入一次密碼">
+          <button class="auth-password-toggle" type="button" onclick="togglePasswordVisibility('authPasswordConfirm',this)" aria-label="顯示密碼" title="顯示密碼">👁️</button>
+        </div>
       </div>
+      <label id="authRememberWrap" class="auth-remember">
+        <input id="authRememberAccount" type="checkbox" checked>
+        <span>記住我的帳號</span>
+      </label>
       <button id="authSubmitBtn" class="primary" type="submit">登入</button>
     </form>
     <div class="auth-note">V34 使用者規則：已註冊且曾在該房間留下牌局紀錄的人，可直接查看房間統計與直播；未註冊玩家只保留牌局名稱與戰績，不具系統存取權。</div>
@@ -2419,9 +2435,10 @@ function uiPrompt(title,value='',opts={}){return appDialogBase({title,message:op
 window.alert=(message)=>{void uiAlert(String(message??''))}
 
 
-/* ===== V44：PocketBase Auth + Rooms（NAS / Cloudflare Named Tunnel） ===== */
+/* ===== V45：登入優化（密碼顯示 / 記住帳號）+ PocketBase Named Tunnel ===== */
 const PB_BASE_URL='https://api.mahjongbattle.app'
 const PB_AUTH_KEY='shuiYuZhengFengPocketBaseAuthV1'
+const PB_REMEMBER_EMAIL_KEY='shuiYuZhengFengRememberEmailV1'
 let authMode='login'
 let pbAuth=loadPocketBaseAuth()
 let remoteSessionId=''
@@ -2448,18 +2465,53 @@ function authError(message=''){
   el.textContent=message
   el.style.display=message?'block':'none'
 }
+function togglePasswordVisibility(inputId,button){
+  const input=document.getElementById(inputId)
+  if(!input) return
+  const show=input.type==='password'
+  input.type=show?'text':'password'
+  if(button){
+    button.textContent=show?'🙈':'👁️'
+    button.setAttribute('aria-label',show?'隱藏密碼':'顯示密碼')
+    button.title=show?'隱藏密碼':'顯示密碼'
+  }
+}
+function loadRememberedAccount(){
+  try{return (localStorage.getItem(PB_REMEMBER_EMAIL_KEY)||'').trim()}catch(e){return ''}
+}
+function applyRememberedAccount(){
+  const email=document.getElementById('authEmail')
+  const remember=document.getElementById('authRememberAccount')
+  const saved=loadRememberedAccount()
+  if(remember) remember.checked=!!saved || remember.checked
+  if(email && !email.value && saved) email.value=saved
+}
+function saveRememberedAccount(email){
+  const remember=document.getElementById('authRememberAccount')
+  try{
+    if(remember?.checked && email) localStorage.setItem(PB_REMEMBER_EMAIL_KEY,email)
+    else localStorage.removeItem(PB_REMEMBER_EMAIL_KEY)
+  }catch(e){}
+}
+function resetPasswordVisibility(){
+  ;['authPassword','authPasswordConfirm'].forEach(id=>{const input=document.getElementById(id);if(input)input.type='password'})
+  document.querySelectorAll('.auth-password-toggle').forEach(btn=>{btn.textContent='👁️';btn.setAttribute('aria-label','顯示密碼');btn.title='顯示密碼'})
+}
 function setAuthMode(mode){
   authMode=mode==='register'?'register':'login'
   document.getElementById('loginTab')?.classList.toggle('active',authMode==='login')
   document.getElementById('registerTab')?.classList.toggle('active',authMode==='register')
   document.getElementById('authNameWrap')?.classList.toggle('hidden',authMode!=='register')
   document.getElementById('authConfirmWrap')?.classList.toggle('hidden',authMode!=='register')
+  document.getElementById('authRememberWrap')?.classList.toggle('hidden',authMode!=='login')
   const pass=document.getElementById('authPassword')
   const confirm=document.getElementById('authPasswordConfirm')
   if(pass) pass.autocomplete=authMode==='register'?'new-password':'current-password'
   if(confirm) confirm.required=authMode==='register'
   const btn=document.getElementById('authSubmitBtn')
   if(btn) btn.textContent=authMode==='register'?'建立帳號':'登入'
+  resetPasswordVisibility()
+  if(authMode==='login') applyRememberedAccount()
   authError('')
 }
 async function pbRequest(path,options={}){
@@ -2596,6 +2648,7 @@ async function submitAuth(event){
       await pbRequest('/api/collections/users/records',{method:'POST',body:JSON.stringify({email,password,passwordConfirm,name})})
     }
     const auth=await pbRequest('/api/collections/users/auth-with-password',{method:'POST',body:JSON.stringify({identity:email,password})})
+    if(authMode==='login') saveRememberedAccount(email)
     savePocketBaseAuth(auth)
     syncLocalProfileFromAccount()
     enterAppAfterLogin()
@@ -2643,8 +2696,8 @@ async function editAccountName(){
 async function logoutAccount(){
   if(!await uiConfirm('登出後，下次需要重新輸入帳號密碼。','要登出誰與爭鋒嗎？',{icon:'👋',okText:'登出'})) return
   savePocketBaseAuth(null)
-  setAuthMode('login')
   document.getElementById('authForm')?.reset()
+  setAuthMode('login')
   show('auth')
 }
 async function bootAccount(){
