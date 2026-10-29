@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fffaf5">
 <title>誰與爭鋒</title>
+<!-- V40: member stats card + corrected seat direction + per-user Morandi theme -->
 <!-- V39: correct table orientation + per-user Morandi theme; based on V38 without changing scoring/data rules -->
 
 <style>
@@ -1467,6 +1468,31 @@ body[data-theme="morandi"] .career-stat,body[data-theme="morandi"] .badge-card,b
 body[data-theme="morandi"] .profile-row{background:#e7ece6}
 body[data-theme="morandi"] .theme-choice{background:#f8f5f0}
 body[data-theme="morandi"] .theme-choice.active{background:#c8d2c5;border-color:#788f80}
+
+
+
+/* ===== V40：房間成員個人戰績卡 ===== */
+.room-member-row.member-stats-open{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease}
+.room-member-row.member-stats-open:active{transform:scale(.985)}
+.room-member-row.member-stats-open:hover{border-color:#ddd2ca;box-shadow:0 7px 18px rgba(80,68,64,.07)}
+.member-stats-arrow{font-size:20px;color:var(--muted);margin-left:3px}
+.member-stats-modal{align-items:flex-start!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding:12px!important}
+.member-stats-box{width:min(100%,620px)!important;max-width:620px!important;margin:8px auto 28px!important;padding:16px!important}
+.member-stats-sticky{position:sticky;top:-1px;z-index:8;background:var(--card);padding:5px 0 10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.member-stats-title{font-size:20px;font-weight:950;margin-top:3px}
+.member-stats-rank{display:inline-flex;padding:5px 9px;border-radius:999px;background:var(--yellow);font-size:11px;font-weight:900;margin-top:6px}
+.member-pattern-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.member-pattern-stat{padding:11px 8px;border-radius:14px;background:#fffaf3;text-align:center;border:1px solid var(--line)}
+.member-pattern-stat b{display:block;font-size:20px;margin-top:3px}
+.member-history-row{padding:11px 0;border-bottom:1px dashed var(--line)}
+.member-history-row:last-child{border-bottom:0}
+.member-history-net{font-size:16px;font-weight:950}
+@media(max-width:560px){
+  .member-stats-modal{padding:0!important;background:var(--bg)!important;backdrop-filter:none!important}
+  .member-stats-box{width:100%!important;max-width:none!important;border-radius:0!important;box-shadow:none!important;margin:0!important;padding:12px 14px 36px!important;min-height:100dvh!important}
+  .member-stats-box .career-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .member-stats-box .career-stat{padding:10px!important}
+}
 
 </style>
 </head>
@@ -6685,7 +6711,94 @@ function renderPaymentPreview(){
   box.innerHTML=`<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一場目前沒有金額變動。'}`
 }
 
-// V39：頁面載入時先套用目前帳號的個人配色。
+
+
+/* ===== V40：點房間成員 → 此房間個人戰績卡 ===== */
+function v40MemberPlayerName(member, roomPlayers){
+  const linked=(roomPlayers||[]).find(p=>member?.user && p.user===member.user && p.status!=='removed')
+  return (linked?.display_name || member?.nickname || '未命名玩家').trim() || '未命名玩家'
+}
+function v40SinglePlayerTrendHtml(sessions,name){
+  const mine=(sessions||[]).filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),name)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt))
+  if(!mine.length) return '<div class="career-note">這位成員在此房間還沒有完成牌局。</div>'
+  let total=0
+  const pts=[{label:'開始',value:0}]
+  mine.forEach(ss=>{ total+=Number(sessionNets(ss)[name]||0); const d=new Date(ss.createdAt); pts.push({label:`${d.getMonth()+1}/${d.getDate()}`,value:total}) })
+  const W=680,H=245,pad={l:54,r:18,t:22,b:42}
+  const maxAbs=Math.max(100,Math.ceil(Math.max(...pts.map(p=>Math.abs(p.value)))/100)*100)
+  const x=i=>pad.l+(W-pad.l-pad.r)*i/Math.max(1,pts.length-1)
+  const y=v=>pad.t+(H-pad.t-pad.b)*(maxAbs-v)/(maxAbs*2)
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${escapeHtml(name)}房間累積輸贏走勢">`
+  svg+=`<line x1="${pad.l}" y1="${y(0)}" x2="${W-pad.r}" y2="${y(0)}" stroke="#b9b1b4" stroke-width="1.5" stroke-dasharray="5 5"/>`
+  ;[-maxAbs,0,maxAbs].forEach(v=>svg+=`<text x="${pad.l-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8b8388">${v>0?'+':''}${v}</text>`)
+  const path=pts.map((p,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(p.value).toFixed(1)}`).join(' ')
+  svg+=`<path d="${path}" fill="none" stroke="#6caa8b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
+  pts.forEach((p,i)=>{svg+=`<circle cx="${x(i)}" cy="${y(p.value)}" r="3.5" fill="#6caa8b"><title>${p.label}・${money(p.value)}</title></circle>`;if(i===0||i===pts.length-1||i%Math.max(1,Math.ceil(pts.length/6))===0)svg+=`<text x="${x(i)}" y="${H-13}" text-anchor="middle" font-size="10" fill="#8b8388">${p.label}</text>`})
+  return svg+'</svg>'
+}
+function closeRoomMemberStats(){ const el=document.getElementById('roomMemberStatsModal'); if(el) el.remove() }
+async function openRoomMemberStats(userId,nickname){
+  if(!currentRoomId) return
+  const room=appData?.rooms?.find(r=>r.id===currentRoomId)
+  if(room?.pocketbase && pbAuth?.token){ try{ await v37LoadSharedRoomHistory(currentRoomId) }catch(e){} }
+  let roomPlayers=[]
+  try{ roomPlayers=await loadRoomPlayersList(currentRoomId) }catch(e){}
+  const member={user:userId||'',nickname:nickname||''}
+  const name=v40MemberPlayerName(member,roomPlayers)
+  const allSs=roomSessions(currentRoomId)
+  const playerSs=allSs.filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),name))
+  const stat=aggregateSessions(playerSs).find(x=>x.name===name)||{name,net:0,sessions:0,wins:0,selfdraws:0,discards:0,discardWins:0,cleanSuit:0,mixedSuit:0,pongPong:0,handAppearances:0,maxWin:0,minWin:0}
+  const ranking=aggregateSessions(allSs).sort((a,b)=>b.net-a.net)
+  const rank=ranking.findIndex(x=>x.name===name)+1
+  const winRate=stat.handAppearances?stat.wins/stat.handAppearances:0
+  const selfRate=stat.handAppearances?stat.selfdraws/stat.handAppearances:0
+  const discardRate=stat.handAppearances?stat.discards/stat.handAppearances:0
+  const best=Number.isFinite(stat.maxWin)?stat.maxWin:0
+  const worst=Number.isFinite(stat.minWin)?stat.minWin:0
+  const history=[...playerSs].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(ss=>{
+    const d=new Date(ss.createdAt), net=Number(sessionNets(ss)[name]||0)
+    return `<div class="member-history-row" onclick="closeRoomMemberStats();showSessionDetail('${ss.id}')" style="cursor:pointer"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・點擊查看牌局 ›</div></div>`
+  }).join('')||'<div class="muted">目前沒有參與過的歷史牌局。</div>'
+  closeRoomMemberStats()
+  const modal=document.createElement('div');modal.id='roomMemberStatsModal';modal.className='modal member-stats-modal'
+  modal.onclick=e=>{if(e.target===modal)closeRoomMemberStats()}
+  modal.innerHTML=`<div class="modal-box member-stats-box"><div class="member-stats-sticky"><div class="toprow"><div><div class="muted">${escapeHtml(room?.name||'房間')}・個人戰績</div><div class="member-stats-title">${escapeHtml(name)}</div>${rank?`<span class="member-stats-rank">房間第 ${rank} 名</span>`:''}</div><button class="link" onclick="closeRoomMemberStats()">關閉</button></div></div>
+    <div class="career-grid">
+      <div class="career-stat"><div class="k">累積輸贏</div><div class="v">${money(stat.net||0)}</div></div>
+      <div class="career-stat"><div class="k">參與場次</div><div class="v">${stat.sessions||0} 場</div></div>
+      <div class="career-stat"><div class="k">胡牌 / 自摸</div><div class="v">${stat.wins||0} / ${stat.selfdraws||0}</div></div>
+      <div class="career-stat"><div class="k">放槍</div><div class="v">${stat.discards||0}</div></div>
+      <div class="career-stat"><div class="k">胡牌率</div><div class="v">${(winRate*100).toFixed(1)}%</div></div>
+      <div class="career-stat"><div class="k">自摸率</div><div class="v">${(selfRate*100).toFixed(1)}%</div></div>
+      <div class="career-stat"><div class="k">放槍率</div><div class="v">${(discardRate*100).toFixed(1)}%</div></div>
+      <div class="career-stat"><div class="k">最高 / 最低單場</div><div class="v" style="font-size:16px">${money(best)} / ${money(worst)}</div></div>
+    </div>
+    <h3>🀄 特殊牌型</h3><div class="member-pattern-grid"><div class="member-pattern-stat">清一色<b>${stat.cleanSuit||0}</b></div><div class="member-pattern-stat">混一色<b>${stat.mixedSuit||0}</b></div><div class="member-pattern-stat">碰碰胡<b>${stat.pongPong||0}</b></div></div>
+    <h3>📈 在這個房間的戰績走勢</h3><div class="trend-chart">${v40SinglePlayerTrendHtml(playerSs,name)}</div>
+    <h3>🗂️ 參與過的歷史牌局</h3><div>${history}</div></div>`
+  document.body.appendChild(modal)
+}
+
+// V40：保留 V38/V39 原本房間成員讀取方式，只增加可點擊的個人戰績入口。
+syncCurrentRoomMembers = async function(){
+  const wrap=document.getElementById('roomMembers'), count=document.getElementById('roomMemberCount')
+  if(!currentRoomId){if(wrap)wrap.innerHTML='<div class="muted">尚未選擇房間</div>';if(count)count.textContent='0 人';return []}
+  if(wrap)wrap.innerHTML='<div class="muted">正在讀取房間成員…</div>'
+  try{
+    const filter=encodeURIComponent(`room="${currentRoomId}"`)
+    const data=await pbRequest(`/api/collections/room_members/records?perPage=200&sort=created&filter=${filter}`), members=data.items||[]
+    if(count)count.textContent=`${members.length} 人`
+    if(wrap)wrap.innerHTML=members.length?members.map(m=>{
+      const name=(m.nickname||'未命名玩家').trim()||'未命名玩家',isOwner=m.role==='owner',initial=escapeHtml(name.slice(0,1).toUpperCase())
+      const uid=encodeURIComponent(m.user||''),nn=encodeURIComponent(name)
+      return `<div class="room-member-row member-stats-open" onclick="openRoomMemberStats(decodeURIComponent('${uid}'),decodeURIComponent('${nn}'))" role="button" tabindex="0"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(name)}</div><div class="room-member-role">${isOwner?'房間建立者':'房間成員'}・查看戰績</div></div></div><div style="display:flex;align-items:center"><span class="${isOwner?'room-owner-chip':'room-member-chip'}">${isOwner?'👑 房主':'成員'}</span><span class="member-stats-arrow">›</span></div></div>`
+    }).join(''):'<div class="muted">這個房間目前還沒有成員。</div>'
+    return members
+  }catch(e){console.error('PocketBase room members sync failed',e);if(count)count.textContent='讀取失敗';if(wrap)wrap.innerHTML='<div class="muted">房間成員讀取失敗，請重新整理後再試。</div>';return []}
+}
+
+
+// V40：保留 V39 個人配色初始化。
 syncUserTheme()
 </script>
 
