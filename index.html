@@ -1565,7 +1565,6 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
   <button class="primary" onclick="quickStartGame()">＋ 開始新牌局</button>
 
-  <button class="secondary" style="margin-top:12px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="clearAllLocalData()">🗑️ 清除所有測試資料</button>
 </section>
 
 <!-- 房間首頁 -->
@@ -6720,7 +6719,7 @@ async function openRoomMemberStats(userId,nickname){
   document.body.appendChild(modal)
 }
 
-// V42：房間名單 = 正式房間會員 + 曾在此房間上桌的所有玩家。
+// V43：房間名單 = 正式房間會員 + 曾在此房間上桌的所有玩家。
 // 不在畫面區分是否註冊；未註冊玩家也可持續累積同一份房間戰績卡。
 syncCurrentRoomMembers = async function(){
   const wrap=document.getElementById('roomMembers'), count=document.getElementById('roomMemberCount')
