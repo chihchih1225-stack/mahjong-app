@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fffaf5">
 <title>誰與爭鋒</title>
-<!-- V40: member stats card + corrected seat direction + per-user Morandi theme -->
-<!-- V39: correct table orientation + per-user Morandi theme; based on V38 without changing scoring/data rules -->
+<!-- V41: member stats card + corrected seat direction; original macaron palette only -->
+<!-- V39: historical version -->
 
 <style>
 :root{
@@ -1438,39 +1438,6 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
 
 
-/* ===== V39：每位使用者可自行切換配色（原版 / 莫蘭迪） ===== */
-.theme-switcher{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
-.theme-switcher-label{font-size:11px;color:var(--muted);font-weight:850;margin-right:2px}
-.theme-choice{border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:#fff;font-size:11px;font-weight:900;color:var(--ink)}
-.theme-choice.active{box-shadow:0 0 0 2px rgba(108,170,139,.18);border-color:var(--green);background:var(--mint)}
-body[data-theme="morandi"]{
-  --bg:#f2efe9;
-  --card:#f8f5f0;
-  --ink:#575451;
-  --muted:#8b8580;
-  --line:#ddd7cf;
-  --mint:#c8d2c5;
-  --pink:#d8c2bf;
-  --yellow:#d8cfb5;
-  --blue:#bdcbd0;
-  --lav:#c9c3cf;
-  --green:#788f80;
-  --red:#a97978;
-  --shadow:0 12px 32px rgba(78,72,67,.09);
-  background:radial-gradient(circle at 0 0,#e8ded8 0,transparent 28%),radial-gradient(circle at 100% 0,#dfe6df 0,transparent 28%),var(--bg);
-}
-body[data-theme="morandi"] .card{background:rgba(248,245,240,.97)}
-body[data-theme="morandi"] .hero{background:linear-gradient(145deg,#f8f5f0,#eee8df)}
-body[data-theme="morandi"] input{background:#f8f5f0}
-body[data-theme="morandi"] .primary{color:#52665a}
-body[data-theme="morandi"] .secondary,body[data-theme="morandi"] .choice,body[data-theme="morandi"] .player-btn,body[data-theme="morandi"] .tai-btn{background:#e5e0da}
-body[data-theme="morandi"] .career-stat,body[data-theme="morandi"] .badge-card,body[data-theme="morandi"] .goal-item{background:#f3eee7}
-body[data-theme="morandi"] .profile-row{background:#e7ece6}
-body[data-theme="morandi"] .theme-choice{background:#f8f5f0}
-body[data-theme="morandi"] .theme-choice.active{background:#c8d2c5;border-color:#788f80}
-
-
-
 /* ===== V40：房間成員個人戰績卡 ===== */
 .room-member-row.member-stats-open{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease}
 .room-member-row.member-stats-open:active{transform:scale(.985)}
@@ -1572,7 +1539,6 @@ body[data-theme="morandi"] .theme-choice.active{background:#c8d2c5;border-color:
   <div class="card">
     <div class="toprow"><h2>我的長期戰績</h2><span class="season-chip">ALL TIME</span></div>
     <div class="profile-row"><div><div class="muted">我的帳號</div><div id="profileNameDisplay" class="profile-name">尚未登入</div><div id="profileEmailDisplay" class="account-email"></div></div><div class="account-chip"><button class="link filled-link" onclick="editAccountName()">修改暱稱</button><button class="link" style="color:#b94f5f;background:#fff0f2" onclick="logoutAccount()">登出</button></div></div>
-    <div class="theme-switcher" aria-label="配色主題"><span class="theme-switcher-label">配色</span><button type="button" id="themeOriginalBtn" class="theme-choice" onclick="setUserTheme('original')">原版馬卡龍</button><button type="button" id="themeMorandiBtn" class="theme-choice" onclick="setUserTheme('morandi')">莫蘭迪</button></div>
     <div id="myCareerStats" class="career-grid"></div>
   </div>
 
@@ -2465,29 +2431,6 @@ let liveViewerMode=false
 
 
 /* ===== V39：使用者個人配色偏好 ===== */
-const THEME_KEY_PREFIX='shuiYuZhengFengThemeV1:'
-function currentThemeStorageKey(){
-  return THEME_KEY_PREFIX+(pbAuth?.record?.id||'guest')
-}
-function loadUserTheme(){
-  try{return localStorage.getItem(currentThemeStorageKey())==='morandi'?'morandi':'original'}catch(e){return 'original'}
-}
-function applyUserTheme(theme){
-  const clean=theme==='morandi'?'morandi':'original'
-  if(clean==='morandi') document.body.dataset.theme='morandi'
-  else document.body.removeAttribute('data-theme')
-  document.getElementById('themeOriginalBtn')?.classList.toggle('active',clean==='original')
-  document.getElementById('themeMorandiBtn')?.classList.toggle('active',clean==='morandi')
-  const meta=document.querySelector('meta[name="theme-color"]')
-  if(meta) meta.setAttribute('content',clean==='morandi'?'#f2efe9':'#fffaf5')
-}
-function setUserTheme(theme){
-  const clean=theme==='morandi'?'morandi':'original'
-  try{localStorage.setItem(currentThemeStorageKey(),clean)}catch(e){}
-  applyUserTheme(clean)
-}
-function syncUserTheme(){ applyUserTheme(loadUserTheme()) }
-
 function loadPocketBaseAuth(){
   try{
     const raw=localStorage.getItem(PB_AUTH_KEY)
@@ -2672,7 +2615,6 @@ function syncLocalProfileFromAccount(){
   persistAppData()
 }
 async function enterAppAfterLogin(){
-  syncUserTheme()
   syncLocalProfileFromAccount()
   show('home')
   renderAccountHeader()
@@ -2702,7 +2644,6 @@ async function editAccountName(){
 async function logoutAccount(){
   if(!await uiConfirm('登出後，下次需要重新輸入帳號密碼。','要登出誰與爭鋒嗎？',{icon:'👋',okText:'登出'})) return
   savePocketBaseAuth(null)
-  syncUserTheme()
   setAuthMode('login')
   document.getElementById('authForm')?.reset()
   show('auth')
@@ -6799,7 +6740,6 @@ syncCurrentRoomMembers = async function(){
 
 
 // V40：保留 V39 個人配色初始化。
-syncUserTheme()
 </script>
 
 </body>
