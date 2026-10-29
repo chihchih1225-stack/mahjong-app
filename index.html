@@ -1568,6 +1568,16 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     <div id="myCareerStats" class="career-grid"></div>
   </div>
 
+  <div class="card">
+    <div class="toprow"><h2>我的房間</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="link" onclick="joinRoomPrompt()">輸入邀請碼</button><button class="link filled-link" onclick="createRoomPrompt()">＋新增房間</button></div></div>
+    <div id="roomList"></div>
+  </div>
+
+
+
+
+  <button class="primary" onclick="quickStartGame()">＋ 新的牌局</button>
+
   <div id="resumeGameCard" class="card hidden" style="border:2px solid #ead88b;background:#fffdf2">
     <div class="toprow">
       <div><div class="muted">未完成牌局</div><h2 style="margin:3px 0">牌局還在，別擔心</h2></div>
@@ -1578,18 +1588,14 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     <button class="secondary" style="margin-top:8px;color:#b94f5f" onclick="discardActiveGame()">放棄這場未完成牌局</button>
   </div>
 
+
+
   <div class="card goal-card">
     <div class="toprow"><h2>🎯 我的目標</h2><button type="button" class="link filled-link" onclick="addMyGoal()">＋新增目標</button></div>
     <div id="myGoalContent"></div>
   </div>
 
-  <div class="card">
-    <div class="toprow"><h2>我的房間</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="link" onclick="joinRoomPrompt()">輸入邀請碼</button><button class="link filled-link" onclick="createRoomPrompt()">＋新增房間</button></div></div>
-    <div id="roomList"></div>
-  </div>
 
-
-  <button class="primary" onclick="quickStartGame()">＋ 新的牌局</button>
 
 </section>
 
