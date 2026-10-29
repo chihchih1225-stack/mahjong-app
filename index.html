@@ -1408,15 +1408,13 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .room-access-denied #roomSummary{display:none!important}
 .room-access-denied #roomInviteCodeDisplay{display:none!important}
 
-/* ===== V35：房間玩家選擇器 ===== */
+/* ===== V36：房間玩家下拉選單 ===== */
 .room-player-picker{margin-top:10px;padding:12px;border:1px solid #eadfd7;border-radius:16px;background:#fffaf5}
 .room-player-picker-title{font-weight:800;margin-bottom:8px}
-.room-player-picker-list{display:flex;flex-wrap:wrap;gap:8px}
-.room-player-pick{width:auto;padding:9px 12px;border-radius:999px;border:1px solid #ded6d1;background:#fff;color:#554d50;font-weight:700;box-shadow:none}
-.room-player-pick.registered{background:#edf8f2;border-color:#b9dcc9}
-.room-player-pick.guest{background:#fff4e8;border-color:#ead0b3}
-.room-player-pick.selected{outline:3px solid rgba(108,170,139,.20);border-color:#6caa8b}
-.room-player-pick small{font-weight:600;opacity:.68;margin-left:4px}
+.room-player-select{width:100%;padding:13px 42px 13px 13px;border-radius:15px;border:1px solid #ded6d1;background:#fff;color:#554d50;font:inherit;font-size:16px;outline:none;appearance:auto}
+.room-player-select:focus{border-color:#9bc9b2;box-shadow:0 0 0 3px rgba(108,170,139,.12)}
+.room-player-selected-summary{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.room-player-selected-chip{padding:6px 9px;border-radius:999px;background:#edf8f2;border:1px solid #b9dcc9;font-size:12px;font-weight:800;color:#557664}
 .room-player-empty{font-size:13px;color:#8b8388}
 
 </style>
@@ -1533,7 +1531,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       <div><div class="muted">ROOM</div><h2 id="roomDashboardTitle" style="margin:3px 0 0"></h2><div id="roomInviteCodeDisplay" class="muted" style="margin-top:5px"></div></div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="link" onclick="show('home')">返回首頁</button>
-        <button class="link" style="color:#b94f5f;background:#fff0f2" onclick="deleteCurrentRoom()">刪除房間</button>
+        <button id="deleteRoomBtn" class="link hidden" style="color:#b94f5f;background:#fff0f2" onclick="deleteCurrentRoom()">刪除房間</button>
       </div>
     </div>
     <div id="roomSummary" class="career-grid" style="margin-top:14px"></div>
@@ -1629,11 +1627,10 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
     <div id="roomPlayerPicker" class="room-player-picker hidden">
       <div class="room-player-picker-title">從這個房間選玩家</div>
-      <div id="roomRegisteredPlayerList" class="room-player-picker-list"></div>
-      <div id="roomGuestPlayerWrap" class="hidden" style="margin-top:10px">
-        <div class="muted" style="margin-bottom:6px">曾一起打過的未註冊玩家</div>
-        <div id="roomGuestPlayerList" class="room-player-picker-list"></div>
-      </div>
+      <select id="roomPlayerSelect" class="room-player-select" onchange="v36PickRoomPlayerFromSelect()">
+        <option value="">選擇玩家…</option>
+      </select>
+      <div id="roomPlayerSelectedSummary" class="room-player-selected-summary"></div>
     </div>
 
     <div class="grid2" style="margin-top:10px">
@@ -1642,7 +1639,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       <input id="player3" placeholder="玩家 3">
       <input id="player4" placeholder="玩家 4">
     </div>
-    <div class="muted" style="margin-top:8px">先從房間名單點選；真的第一次來、沒有註冊的人，再直接輸入名字湊滿四人。未註冊玩家只保留名稱與戰績，不能登入、看直播、統計或計分。</div>
+    <div class="muted" style="margin-top:8px">先從房間選單選擇；真的第一次來、沒有註冊的人，再直接輸入名字湊滿四人。未註冊玩家只保留名稱與戰績，不能登入、看直播、統計或計分。</div>
 
 
     <h3>
@@ -3014,99 +3011,101 @@ async function getCurrentRoomMembership(){
   }catch(e){ return null }
 }
 
-// V35：兩種使用者制度延續；開局時可直接從房間已註冊成員與曾上桌未註冊玩家中選四人。
+async function applyRoomOwnerControls(){
+  const btn=document.getElementById('deleteRoomBtn')
+  if(!btn) return false
+  btn.classList.add('hidden')
+  const membership=await getCurrentRoomMembership()
+  const isOwner=membership?.role==='owner'
+  btn.classList.toggle('hidden',!isOwner)
+  return isOwner
+}
 
-
+// V36：兩種使用者制度延續；玩家改用下拉選單，避免房間人多時名單佔滿頁面。
 let v35RoomPickerEntries=[]
 
 function v35SelectedPlayerNames(){
   return [1,2,3,4].map(i=>(document.getElementById('player'+i)?.value||'').trim()).filter(Boolean)
 }
 function v35RefreshPickerSelected(){
-  const selected=new Set(v35SelectedPlayerNames())
-  document.querySelectorAll('#roomPlayerPicker .room-player-pick').forEach(btn=>{
-    btn.classList.toggle('selected',selected.has(btn.dataset.playerName||''))
-  })
+  const selected=v35SelectedPlayerNames()
+  const summary=document.getElementById('roomPlayerSelectedSummary')
+  if(summary) summary.innerHTML=selected.map(name=>`<span class="room-player-selected-chip">${escapeHtml(name)}</span>`).join('')
+  const select=document.getElementById('roomPlayerSelect')
+  if(select){
+    const set=new Set(selected)
+    Array.from(select.options).forEach(opt=>{ if(opt.value) opt.disabled=set.has(opt.value) })
+  }
 }
 function v35PickRoomPlayer(name){
   name=String(name||'').trim()
   if(!name) return
   const inputs=[1,2,3,4].map(i=>document.getElementById('player'+i)).filter(Boolean)
-  const existing=inputs.find(x=>(x.value||'').trim()===name)
-  if(existing){
-    existing.value=''
-    v35RefreshPickerSelected()
-    return
-  }
+  if(inputs.some(x=>(x.value||'').trim()===name)){ v35RefreshPickerSelected(); return }
   const slot=inputs.find(x=>!(x.value||'').trim())
   if(!slot){ alert('已經選滿四位玩家；要更換請先清掉其中一格。'); return }
   slot.value=name
+  slot.dispatchEvent(new Event('input',{bubbles:true}))
   v35RefreshPickerSelected()
+}
+function v36PickRoomPlayerFromSelect(){
+  const select=document.getElementById('roomPlayerSelect')
+  if(!select||!select.value) return
+  const name=select.value
+  select.value=''
+  v35PickRoomPlayer(name)
 }
 async function loadV35RoomPlayerPicker(roomId=currentRoomId){
   const picker=document.getElementById('roomPlayerPicker')
-  const regBox=document.getElementById('roomRegisteredPlayerList')
-  const guestWrap=document.getElementById('roomGuestPlayerWrap')
-  const guestBox=document.getElementById('roomGuestPlayerList')
-  if(!picker||!regBox||!guestWrap||!guestBox) return
-  if(!roomId || !pbAuth?.token){
-    picker.classList.add('hidden')
-    return
-  }
+  const select=document.getElementById('roomPlayerSelect')
+  const summary=document.getElementById('roomPlayerSelectedSummary')
+  if(!picker||!select) return
+  if(!roomId || !pbAuth?.token){ picker.classList.add('hidden'); return }
   picker.classList.remove('hidden')
-  regBox.innerHTML='<span class="room-player-empty">正在讀取房間成員…</span>'
-  guestWrap.classList.add('hidden')
-  guestBox.innerHTML=''
+  select.innerHTML='<option value="">正在讀取房間玩家…</option>'
+  select.disabled=true
+  if(summary) summary.innerHTML=''
   try{
     const mf=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
     const [md,pd]=await Promise.all([
       pbRequest(`/api/collections/room_members/records?perPage=200&sort=created&filter=${mf}`),
       loadRoomPlayersList(roomId)
     ])
-    const members=md.items||[]
-    const players=pd||[]
-    const registered=[]
-    const seen=new Set()
+    const members=md.items||[], players=pd||[], registered=[], seen=new Set()
     members.forEach(m=>{
       const name=(m.nickname||'').trim()
       if(!name||seen.has(name)) return
-      seen.add(name)
-      registered.push({name,user:m.user||'',role:m.role||'member'})
+      seen.add(name); registered.push({name,user:m.user||'',role:m.role||'member'})
     })
-    // 若 room_player 已綁 user，但暱稱比 room_members 新，也保留可選。
     players.filter(p=>p.user).forEach(p=>{
       const name=(p.display_name||'').trim()
       if(!name||seen.has(name)) return
-      seen.add(name)
-      registered.push({name,user:p.user,role:'member'})
+      seen.add(name); registered.push({name,user:p.user,role:'member'})
     })
-    const guests=[]
-    const guestSeen=new Set()
+    const guests=[], guestSeen=new Set()
     players.filter(p=>!p.user && p.status==='active').forEach(p=>{
       const name=(p.display_name||'').trim()
       if(!name||seen.has(name)||guestSeen.has(name)) return
-      guestSeen.add(name)
-      guests.push({name})
+      guestSeen.add(name); guests.push({name})
     })
     v35RoomPickerEntries=[...registered.map(x=>({...x,type:'registered'})),...guests.map(x=>({...x,type:'guest'}))]
-    regBox.innerHTML=registered.length
-      ? registered.map(x=>`<button type="button" class="room-player-pick registered" data-player-name="${escapeHtml(x.name)}" onclick="v35PickRoomPlayer(${JSON.stringify(x.name).replace(/</g,'\\u003c')})">${escapeHtml(x.name)}<small>已註冊${x.role==='owner'?'・房主':''}</small></button>`).join('')
-      : '<span class="room-player-empty">目前沒有可選的已註冊房間成員</span>'
-    if(guests.length){
-      guestWrap.classList.remove('hidden')
-      guestBox.innerHTML=guests.map(x=>`<button type="button" class="room-player-pick guest" data-player-name="${escapeHtml(x.name)}" onclick="v35PickRoomPlayer(${JSON.stringify(x.name).replace(/</g,'\\u003c')})">${escapeHtml(x.name)}<small>未註冊</small></button>`).join('')
+    let html='<option value="">選擇玩家…</option>'
+    if(registered.length){
+      html+='<optgroup label="已註冊房間成員">'+registered.map(x=>`<option value="${escapeHtml(x.name)}">${escapeHtml(x.name)}${x.role==='owner'?'（房主）':''}</option>`).join('')+'</optgroup>'
     }
+    if(guests.length){
+      html+='<optgroup label="曾一起打過的未註冊玩家">'+guests.map(x=>`<option value="${escapeHtml(x.name)}">${escapeHtml(x.name)}（未註冊）</option>`).join('')+'</optgroup>'
+    }
+    if(!registered.length&&!guests.length) html='<option value="">目前沒有可選的房間玩家</option>'
+    select.innerHTML=html; select.disabled=!(registered.length||guests.length)
     ;[1,2,3,4].forEach(i=>{
       const el=document.getElementById('player'+i)
-      if(el && !el.dataset.v35Bound){
-        el.dataset.v35Bound='1'
-        el.addEventListener('input',v35RefreshPickerSelected)
-      }
+      if(el && !el.dataset.v35Bound){ el.dataset.v35Bound='1'; el.addEventListener('input',v35RefreshPickerSelected) }
     })
     v35RefreshPickerSelected()
   }catch(e){
-    console.warn('V35：房間玩家名單讀取失敗',e)
-    regBox.innerHTML='<span class="room-player-empty">房間玩家名單暫時讀取失敗，仍可直接輸入四位玩家。</span>'
+    console.warn('V36：房間玩家名單讀取失敗',e)
+    select.innerHTML='<option value="">房間玩家名單讀取失敗，可直接輸入名字</option>'; select.disabled=true
   }
 }
 
@@ -5961,6 +5960,7 @@ function filterSessionsByTime(sessions,filter){
 function openRoom(id){ currentRoomId=id; roomTimeFilter='all'; show('roomDashboard') }
 async function deleteCurrentRoom(){
   ensureAppData()
+  if(!await applyRoomOwnerControls()){ alert('只有房主可以刪除房間。'); return }
   const room=appData.rooms.find(r=>r.id===currentRoomId)
   if(!room) return
   const count=appData.sessions.filter(s=>s.roomId===room.id).length
@@ -6142,6 +6142,7 @@ function renderRoomDashboard(){
   document.getElementById('roomDashboardTitle').textContent=room.name
   const inviteEl=document.getElementById('roomInviteCodeDisplay'); if(inviteEl) inviteEl.innerHTML=room.invite_code?`<span>邀請碼 <b>${room.invite_code}</b></span><button type="button" class="link" style="margin-left:8px;padding:5px 9px" onclick="shareCurrentRoom()" aria-label="分享房間邀請">↗ 分享</button>`:''
   syncCurrentRoomMembers()
+  applyRoomOwnerControls()
   applyCurrentRoomAccess().then(ok=>{ if(ok) syncCurrentRoomLiveSession() })
   document.getElementById('roomSummary').innerHTML=`
     <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
