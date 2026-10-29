@@ -1508,6 +1508,8 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 }
 </style>
 
+
+<!-- 誰與爭鋒 V48：補登日期時間／返回房間／玩家對玩家／剋星分析 -->
 </head>
 
 
@@ -1676,6 +1678,16 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   <div class="card room-protected">
     <div class="toprow"><h2>🎖️ 麻將名人堂</h2><span class="muted">依房間紀錄自動更新</span></div>
     <div id="roomBadges" class="badge-grid"></div>
+  </div>
+
+  <div class="card room-protected">
+    <div class="toprow"><h2>⚔️ 玩家對玩家</h2><span class="muted">同桌戰績明細</span></div>
+    <div id="roomPlayerVsPlayer"></div>
+  </div>
+
+  <div class="card room-protected">
+    <div class="toprow"><h2>😈 剋星分析</h2><span class="muted">至少共同 3 場</span></div>
+    <div id="roomNemesis"></div>
   </div>
 
   <div class="card room-protected">
@@ -2364,6 +2376,12 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       輸入四人的最後輸贏，合計必須為 0。
     </div>
 
+    <div style="margin-top:14px">
+      <label for="finalPlayedAt">牌局日期與時間</label>
+      <input id="finalPlayedAt" type="datetime-local">
+      <div class="muted" style="margin-top:5px">補登以前的牌局時，可以直接修改這裡的日期與時間。</div>
+    </div>
+
     <div id="finalInputs"></div>
 
     <div
@@ -2379,6 +2397,14 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     onclick="saveFinal()"
   >
     儲存這場戰績
+  </button>
+
+  <button
+    class="secondary"
+    style="margin-top:10px"
+    onclick="returnToCurrentRoom()"
+  >
+    ← 返回房間
   </button>
 
 </section>
@@ -5661,6 +5687,13 @@ function finishDetailedGame(){
 
 function renderFinal(){
 
+  const finalPlayedAt=document.getElementById('finalPlayedAt')
+  if(finalPlayedAt && !finalPlayedAt.value){
+    const now=new Date()
+    const local=new Date(now.getTime()-now.getTimezoneOffset()*60000)
+    finalPlayedAt.value=local.toISOString().slice(0,16)
+  }
+
   document
     .getElementById('finalInputs')
     .innerHTML=
@@ -6386,10 +6419,95 @@ function renderRoomDashboard(loadShared=true){
   document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 場・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
   const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
+  renderRoomPlayerVsPlayer(ss)
+  renderRoomNemesis(ss)
   const kingHistory=document.getElementById('roomKingHistory'); if(kingHistory) kingHistory.innerHTML=roomKingHistoryHtml(allSs)
   document.getElementById('roomSessionCount').textContent=`${ss.length} 場`
   document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(sessionRowHtml).join(''):'還沒有歷史牌局'
 }
+
+function v48PairStats(sessions,a,b){
+  const shared=(sessions||[]).filter(ss=>{
+    const names=ss.players||Object.keys(sessionNets(ss))
+    return names.includes(a)&&names.includes(b)
+  })
+  let aNet=0,bNet=0,aBetter=0,bBetter=0,ties=0
+  shared.forEach(ss=>{
+    const nets=sessionNets(ss)
+    const av=Number(nets[a]||0), bv=Number(nets[b]||0)
+    aNet+=av; bNet+=bv
+    if(av>bv) aBetter++; else if(bv>av) bBetter++; else ties++
+  })
+  return {shared,aNet,bNet,aBetter,bBetter,ties}
+}
+function v48PairDetailHtml(a,b,sessions){
+  const st=v48PairStats(sessions,a,b)
+  if(!st.shared.length) return '<div class="muted">這兩位玩家目前沒有共同牌局。</div>'
+  const detail=[...st.shared].sort((x,y)=>y.createdAt.localeCompare(x.createdAt)).map(ss=>{
+    const nets=sessionNets(ss)
+    const d=new Date(ss.createdAt).toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    return `<div class="session-row" onclick="showSessionDetail('${ss.id}')" style="cursor:pointer">
+      <div class="session-head"><span>${d}</span><span>›</span></div>
+      <div class="session-result">${escapeHtml(a)} ${money(Number(nets[a]||0))}・${escapeHtml(b)} ${money(Number(nets[b]||0))}</div>
+    </div>`
+  }).join('')
+  return `<div class="career-grid" style="margin-top:12px">
+    <div class="career-stat"><div class="k">共同場次</div><div class="v">${st.shared.length}</div></div>
+    <div class="career-stat"><div class="k">${escapeHtml(a)} 累積</div><div class="v">${money(st.aNet)}</div></div>
+    <div class="career-stat"><div class="k">${escapeHtml(b)} 累積</div><div class="v">${money(st.bNet)}</div></div>
+    <div class="career-stat"><div class="k">單場較優</div><div class="v">${escapeHtml(a)} ${st.aBetter}・${escapeHtml(b)} ${st.bBetter}${st.ties?`・和 ${st.ties}`:''}</div></div>
+  </div><div style="margin-top:12px">${detail}</div>`
+}
+function renderRoomPlayerVsPlayer(sessions){
+  const box=document.getElementById('roomPlayerVsPlayer'); if(!box) return
+  const names=[...new Set((sessions||[]).flatMap(ss=>ss.players||Object.keys(sessionNets(ss))))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))
+  if(names.length<2){ box.innerHTML='<div class="muted">至少需要兩位有牌局紀錄的玩家。</div>'; return }
+  const opts=names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+  box.innerHTML=`<div class="grid2" style="gap:10px">
+    <div><label>玩家 A</label><select id="v48PlayerA" onchange="v48RefreshPairDetail()">${opts}</select></div>
+    <div><label>玩家 B</label><select id="v48PlayerB" onchange="v48RefreshPairDetail()">${opts}</select></div>
+  </div><div id="v48PairDetail"></div>`
+  const b=document.getElementById('v48PlayerB'); if(b&&names.length>1) b.value=names[1]
+  window.v48CurrentSessions=sessions||[]
+  v48RefreshPairDetail()
+}
+function v48RefreshPairDetail(){
+  const a=document.getElementById('v48PlayerA')?.value, b=document.getElementById('v48PlayerB')?.value
+  const box=document.getElementById('v48PairDetail'); if(!box) return
+  if(!a||!b){ box.innerHTML=''; return }
+  if(a===b){ box.innerHTML='<div class="career-note" style="margin-top:12px">請選擇兩位不同的玩家。</div>'; return }
+  box.innerHTML=v48PairDetailHtml(a,b,window.v48CurrentSessions||[])
+}
+function renderRoomNemesis(sessions){
+  const box=document.getElementById('roomNemesis'); if(!box) return
+  const names=[...new Set((sessions||[]).flatMap(ss=>ss.players||Object.keys(sessionNets(ss))))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))
+  if(names.length<2){ box.innerHTML='<div class="muted">累積更多共同牌局後，這裡會開始分析剋星。</div>'; return }
+  const opts=names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+  box.innerHTML=`<label>查看誰的剋星？</label><select id="v48NemesisPlayer" onchange="v48RefreshNemesis()">${opts}</select><div id="v48NemesisResult"></div>`
+  window.v48NemesisSessions=sessions||[]
+  v48RefreshNemesis()
+}
+function v48RefreshNemesis(){
+  const me=document.getElementById('v48NemesisPlayer')?.value
+  const box=document.getElementById('v48NemesisResult'); if(!box||!me) return
+  const sessions=window.v48NemesisSessions||[]
+  const others=[...new Set(sessions.flatMap(ss=>ss.players||Object.keys(sessionNets(ss))))].filter(n=>n!==me)
+  const rows=others.map(other=>{
+    const st=v48PairStats(sessions,me,other)
+    return {other,count:st.shared.length,myNet:st.aNet,otherNet:st.bNet}
+  }).filter(x=>x.count>=3).sort((a,b)=>a.myNet-b.myNet || b.count-a.count)
+  if(!rows.length){
+    box.innerHTML='<div class="career-note" style="margin-top:12px">目前沒有任何玩家與你共同滿 3 場，資料還不足。</div>'
+    return
+  }
+  box.innerHTML=`<div class="career-note" style="margin-top:12px">剋星定義：與你共同至少 3 場，依你在共同牌局中的累積輸贏由低到高排列。</div>`+
+    rows.map((x,i)=>`<div class="rank-row">
+      <div class="rank-no">${i===0?'😈':i+1}</div>
+      <div><b>${escapeHtml(x.other)}</b><div class="muted">共同 ${x.count} 場・對戰期間你的累積</div></div>
+      <div class="rank-money">${money(x.myNet)}</div>
+    </div>`).join('')
+}
+
 function badgeHtml(rows,sessions){
   if(!rows.length) return '<div class="muted">累積幾場後，這裡會開始產生房間徽章。</div>'
   const winners=(key,low=false,eligible=rows,requirePositive=false)=>{
@@ -6528,7 +6646,15 @@ function saveCurrentSession(kind, finalValues){
   const nets={}
   if(kind==='final') P.forEach((name,i)=>nets[name]=Number(finalValues[i])||0)
   else P.forEach(name=>nets[name]=(balances[name]||0))
-  const ss={id:makeId('session'),roomId:room.id,roomName:room.name,createdAt:new Date().toISOString(),place:(document.getElementById('place').value||'').trim(),stake:selectedStake,mode:kind,players:[...P],nets,hands:kind==='detailed'?hands.map(h=>JSON.parse(JSON.stringify(h))):[]}
+  let createdAt=new Date().toISOString()
+  if(kind==='final'){
+    const picked=document.getElementById('finalPlayedAt')?.value
+    if(picked){
+      const d=new Date(picked)
+      if(!Number.isNaN(d.getTime())) createdAt=d.toISOString()
+    }
+  }
+  const ss={id:makeId('session'),roomId:room.id,roomName:room.name,createdAt,place:(document.getElementById('place').value||'').trim(),stake:selectedStake,mode:kind,players:[...P],nets,hands:kind==='detailed'?hands.map(h=>JSON.parse(JSON.stringify(h))):[]}
   appData.sessions.push(ss); sessionSaved=true; persistAppData()
 }
 function exportAllData(){
