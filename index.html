@@ -1,10 +1,19 @@
 <!doctype html>
+<!-- V46: PWA install support only; V45 app logic preserved -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fffaf5">
 <title>誰與爭鋒</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="誰與爭鋒">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="application-name" content="誰與爭鋒">
+
 <!-- V41: member stats card + corrected seat direction; original macaron palette only -->
 <!-- V39: historical version -->
 
@@ -1554,7 +1563,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   </div>
 
   <div class="card">
-    <div class="toprow"><h2>我的長期戰績</h2><span class="season-chip">ALL TIME</span></div>
+    <div class="toprow"><h2>個人戰績</h2><span class="season-chip">ALL TIME</span></div>
     <div class="profile-row"><div><div class="muted">我的帳號</div><div id="profileNameDisplay" class="profile-name">尚未登入</div><div id="profileEmailDisplay" class="account-email"></div></div><div class="account-chip"><button class="link filled-link" onclick="editAccountName()">修改暱稱</button><button class="link" style="color:#b94f5f;background:#fff0f2" onclick="logoutAccount()">登出</button></div></div>
     <div id="myCareerStats" class="career-grid"></div>
   </div>
@@ -1580,7 +1589,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   </div>
 
 
-  <button class="primary" onclick="quickStartGame()">＋ 開始新牌局</button>
+  <button class="primary" onclick="quickStartGame()">＋ 新的牌局</button>
 
 </section>
 
@@ -1643,7 +1652,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
     <div id="roomHistory" class="muted"></div>
   </div>
 
-  <button class="primary" onclick="startFromCurrentRoom()">＋ 在這個房間開始新牌局</button>
+  <button class="primary" onclick="startFromCurrentRoom()">＋ 在這個房間開新的牌局</button>
 </section>
 
 <!-- 開局 -->
@@ -1654,7 +1663,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
     <div class="toprow">
 
-      <h2>開新牌局</h2>
+      <h2>新的牌局</h2>
 
       <button
         class="link"
@@ -6816,5 +6825,13 @@ syncCurrentRoomMembers = async function(){
 // V42：維持 V41 固定馬卡龍配色；無主題切換。
 </script>
 
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Service Worker registration failed:', err));
+  });
+}
+</script>
 </body>
 </html>
