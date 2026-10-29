@@ -6720,26 +6720,45 @@ async function openRoomMemberStats(userId,nickname){
   document.body.appendChild(modal)
 }
 
-// V40：保留 V38/V39 原本房間成員讀取方式，只增加可點擊的個人戰績入口。
+// V42：房間名單 = 正式房間會員 + 曾在此房間上桌的所有玩家。
+// 不在畫面區分是否註冊；未註冊玩家也可持續累積同一份房間戰績卡。
 syncCurrentRoomMembers = async function(){
   const wrap=document.getElementById('roomMembers'), count=document.getElementById('roomMemberCount')
   if(!currentRoomId){if(wrap)wrap.innerHTML='<div class="muted">尚未選擇房間</div>';if(count)count.textContent='0 人';return []}
   if(wrap)wrap.innerHTML='<div class="muted">正在讀取房間成員…</div>'
   try{
     const filter=encodeURIComponent(`room="${currentRoomId}"`)
-    const data=await pbRequest(`/api/collections/room_members/records?perPage=200&sort=created&filter=${filter}`), members=data.items||[]
-    if(count)count.textContent=`${members.length} 人`
-    if(wrap)wrap.innerHTML=members.length?members.map(m=>{
-      const name=(m.nickname||'未命名玩家').trim()||'未命名玩家',isOwner=m.role==='owner',initial=escapeHtml(name.slice(0,1).toUpperCase())
-      const uid=encodeURIComponent(m.user||''),nn=encodeURIComponent(name)
-      return `<div class="room-member-row member-stats-open" onclick="openRoomMemberStats(decodeURIComponent('${uid}'),decodeURIComponent('${nn}'))" role="button" tabindex="0"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(name)}</div><div class="room-member-role">${isOwner?'房間建立者':'房間成員'}・查看戰績</div></div></div><div style="display:flex;align-items:center"><span class="${isOwner?'room-owner-chip':'room-member-chip'}">${isOwner?'👑 房主':'成員'}</span><span class="member-stats-arrow">›</span></div></div>`
-    }).join(''):'<div class="muted">這個房間目前還沒有成員。</div>'
-    return members
-  }catch(e){console.error('PocketBase room members sync failed',e);if(count)count.textContent='讀取失敗';if(wrap)wrap.innerHTML='<div class="muted">房間成員讀取失敗，請重新整理後再試。</div>';return []}
+    const [memberData,playerData]=await Promise.all([
+      pbRequest(`/api/collections/room_members/records?perPage=200&sort=created&filter=${filter}`),
+      pbRequest(`/api/collections/room_players/records?perPage=200&sort=joined_at&filter=${filter}`)
+    ])
+    const members=memberData.items||[], players=(playerData.items||[]).filter(p=>p.status!=='removed')
+    const rows=[]
+    const byKey=new Map()
+    const addRow=(name,userId,isOwner,playerId)=>{
+      name=(name||'').trim(); if(!name)return
+      const key=userId?`u:${userId}`:`n:${name.toLocaleLowerCase()}`
+      const existing=byKey.get(key) || (!userId ? rows.find(r=>r.name.toLocaleLowerCase()===name.toLocaleLowerCase()) : null)
+      if(existing){existing.isOwner=existing.isOwner||!!isOwner;existing.userId=existing.userId||userId||'';existing.playerId=existing.playerId||playerId||'';return}
+      const row={name,userId:userId||'',isOwner:!!isOwner,playerId:playerId||''}; rows.push(row);byKey.set(key,row)
+    }
+    // 先放正式會員，房主永遠保留「房主」文字；不顯示任何註冊標籤。
+    members.forEach(m=>addRow(m.nickname||'',m.user||'',m.role==='owner',''))
+    // 再補所有實際上桌玩家，包括沒有帳號的玩家。
+    players.forEach(p=>{
+      const member=p.user?members.find(m=>m.user===p.user):members.find(m=>(m.nickname||'').trim()===(p.display_name||'').trim())
+      addRow(p.display_name||member?.nickname||'',p.user||member?.user||'',member?.role==='owner',p.id||'')
+    })
+    if(count)count.textContent=`${rows.length} 人`
+    if(wrap)wrap.innerHTML=rows.length?rows.map(r=>{
+      const initial=escapeHtml(r.name.slice(0,1).toUpperCase()),uid=encodeURIComponent(r.userId||''),nn=encodeURIComponent(r.name)
+      return `<div class="room-member-row member-stats-open" onclick="openRoomMemberStats(decodeURIComponent('${uid}'),decodeURIComponent('${nn}'))" role="button" tabindex="0"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(r.name)}</div><div class="room-member-role">查看戰績</div></div></div><div style="display:flex;align-items:center;gap:8px">${r.isOwner?'<span class="room-owner-chip">房主</span>':''}<span class="member-stats-arrow">›</span></div></div>`
+    }).join(''):'<div class="muted">這個房間目前還沒有玩家。</div>'
+    return rows
+  }catch(e){console.error('PocketBase room players sync failed',e);if(count)count.textContent='讀取失敗';if(wrap)wrap.innerHTML='<div class="muted">房間成員讀取失敗，請重新整理後再試。</div>';return []}
 }
 
-
-// V40：保留 V39 個人配色初始化。
+// V42：維持 V41 固定馬卡龍配色；無主題切換。
 </script>
 
 </body>
