@@ -1399,7 +1399,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 #game.live-viewer-mode .trend-chart{min-height:145px!important}
 #game.live-viewer-mode .trend-chart svg{max-height:130px}
 .live-viewer-back{position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:10000;width:100%;border:0;border-radius:14px;padding:10px 14px;background:#fff3b8;color:#514a42;font-size:14px;font-weight:950;box-shadow:0 4px 12px rgba(0,0,0,.08);margin-bottom:4px}
-.v32-preview-head{font-size:11px;font-weight:900;color:#746c70;margin-bottom:7px;padding-bottom:6px;border-bottom:1px dashed #e8dfdb}.v32-preview-sub{font-size:10px;color:#978f93;margin-left:5px}
+.v32-preview-head{font-size:14px;font-weight:900;color:#746c70;margin-bottom:8px;padding-bottom:7px;border-bottom:1px dashed #e8dfdb}.v32-preview-sub{font-size:14px;color:#746c70;margin-left:7px;font-weight:900}.v38-dealer-tai{display:inline-flex;align-items:center;margin-left:7px;padding:3px 8px;border-radius:999px;background:#fff0f0;color:#b23f3f;font-size:12px;font-weight:950;white-space:nowrap}
 .game-timebar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 8px}
 .game-time-chip{background:#fff8dc;border:1px solid #eee0a9;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:900;color:#665f55}
 #game.live-viewer-mode .game-timebar{margin:0 0 2px}
@@ -1417,6 +1417,23 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .room-player-selected-summary{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .room-player-selected-chip{padding:6px 9px;border-radius:999px;background:#edf8f2;border:1px solid #b9dcc9;font-size:12px;font-weight:800;color:#557664}
 .room-player-empty{font-size:13px;color:#8b8388}
+
+/* ===== V38：玩家選擇介面美化 ===== */
+.room-player-select{display:none!important}
+.room-player-open{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border:1px solid #e4d9d2;border-radius:16px;background:linear-gradient(180deg,#fff 0%,#fffaf6 100%);color:#554d50;font:inherit;font-size:15px;font-weight:850;box-shadow:0 4px 12px rgba(91,70,59,.05);cursor:pointer}
+.room-player-open:after{content:'⌄';font-size:18px;color:#9b8d86}
+.room-player-menu{display:none;margin-top:8px;padding:8px;border:1px solid #eadfd7;border-radius:18px;background:#fff;box-shadow:0 14px 34px rgba(82,65,57,.14);max-height:310px;overflow:auto}
+.room-player-menu.open{display:block}
+.room-player-group-title{padding:8px 9px 5px;font-size:11px;font-weight:950;color:#9a8d87;letter-spacing:.04em}
+.room-player-option{width:100%;border:0;background:transparent;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 10px;border-radius:13px;text-align:left;color:#51494c;font:inherit;font-size:15px;font-weight:850;cursor:pointer}
+.room-player-option:hover,.room-player-option:active{background:#f3faf6}
+.room-player-option.selected{background:#f4f1ef;color:#aaa09a;cursor:default}
+.room-player-option-badge{font-size:10px;font-weight:900;padding:4px 7px;border-radius:999px;background:#edf8f2;color:#5f806d;white-space:nowrap}
+.room-player-option-badge.guest{background:#f6f0ff;color:#78658f}
+#game:not(.projection-mode) #seatPicker .player-card:not(.dealer-seat){border:2px solid transparent!important;box-shadow:0 6px 16px rgba(90,96,105,.07)!important}
+#game:not(.projection-mode) #seatPicker .player-card.pick-winner:not(.dealer-seat),#game:not(.projection-mode) #seatPicker .player-card.pick-discarder:not(.dealer-seat){border-color:transparent!important;box-shadow:0 6px 16px rgba(90,96,105,.07)!important}
+#game:not(.projection-mode) .tai-number{font-size:34px!important}
+#game:not(.projection-mode) .tai-btn{font-size:15px!important;font-weight:900!important;padding:10px 4px!important}
 
 </style>
 </head>
@@ -1631,6 +1648,8 @@ body:has(#game:not(.hidden)) > header{display:none !important}
       <select id="roomPlayerSelect" class="room-player-select" onchange="v36PickRoomPlayerFromSelect()">
         <option value="">選擇玩家…</option>
       </select>
+      <button type="button" id="roomPlayerOpen" class="room-player-open" onclick="v38ToggleRoomPlayerMenu()">選擇玩家</button>
+      <div id="roomPlayerMenu" class="room-player-menu"></div>
       <div id="roomPlayerSelectedSummary" class="room-player-selected-summary"></div>
     </div>
 
@@ -3038,6 +3057,7 @@ function v35RefreshPickerSelected(){
     const set=new Set(selected)
     Array.from(select.options).forEach(opt=>{ if(opt.value) opt.disabled=set.has(opt.value) })
   }
+  v38RenderRoomPlayerMenu()
 }
 function v35PickRoomPlayer(name){
   name=String(name||'').trim()
@@ -3049,6 +3069,31 @@ function v35PickRoomPlayer(name){
   slot.value=name
   slot.dispatchEvent(new Event('input',{bubbles:true}))
   v35RefreshPickerSelected()
+}
+function v38ToggleRoomPlayerMenu(force){
+  const menu=document.getElementById('roomPlayerMenu')
+  if(!menu)return
+  const shouldOpen=typeof force==='boolean'?force:!menu.classList.contains('open')
+  menu.classList.toggle('open',shouldOpen)
+}
+function v38RenderRoomPlayerMenu(){
+  const menu=document.getElementById('roomPlayerMenu')
+  const btn=document.getElementById('roomPlayerOpen')
+  if(!menu||!btn)return
+  const selected=new Set(v35SelectedPlayerNames())
+  const registered=v35RoomPickerEntries.filter(x=>x.type==='registered')
+  const guests=v35RoomPickerEntries.filter(x=>x.type==='guest')
+  const group=(title,items)=>items.length?`<div class="room-player-group-title">${title}</div>${items.map(x=>{const isSelected=selected.has(x.name);const badge=x.type==='guest'?'<span class="room-player-option-badge guest">未註冊</span>':`<span class="room-player-option-badge">${x.role==='owner'?'房主':'會員'}</span>`;const idx=v35RoomPickerEntries.indexOf(x);return `<button type="button" class="room-player-option ${isSelected?'selected':''}" ${isSelected?'disabled':''} onclick="v38PickRoomPlayerByIndex(${idx})"><span>${escapeHtml(x.name)}</span>${badge}</button>`}).join('')}`:''
+  menu.innerHTML=group('已註冊房間成員',registered)+group('曾一起打過的未註冊玩家',guests)
+  if(!v35RoomPickerEntries.length)menu.innerHTML='<div class="room-player-empty" style="padding:10px">目前沒有可選的房間玩家</div>'
+  btn.disabled=!v35RoomPickerEntries.length
+  btn.textContent=selected.length>=4?'已選滿 4 位玩家':`選擇玩家${selected.length?`（已選 ${selected.length}/4）`:''}`
+}
+function v38PickRoomPlayerByIndex(index){
+  const entry=v35RoomPickerEntries[index]
+  if(!entry)return
+  v35PickRoomPlayer(entry.name)
+  if(v35SelectedPlayerNames().length>=4)v38ToggleRoomPlayerMenu(false)
 }
 function v36PickRoomPlayerFromSelect(){
   const select=document.getElementById('roomPlayerSelect')
@@ -3099,7 +3144,7 @@ async function loadV35RoomPlayerPicker(roomId=currentRoomId){
       html+='<optgroup label="曾一起打過的未註冊玩家">'+guests.map(x=>`<option value="${escapeHtml(x.name)}">${escapeHtml(x.name)}（未註冊）</option>`).join('')+'</optgroup>'
     }
     if(!registered.length&&!guests.length) html='<option value="">目前沒有可選的房間玩家</option>'
-    select.innerHTML=html; select.disabled=!(registered.length||guests.length)
+    select.innerHTML=html; select.disabled=!(registered.length||guests.length); v38RenderRoomPlayerMenu()
     ;[1,2,3,4].forEach(i=>{
       const el=document.getElementById('player'+i)
       if(el && !el.dataset.v35Bound){ el.dataset.v35Bound='1'; el.addEventListener('input',v35RefreshPickerSelected) }
@@ -3107,7 +3152,7 @@ async function loadV35RoomPlayerPicker(roomId=currentRoomId){
     v35RefreshPickerSelected()
   }catch(e){
     console.warn('V36：房間玩家名單讀取失敗',e)
-    select.innerHTML='<option value="">房間玩家名單讀取失敗，可直接輸入名字</option>'; select.disabled=true
+    select.innerHTML='<option value="">房間玩家名單讀取失敗，可直接輸入名字</option>'; select.disabled=true; v35RoomPickerEntries=[]; v38RenderRoomPlayerMenu()
   }
 }
 
@@ -6575,8 +6620,8 @@ function renderPaymentPreview(){
   const changes=calculateHandPayments()
   const dealerTai=getDealerBonusTai();const dealerText=repeats>0?`連${repeats}拉${repeats}・莊家 ${dealerTai} 台`:`莊家 ${dealerTai} 台`
   const baseTaiText=result==='詐胡'?'詐胡各家依設定台數':`本場 ${tai} 台`
-  const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;return `<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0"><span>${escapeHtml(p)}${t?`<span class="v32-preview-sub">${t}</span>`:''}</span><b style="color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}$${a.toLocaleString()}</b></div>`}).join('')
-  box.innerHTML=`<div class="v32-preview-head">${baseTaiText}｜${escapeHtml(dealer)}：${dealerText}</div>${lines||'這一場目前沒有金額變動。'}`
+  const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;const dealerBadge=p===dealer?`<span class="v38-dealer-tai">${dealerText}</span>`:'';return `<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:16px"><span style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><b>${escapeHtml(p)}</b>${t?`<span class="v32-preview-sub">${t}</span>`:''}${dealerBadge}</span><b style="font-size:17px;color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}$${a.toLocaleString()}</b></div>`}).join('')
+  box.innerHTML=`<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一場目前沒有金額變動。'}`
 }
 </script>
 
