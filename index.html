@@ -1478,6 +1478,36 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 }
 
 </style>
+
+<style id="v46-home-stylefix">
+/* V47 homepage visual alignment: 房間 / 新的牌局 / 目標 */
+#homeScreen .card {
+  margin-bottom: 14px;
+}
+#homeScreen #roomList {
+  margin-top: 10px;
+}
+#homeScreen #goalList {
+  margin-top: 10px;
+}
+
+/* Keep the standalone new-game action aligned with the homepage cards. */
+#homeScreen button[onclick*="newGame"],
+#homeScreen button[onclick*="NewGame"],
+#homeScreen button[onclick*="startGame"] {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+/* Goal section should not have a special green treatment. */
+#homeScreen .goal-card,
+#homeScreen .goals-card,
+#homeScreen [class*="goal-card"] {
+  border-color: var(--line, #eadfe2) !important;
+  background: var(--card, #fff) !important;
+}
+</style>
+
 </head>
 
 
@@ -1591,7 +1621,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
 
   <div class="card goal-card">
-    <div class="toprow"><h2>🎯 我的目標</h2><button type="button" class="link filled-link" onclick="addMyGoal()">＋新增目標</button></div>
+    <div class="toprow"><h2>我的目標</h2><button type="button" class="link filled-link" onclick="addMyGoal()">＋新增目標</button></div>
     <div id="myGoalContent"></div>
   </div>
 
