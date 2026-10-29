@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fffaf5">
 <title>誰與爭鋒</title>
+<!-- V37 shared room stats: registered room members share PocketBase history/statistics -->
 
 <style>
 :root{
@@ -1539,7 +1540,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 
   <div id="roomAccessNotice" class="card hidden" style="border:2px solid #ead88b;background:#fffdf2">
     <b>這個帳號還沒有在此房間留下牌局紀錄</b>
-    <div class="muted" style="margin-top:5px">完成第一次牌局後，才會開放房間統計、歷史與直播觀看。</div>
+    <div class="muted" style="margin-top:5px">只要是這個房間的註冊會員，就能查看相同的房間統計、歷史與直播。</div>
   </div>
 
   <div class="card room-members-card room-protected">
@@ -2479,7 +2480,7 @@ async function joinRoomPrompt(prefill=''){
     const roomId=result?.room?.id
     if(roomId){ currentRoomId=roomId; roomTimeFilter='all'; show('roomDashboard') }
     clearInviteFromUrl()
-    alert(result?.room?.already_member||result?.already_member?'你已登記在這個房間；有牌局紀錄後即可查看統計與直播。':'已登記房間。完成第一次牌局後，才會開放統計與直播。')
+    alert(result?.room?.already_member||result?.already_member?'你已經是這個房間的會員，可以查看完整房間資料。':'已加入房間，可以查看完整房間資料。')
   }catch(e){
     alert('加入房間失敗：'+(e.message||'請稍後再試'))
   }
@@ -2839,7 +2840,7 @@ async function ensureRemoteRoomPlayers(roomId=currentRoomId){
   if(P.every(n=>map[n]?.id)) return map
 
   // V34：只建立實際上桌的四位玩家。未註冊者只是 guest 名稱，不取得任何系統權限。
-  // 已註冊且已登記房間者保留 user 關聯；打過後 has_played=true，才取得房間統計與直播資格。
+  // V37：已註冊房間會員一加入房間即可讀取共同統計與直播；has_played 只保留為玩家參賽紀錄，不再作為觀看門檻。
   let members=[]
   try{
     const mf=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
@@ -2932,10 +2933,11 @@ async function completeRemoteSession(reason='normal'){
 }
 
 async function getCurrentRoomPlayerAccess(roomId=currentRoomId){
+  // V37：觀看權限只看 room_members。加入房間的註冊會員，不必先上桌。
   if(!roomId || !pbAuth?.record?.id) return null
   try{
-    const f=encodeURIComponent(`room="${pbFilterValue(roomId)}" && user="${pbFilterValue(pbAuth.record.id)}" && status="active" && has_played=true`)
-    const d=await pbRequest(`/api/collections/room_players/records?perPage=10&filter=${f}`)
+    const f=encodeURIComponent(`room="${pbFilterValue(roomId)}" && user="${pbFilterValue(pbAuth.record.id)}"`)
+    const d=await pbRequest(`/api/collections/room_members/records?perPage=10&filter=${f}`)
     return (d.items||[])[0]||null
   }catch(e){ return null }
 }
@@ -2953,7 +2955,7 @@ async function syncCurrentRoomLiveSession(){
   const box=document.getElementById('roomLiveSession')
   if(!box || !currentRoomId || !pbAuth?.token) return
   box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
-  if(!await getCurrentRoomPlayerAccess(currentRoomId)){ box.innerHTML='<div class="muted">完成此房間第一場牌局後，才可觀看直播。</div>'; return }
+  if(!await getCurrentRoomPlayerAccess(currentRoomId)){ box.innerHTML='<div class="muted">只有這個房間的註冊會員可以觀看直播。</div>'; return }
   try{
     const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
     const data=await pbRequest(`/api/collections/game_sessions/records?perPage=20&sort=-created&filter=${filter}`)
@@ -2968,7 +2970,7 @@ async function syncCurrentRoomLiveSession(){
 
 async function openLiveSession(sessionId){
   try{
-    if(!await getCurrentRoomPlayerAccess(currentRoomId)) throw new Error('只有已註冊且曾在此房間打過的玩家可以觀看直播')
+    if(!await getCurrentRoomPlayerAccess(currentRoomId)) throw new Error('只有這個房間的註冊會員可以觀看直播')
     const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
     // V31：直接用 room_player ID 解析，避免同名重複資料被名稱 map 覆蓋。
     const roomPlayers=await loadRoomPlayersList(ss.room)
@@ -5981,6 +5983,7 @@ async function deleteSessionById(id){
   ensureAppData()
   const ss=appData.sessions.find(s=>s.id===id)
   if(!ss) return
+  if(ss.remote){ alert('共同房間的歷史牌局不能只從這支手機刪除。'); return }
   const date=new Date(ss.createdAt).toLocaleDateString('zh-TW')
   if(!await uiConfirm('刪除後，長期戰績、排行榜、名人堂都會重新計算。',`刪除 ${date} 這一場？`,{danger:true,okText:'刪除牌局'})) return
   appData.sessions=appData.sessions.filter(s=>s.id!==id)
@@ -6130,11 +6133,69 @@ async function syncCurrentRoomMembers(){
   }
 }
 
-function renderRoomDashboard(){
+/* ===== V37：房間共同歷史 / 統計全部以 PocketBase 為準 ===== */
+const v37RoomHistoryLoaded=new Set()
+const v37RoomHistoryLoading=new Map()
+async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
+  if(!roomId || !pbAuth?.token) return []
+  if(!force && v37RoomHistoryLoaded.has(roomId)) return roomSessions(roomId)
+  if(v37RoomHistoryLoading.has(roomId)) return v37RoomHistoryLoading.get(roomId)
+  const task=(async()=>{
+    const membership=await getCurrentRoomPlayerAccess(roomId)
+    if(!membership) return []
+    const sf=encodeURIComponent(`room="${pbFilterValue(roomId)}" && status="completed"`)
+    const sd=await pbRequest(`/api/collections/game_sessions/records?perPage=500&sort=created&filter=${sf}`)
+    const remoteSessions=sd.items||[]
+    const roomPlayers=await loadRoomPlayersList(roomId)
+    const byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
+    const room=appData?.rooms?.find(r=>r.id===roomId)
+    const shared=await Promise.all(remoteSessions.map(async rs=>{
+      const hf=encodeURIComponent(`session="${pbFilterValue(rs.id)}"`)
+      let hd={items:[]}
+      try{ hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`) }catch(e){ console.warn('V37：讀取歷史逐把資料失敗',rs.id,e) }
+      const remoteHands=hd.items||[]
+      const players=(rs.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
+      const hands=remoteHands.map(h=>({
+        round:h.round||'',result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,
+        winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',tai:Number(h.tai||0),
+        patterns:h.patterns||[],changes:h.payments||{},balancesAfter:h.balances_after||{},
+        dealer:byId[h.dealer]?.display_name||'',repeats:Number(h.dealer_repeats||0)
+      }))
+      const last=remoteHands[remoteHands.length-1]
+      const rawBalances=(last&&last.balances_after&&typeof last.balances_after==='object')?last.balances_after:{}
+      const nets={}
+      players.forEach(name=>nets[name]=Number(rawBalances[name]||0))
+      return {
+        id:rs.id,roomId,roomName:room?.name||'牌局',createdAt:rs.started_at||rs.created||new Date().toISOString(),
+        place:'',stake:rs.stake||'',mode:'detailed',players,nets,hands,remote:true
+      }
+    }))
+    ensureAppData()
+    // PocketBase 房間只保留共同遠端歷史；避免每支手機自己的 localStorage 混進房間統計。
+    appData.sessions=appData.sessions.filter(x=>x.roomId!==roomId || !room?.pocketbase)
+    appData.sessions.push(...shared)
+    persistAppData()
+    v37RoomHistoryLoaded.add(roomId)
+    return shared
+  })().finally(()=>v37RoomHistoryLoading.delete(roomId))
+  v37RoomHistoryLoading.set(roomId,task)
+  return task
+}
+async function v37RefreshCurrentRoomHistory(){
+  if(!currentRoomId) return
+  v37RoomHistoryLoaded.delete(currentRoomId)
+  try{ await v37LoadSharedRoomHistory(currentRoomId,true) }catch(e){ console.warn('V37：共同房間歷史同步失敗',e) }
+  renderRoomDashboard(false)
+}
+
+function renderRoomDashboard(loadShared=true){
   ensureAppData()
   let room=appData.rooms.find(r=>r.id===currentRoomId)
   if(!room){room=appData.rooms[0];currentRoomId=room?.id||''}
   if(!room) return
+  if(loadShared && room.pocketbase && pbAuth?.token){
+    v37LoadSharedRoomHistory(room.id).then(()=>{ if(currentRoomId===room.id) renderRoomDashboard(false) }).catch(e=>console.warn('V37：共同房間資料讀取失敗',e))
+  }
   const allSs=roomSessions(room.id), ss=filterSessionsByTime(allSs,roomTimeFilter), rows=aggregateSessions(ss).sort((a,b)=>b.net-a.net)
   const totalHands=ss.reduce((n,x)=>n+(x.hands||[]).length,0)
   const labels={all:'全部',year:'今年',month:'本月',week:'本週'}
@@ -6282,7 +6343,7 @@ function showSessionDetail(id){
   const statsHtml=sessionDetailStatsHtml(ss)
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 回到房間</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
+  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${date}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2></div><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 回到房間</button></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${totalHtml}</div>${statsHtml}${handsHtml}${ss.remote?'':`<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button>`}</div>`
   document.body.appendChild(div)
 }
 
@@ -6504,7 +6565,7 @@ function exitLiveViewer(){
 const v32OriginalCreateRemoteGameSession=createRemoteGameSession
 createRemoteGameSession=async function(){const r=await v32OriginalCreateRemoteGameSession.apply(this,arguments);if(r)v32StartRecorderHeartbeat();return r}
 const v32OriginalCompleteRemoteSession=completeRemoteSession
-completeRemoteSession=async function(reason='normal'){v33StopGameClock();const r=await v32OriginalCompleteRemoteSession(reason);if(v32HeartbeatTimer){clearInterval(v32HeartbeatTimer);v32HeartbeatTimer=null}return r}
+completeRemoteSession=async function(reason='normal'){v33StopGameClock();const r=await v32OriginalCompleteRemoteSession(reason);if(v32HeartbeatTimer){clearInterval(v32HeartbeatTimer);v32HeartbeatTimer=null}if(currentRoomId)v37RoomHistoryLoaded.delete(currentRoomId);return r}
 // 台數 + 金額核對：直接顯示本場台數，以及目前莊家的連莊實際台數。
 function renderPaymentPreview(){
   const box=document.getElementById('calculationPreview');if(!box)return
