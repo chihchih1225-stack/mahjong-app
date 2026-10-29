@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fffaf5">
 <title>誰與爭鋒</title>
-<!-- V37 shared room stats: registered room members share PocketBase history/statistics -->
+<!-- V39: correct table orientation + per-user Morandi theme; based on V38 without changing scoring/data rules -->
 
 <style>
 :root{
@@ -1435,6 +1435,39 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 #game:not(.projection-mode) .tai-number{font-size:34px!important}
 #game:not(.projection-mode) .tai-btn{font-size:15px!important;font-weight:900!important;padding:10px 4px!important}
 
+
+
+/* ===== V39：每位使用者可自行切換配色（原版 / 莫蘭迪） ===== */
+.theme-switcher{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.theme-switcher-label{font-size:11px;color:var(--muted);font-weight:850;margin-right:2px}
+.theme-choice{border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:#fff;font-size:11px;font-weight:900;color:var(--ink)}
+.theme-choice.active{box-shadow:0 0 0 2px rgba(108,170,139,.18);border-color:var(--green);background:var(--mint)}
+body[data-theme="morandi"]{
+  --bg:#f2efe9;
+  --card:#f8f5f0;
+  --ink:#575451;
+  --muted:#8b8580;
+  --line:#ddd7cf;
+  --mint:#c8d2c5;
+  --pink:#d8c2bf;
+  --yellow:#d8cfb5;
+  --blue:#bdcbd0;
+  --lav:#c9c3cf;
+  --green:#788f80;
+  --red:#a97978;
+  --shadow:0 12px 32px rgba(78,72,67,.09);
+  background:radial-gradient(circle at 0 0,#e8ded8 0,transparent 28%),radial-gradient(circle at 100% 0,#dfe6df 0,transparent 28%),var(--bg);
+}
+body[data-theme="morandi"] .card{background:rgba(248,245,240,.97)}
+body[data-theme="morandi"] .hero{background:linear-gradient(145deg,#f8f5f0,#eee8df)}
+body[data-theme="morandi"] input{background:#f8f5f0}
+body[data-theme="morandi"] .primary{color:#52665a}
+body[data-theme="morandi"] .secondary,body[data-theme="morandi"] .choice,body[data-theme="morandi"] .player-btn,body[data-theme="morandi"] .tai-btn{background:#e5e0da}
+body[data-theme="morandi"] .career-stat,body[data-theme="morandi"] .badge-card,body[data-theme="morandi"] .goal-item{background:#f3eee7}
+body[data-theme="morandi"] .profile-row{background:#e7ece6}
+body[data-theme="morandi"] .theme-choice{background:#f8f5f0}
+body[data-theme="morandi"] .theme-choice.active{background:#c8d2c5;border-color:#788f80}
+
 </style>
 </head>
 
@@ -1513,6 +1546,7 @@ body:has(#game:not(.hidden)) > header{display:none !important}
   <div class="card">
     <div class="toprow"><h2>我的長期戰績</h2><span class="season-chip">ALL TIME</span></div>
     <div class="profile-row"><div><div class="muted">我的帳號</div><div id="profileNameDisplay" class="profile-name">尚未登入</div><div id="profileEmailDisplay" class="account-email"></div></div><div class="account-chip"><button class="link filled-link" onclick="editAccountName()">修改暱稱</button><button class="link" style="color:#b94f5f;background:#fff0f2" onclick="logoutAccount()">登出</button></div></div>
+    <div class="theme-switcher" aria-label="配色主題"><span class="theme-switcher-label">配色</span><button type="button" id="themeOriginalBtn" class="theme-choice" onclick="setUserTheme('original')">原版馬卡龍</button><button type="button" id="themeMorandiBtn" class="theme-choice" onclick="setUserTheme('morandi')">莫蘭迪</button></div>
     <div id="myCareerStats" class="career-grid"></div>
   </div>
 
@@ -2403,6 +2437,31 @@ let remoteSessionId=''
 let remoteRoomPlayerMap={}
 let liveViewerMode=false
 
+
+/* ===== V39：使用者個人配色偏好 ===== */
+const THEME_KEY_PREFIX='shuiYuZhengFengThemeV1:'
+function currentThemeStorageKey(){
+  return THEME_KEY_PREFIX+(pbAuth?.record?.id||'guest')
+}
+function loadUserTheme(){
+  try{return localStorage.getItem(currentThemeStorageKey())==='morandi'?'morandi':'original'}catch(e){return 'original'}
+}
+function applyUserTheme(theme){
+  const clean=theme==='morandi'?'morandi':'original'
+  if(clean==='morandi') document.body.dataset.theme='morandi'
+  else document.body.removeAttribute('data-theme')
+  document.getElementById('themeOriginalBtn')?.classList.toggle('active',clean==='original')
+  document.getElementById('themeMorandiBtn')?.classList.toggle('active',clean==='morandi')
+  const meta=document.querySelector('meta[name="theme-color"]')
+  if(meta) meta.setAttribute('content',clean==='morandi'?'#f2efe9':'#fffaf5')
+}
+function setUserTheme(theme){
+  const clean=theme==='morandi'?'morandi':'original'
+  try{localStorage.setItem(currentThemeStorageKey(),clean)}catch(e){}
+  applyUserTheme(clean)
+}
+function syncUserTheme(){ applyUserTheme(loadUserTheme()) }
+
 function loadPocketBaseAuth(){
   try{
     const raw=localStorage.getItem(PB_AUTH_KEY)
@@ -2587,6 +2646,7 @@ function syncLocalProfileFromAccount(){
   persistAppData()
 }
 async function enterAppAfterLogin(){
+  syncUserTheme()
   syncLocalProfileFromAccount()
   show('home')
   renderAccountHeader()
@@ -2616,6 +2676,7 @@ async function editAccountName(){
 async function logoutAccount(){
   if(!await uiConfirm('登出後，下次需要重新輸入帳號密碼。','要登出誰與爭鋒嗎？',{icon:'👋',okText:'登出'})) return
   savePocketBaseAuth(null)
+  syncUserTheme()
   setAuthMode('login')
   document.getElementById('authForm')?.reset()
   show('auth')
@@ -4621,7 +4682,7 @@ function getTablePosition(player){
   const playerIndex=seats.indexOf(player)
   if(recorderIndex<0 || playerIndex<0) return 'top'
   const diff=(playerIndex-recorderIndex+4)%4
-  return ['bottom','left','top','right'][diff]
+  return ['bottom','right','top','left'][diff]
 }
 
 function getPlayerWind(player){
@@ -6623,6 +6684,9 @@ function renderPaymentPreview(){
   const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;const dealerBadge=p===dealer?`<span class="v38-dealer-tai">${dealerText}</span>`:'';return `<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:16px"><span style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><b>${escapeHtml(p)}</b>${t?`<span class="v32-preview-sub">${t}</span>`:''}${dealerBadge}</span><b style="font-size:17px;color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}$${a.toLocaleString()}</b></div>`}).join('')
   box.innerHTML=`<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一場目前沒有金額變動。'}`
 }
+
+// V39：頁面載入時先套用目前帳號的個人配色。
+syncUserTheme()
 </script>
 
 </body>
