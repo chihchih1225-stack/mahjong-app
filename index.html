@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V84: V83 + 逐把計分遠端牌局建立時同步場地與金額 -->
+<!-- V85: V84 + 連打總結算（真正收付金額；與今日總結分離） -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -2704,7 +2704,8 @@ main{padding-bottom:74px}
 
 
   <button class="primary" onclick="continueNextMatch()">🀄 繼續下一場</button>
-  <button class="secondary" style="margin-top:8px" onclick="showTodaySummary()">🏁 今天結束・查看今日總結</button>
+  <button class="finish" style="margin-top:10px" onclick="showSeriesSettlement()">💰 結束連打・總結算</button>
+  <button class="secondary" style="margin-top:8px" onclick="showTodaySummary()">🏁 查看今日總結</button>
   <button class="secondary" style="margin-top:8px" onclick="returnToCurrentRoom()">← 返回房間</button>
   <button class="secondary" style="margin-top:8px" onclick="show('home')">⌂ 回到首頁</button>
 
@@ -2712,6 +2713,20 @@ main{padding-bottom:74px}
 
 </main>
 
+
+
+<!-- V85：連打總結算 -->
+<div id="seriesSettlementModal" class="modal hidden">
+  <div class="modal-box" style="max-width:560px;max-height:88dvh;overflow:auto">
+    <div class="toprow">
+      <div><div class="muted">這一輪連打</div><h2 style="margin:3px 0">💰 連打總結算</h2></div>
+      <button class="modal-close-round" onclick="closeSeriesSettlement()" aria-label="關閉">×</button>
+    </div>
+    <div id="seriesSettlementContent"></div>
+    <button class="primary" style="margin-top:14px" onclick="finishSeriesSettlement()">✓ 已完成收付・返回房間</button>
+    <button class="secondary" style="margin-top:8px" onclick="closeSeriesSettlement()">先不結束</button>
+  </div>
+</div>
 
 <!-- 今日總結 -->
 <div id="todaySummaryModal" class="modal hidden">
@@ -3254,6 +3269,9 @@ const ACTIVE_GAME_KEY='shuiYuZhengFengActiveGameV1'
 let appData=null
 let currentRoomId=''
 let sessionSaved=false
+let seriesId=''
+let seriesGameCount=0
+let seriesStartedAt=''
 
 const winds=[
   '東',
@@ -3823,6 +3841,9 @@ function startGame(){
 
   balances={}
   sessionOpeningBalances={}
+  seriesId=makeId('series')
+  seriesGameCount=0
+  seriesStartedAt=new Date().toISOString()
 
   P.forEach(player=>{
 
@@ -6320,6 +6341,7 @@ async function finishDetailedGame(){
     v37RoomHistoryLoaded.delete(currentRoomId)
   }
 
+  seriesGameCount=Math.max(0,Number(seriesGameCount||0))+1
   clearActiveGame()
   show('done')
 
@@ -6361,6 +6383,66 @@ function continueNextMatch(){
   document.getElementById('confirmSeatBtn')?.classList.add('hidden')
   clearActiveGame()
   show('seat')
+}
+
+
+// V85：這張是「真正收錢」的連打結算，不使用今天所有 sessions，
+// 只使用目前這一輪從 0 累積到現在的 balances。
+function showSeriesSettlement(){
+  const modal=document.getElementById('seriesSettlementModal')
+  const content=document.getElementById('seriesSettlementContent')
+  if(!modal||!content) return
+  if(!Array.isArray(P)||P.length!==4){
+    content.innerHTML='<div class="notice">目前沒有可結算的連打資料。</div>'
+    modal.classList.remove('hidden')
+    return
+  }
+  const rows=P.map(name=>({name,amount:Number(balances[name]||0)})).sort((a,b)=>b.amount-a.amount)
+  const total=rows.reduce((sum,x)=>sum+x.amount,0)
+  const receives=rows.filter(x=>x.amount>0).reduce((sum,x)=>sum+x.amount,0)
+  const pays=Math.abs(rows.filter(x=>x.amount<0).reduce((sum,x)=>sum+x.amount,0))
+  const start=seriesStartedAt?new Date(seriesStartedAt):null
+  const startText=start&&!Number.isNaN(start.getTime())
+    ?start.toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})
+    :'本輪開始'
+  const stakeText=selectedStake?escapeHtml(selectedStake):'未設定'
+  const placeText=(document.getElementById('place')?.value||'').trim()
+  const moneyAbs=n=>'$'+Math.abs(Number(n||0)).toLocaleString()
+  content.innerHTML=`
+    <div class="career-note series-settlement-meta"><b>共 ${Math.max(1,Number(seriesGameCount||0))} 場</b>・${stakeText}${placeText?'・'+escapeHtml(placeText):''}<br><span class="muted">${escapeHtml(startText)} 起</span></div>
+    <div class="series-settlement-list">
+      ${rows.map((x,i)=>{
+        const action=x.amount>0?'收':x.amount<0?'付':'平'
+        const cls=x.amount>0?'receive':x.amount<0?'pay':'even'
+        return `<div class="series-settlement-row ${cls}"><div><span class="series-rank">${i+1}</span><b>${escapeHtml(x.name)}</b></div><div class="series-money"><b>${money(x.amount)}</b><span>${action==='平'?'不用收付':action+' '+moneyAbs(x.amount)}</span></div></div>`
+      }).join('')}
+    </div>
+    <div class="series-audit ${total===0?'ok':'bad'}">
+      <b>${total===0?'✓ 收付核對正確':'⚠️ 收付不平衡，請勿收錢'}</b>
+      <div>應收 ${moneyAbs(receives)}・應付 ${moneyAbs(pays)}${total===0?'・兩邊相等':`・差額 ${moneyAbs(total)}`}</div>
+    </div>`
+  modal.classList.remove('hidden')
+}
+function closeSeriesSettlement(){
+  document.getElementById('seriesSettlementModal')?.classList.add('hidden')
+}
+async function finishSeriesSettlement(){
+  const total=P.reduce((sum,name)=>sum+Number(balances[name]||0),0)
+  if(total!==0){
+    alert('目前四人的累積金額加總不是 0，請先檢查，不能完成收付。')
+    return
+  }
+  if(!await uiConfirm('確認後會結束這一輪連打並返回房間；每一場歷史戰績都會保留。','已經完成收付了嗎？',{okText:'完成收付'})) return
+  closeSeriesSettlement()
+  seriesId=''
+  seriesGameCount=0
+  seriesStartedAt=''
+  balances={}
+  sessionOpeningBalances={}
+  P=[]
+  hands=[]
+  clearActiveGame()
+  returnToCurrentRoom()
 }
 
 function localDayKey(value){
@@ -6944,7 +7026,8 @@ function activeGameSnapshot(){
   return {
     savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
     balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
-    dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt
+    dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt,
+    seriesId,seriesGameCount,seriesStartedAt
   }
 }
 function persistActiveGame(){
@@ -6972,6 +7055,7 @@ function resumeActiveGame(){
   currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); hands=g.hands||[]
   roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
   recorderPlayer=g.recorderPlayer||P[0]||''; roundLeaders=g.roundLeaders||[]; sessionSaved=false
+  seriesId=g.seriesId||makeId('series'); seriesGameCount=Number(g.seriesGameCount||0); seriesStartedAt=g.seriesStartedAt||g.savedAt||new Date().toISOString()
   gameStartedAt=g.gameStartedAt||g.savedAt||new Date().toISOString(); gameEndedAt=g.gameEndedAt||''
   tai=0; winner=''; discarder=''; result='胡牌'; fraudTai={}; selectedPatterns=[]
   renderGame(); v33StartGameClock(); show('game')
@@ -8541,6 +8625,35 @@ button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   border-color:#dcaebb!important;
   color:#7d4553!important;
   box-shadow:inset 0 0 0 1px rgba(157,92,109,.08);
+}
+
+
+/* ===== V85：連打總結算 ===== */
+.series-settlement-meta{margin-top:12px;line-height:1.8}
+.series-settlement-list{margin-top:14px;display:grid;gap:9px}
+.series-settlement-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:13px 14px;border:1px solid var(--ui-border);border-radius:15px;background:#fff;
+}
+.series-settlement-row>div:first-child{display:flex;align-items:center;gap:9px;min-width:0}
+.series-rank{
+  width:25px;height:25px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:999px;background:#f6f1ef;color:#756a6e;font-size:11px;font-weight:900;
+}
+.series-money{text-align:right;display:grid;gap:2px;white-space:nowrap}
+.series-money b{font-size:19px}
+.series-money span{font-size:12px;font-weight:900}
+.series-settlement-row.receive .series-money{color:#5f987e}
+.series-settlement-row.pay .series-money{color:#bd6879}
+.series-settlement-row.even .series-money{color:#80777a}
+.series-audit{
+  margin-top:15px;padding:13px 14px;border-radius:15px;line-height:1.7;text-align:center;
+}
+.series-audit.ok{background:#eff9f4;border:1px solid #cde7da;color:#4f826c}
+.series-audit.bad{background:#fff0f2;border:1px solid #f0c8cf;color:#a65364}
+@media(max-width:390px){
+  .series-settlement-row{padding:12px 11px}
+  .series-money b{font-size:17px}
 }
 
 </style>
