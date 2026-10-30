@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V103: 提款機直接跟連打計分水位累積；舊連打也自動補齊起始水位 -->
+<!-- V104: 修正直播提款機：直播端同步讀取本場起始水位，提款機合計跟直播計分一致 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -8148,7 +8148,22 @@ async function v32LoadLiveSession(sessionId,first=false){
   seriesCashflowBase=(ss.seat_map && typeof ss.seat_map._series_cashflow_base==='object')
     ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_base))
     :{}
-  const last=(hd.items||[]).slice(-1)[0];balances=last?.balances_after||Object.fromEntries(P.map(n=>[n,0]));currentRule=stakeRules[selectedStake]||stakeRules['100/20']
+
+  // V104：直播端以前漏掉「本場開始水位」。
+  // game_sessions.final_balances 在 active 狀態就是建立這一場時同步的連打起始水位（key 為 room_player id）。
+  // 先轉回玩家名稱，提款機才能把上一場累積接回來。
+  sessionOpeningBalances=Object.fromEntries(P.map(n=>[n,0]))
+  const openingById=(ss.final_balances && typeof ss.final_balances==='object')?ss.final_balances:{}
+  Object.entries(openingById).forEach(([playerId,value])=>{
+    const name=canonicalPlayerName(byId[playerId]?.display_name||'')
+    if(name && Object.prototype.hasOwnProperty.call(sessionOpeningBalances,name)){
+      sessionOpeningBalances[name]=Number(value||0)
+    }
+  })
+
+  const last=(hd.items||[]).slice(-1)[0]
+  balances=last?.balances_after||{...sessionOpeningBalances}
+  currentRule=stakeRules[selectedStake]||stakeRules['100/20']
   gameStartedAt=ss.started_at||ss.created||gameStartedAt;gameEndedAt=ss.ended_at||''
   liveViewerMode=true;v32ViewingSessionId=sessionId;renderGame();v33StartGameClock();if(first) show('game');v32RenderViewerDashboard()
 }
