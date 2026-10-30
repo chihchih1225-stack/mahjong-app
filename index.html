@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V95: V93 + 投影 50/50 左座位+精簡計分、右圓餅+提款機 -->
+<!-- V96 FINAL: 投影滿版重置；左座位/紀錄者計分，右圓餅/提款機 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -9005,6 +9005,279 @@ button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 #game.projection-mode .cashflow-title-row{margin-bottom:3px!important}#game.projection-mode .cashflow-note{display:none!important}#game.projection-mode .cashflow-table{font-size:9px!important;border-spacing:2px!important}#game.projection-mode .cashflow-table th,#game.projection-mode .cashflow-table td{padding:4px 2px!important;height:auto!important}
 #game.live-viewer-mode.projection-mode .projection-score-panel{display:none!important}#game.live-viewer-mode.projection-mode .game-status-card{grid-column:1!important;grid-row:2/4!important}#game.live-viewer-mode.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}#game.live-viewer-mode.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:3!important}#game.live-viewer-mode.projection-mode #liveViewerBackBtn,#game.live-viewer-mode.projection-mode .v74-live-chat{display:none!important}
 @media(max-width:900px) and (orientation:landscape){#game.projection-mode{grid-template-columns:1fr 1fr!important;grid-template-rows:36px minmax(0,.56fr) minmax(0,.44fr)!important;overflow:hidden!important}#game.projection-mode .game-status-card{grid-column:1!important;grid-row:2!important}#game.projection-mode .projection-score-panel{grid-column:1!important;grid-row:3!important}#game.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}#game.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:3!important;min-height:0!important}#game.live-viewer-mode.projection-mode .game-status-card{grid-row:2/4!important}}
+
+
+/* =========================================================
+   V96 FINAL PROJECTION RESET
+   最後一層強制接管所有舊 projection CSS，避免舊版 max-width / 3欄規則互相打架。
+========================================================= */
+html:has(#game.projection-mode),
+body:has(#game.projection-mode){
+  width:100%!important;
+  max-width:none!important;
+  height:100%!important;
+  overflow:hidden!important;
+}
+body:has(#game.projection-mode) main,
+body:has(#game.projection-mode) .app,
+body:has(#game.projection-mode) .container{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+}
+
+body #game.projection-mode{
+  position:fixed!important;
+  inset:0!important;
+  z-index:9990!important;
+  width:100vw!important;
+  max-width:none!important;
+  min-width:0!important;
+  height:100dvh!important;
+  min-height:0!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  padding:8px 10px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+  background:#fffaf6!important;
+
+  display:grid!important;
+  grid-template-columns:minmax(0,48fr) minmax(0,52fr)!important;
+  grid-template-rows:40px minmax(0,56fr) minmax(0,44fr)!important;
+  grid-template-areas:
+    "ticker ticker"
+    "status chart"
+    "score cash"!important;
+  gap:8px!important;
+  align-items:stretch!important;
+}
+
+/* 跑馬燈 */
+body #game.projection-mode .live-ticker-wrap{
+  grid-area:ticker!important;
+  width:100%!important;
+  max-width:none!important;
+  height:40px!important;
+  min-height:40px!important;
+  margin:0!important;
+  overflow:hidden!important;
+}
+
+/* 左上：座位 / 水位 */
+body #game.projection-mode .game-status-card{
+  grid-area:status!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  max-width:none!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:10px 12px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+body #game.projection-mode .live-head{
+  flex:0 0 auto!important;
+  margin:0 0 5px!important;
+  align-items:center!important;
+}
+body #game.projection-mode .live-head>div:first-child{width:auto!important}
+body #game.projection-mode .live-head>div:last-child{display:block!important}
+body #game.projection-mode .live-head .muted{display:none!important}
+body #game.projection-mode .round-big{
+  font-size:clamp(34px,4.1vw,58px)!important;
+  line-height:1!important;
+}
+body #game.projection-mode .dealer-pill{
+  font-size:clamp(11px,1.25vw,16px)!important;
+  padding:4px 9px!important;
+}
+body #game.projection-mode .hand-counter{
+  font-size:clamp(24px,3vw,42px)!important;
+  white-space:nowrap!important;
+}
+body #game.projection-mode #playerStats{
+  flex:1 1 auto!important;
+  width:100%!important;
+  max-width:none!important;
+  min-height:0!important;
+  margin:3px 0 0!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-areas:none!important;
+  gap:7px!important;
+  align-content:stretch!important;
+}
+body #game.projection-mode #playerStats .player-card,
+body #game.projection-mode #playerStats .viewer-player-card{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:auto!important;
+  margin:0!important;
+  padding:7px 9px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+body #game.projection-mode #playerStats .player-content{
+  min-width:0!important;
+  padding:4px 6px!important;
+}
+body #game.projection-mode #playerStats .player-name,
+body #game.projection-mode .viewer-player-name{
+  font-size:clamp(12px,1.25vw,17px)!important;
+  white-space:nowrap!important;
+}
+body #game.projection-mode #playerStats .current-money,
+body #game.projection-mode .viewer-player-money{
+  font-size:clamp(18px,2.15vw,30px)!important;
+  white-space:nowrap!important;
+}
+body #game.projection-mode #playerStats .player-meta,
+body #game.projection-mode .viewer-player-meta{
+  font-size:clamp(8px,.9vw,12px)!important;
+  white-space:nowrap!important;
+  margin-top:3px!important;
+}
+
+/* 左下：紀錄者精簡計分 */
+body #game.projection-mode .projection-score-panel{
+  grid-area:score!important;
+  display:block!important;
+  width:100%!important;
+  max-width:none!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:9px 11px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+body #game.projection-mode .projection-score-title{margin-bottom:6px!important}
+body #game.projection-mode .projection-result-row{gap:5px!important}
+body #game.projection-mode .projection-result-row button{
+  min-height:34px!important;
+  font-size:12px!important;
+}
+body #game.projection-mode .projection-tai-row{gap:5px!important;margin-top:6px!important}
+body #game.projection-mode .projection-tai-row button{min-height:31px!important;font-size:11px!important}
+body #game.projection-mode .projection-pattern-row{margin-top:6px!important}
+body #game.projection-mode .projection-calc-preview{margin-top:6px!important;font-size:10px!important}
+body #game.projection-mode .projection-save-hand{margin-top:6px!important;min-height:34px!important;font-size:11px!important}
+
+/* 右上：圓餅 */
+body #game.projection-mode .game-chart-card{
+  grid-area:chart!important;
+  display:flex!important;
+  flex-direction:column!important;
+  width:100%!important;
+  max-width:none!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:10px 12px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+body #game.projection-mode .game-chart-card h2{
+  flex:0 0 auto!important;
+  font-size:clamp(15px,1.7vw,22px)!important;
+  margin:0!important;
+}
+body #game.projection-mode .chart-wrap{
+  flex:1 1 auto!important;
+  width:100%!important;
+  max-width:none!important;
+  height:auto!important;
+  min-height:0!important;
+  display:grid!important;
+  grid-template-columns:minmax(145px,.9fr) minmax(0,1.1fr)!important;
+  align-items:center!important;
+  justify-items:center!important;
+  gap:10px!important;
+}
+body #game.projection-mode .pie{
+  width:min(23vh,190px)!important;
+  height:min(23vh,190px)!important;
+}
+body #game.projection-mode #moneyLegend{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:5px!important;
+}
+body #game.projection-mode .legend-item{
+  font-size:clamp(9px,1vw,13px)!important;
+  line-height:1.2!important;
+}
+
+/* 右下：提款機 */
+body #game.projection-mode .game-cashflow-card{
+  grid-area:cash!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  max-width:none!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:9px 11px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+body #game.projection-mode .game-cashflow-card h2{
+  font-size:clamp(15px,1.7vw,22px)!important;
+  margin:0!important;
+}
+body #game.projection-mode .cashflow-note{display:none!important}
+body #game.projection-mode .cashflow-table{
+  width:100%!important;
+  table-layout:fixed!important;
+  border-spacing:3px!important;
+  font-size:clamp(9px,.95vw,12px)!important;
+}
+body #game.projection-mode .cashflow-table th,
+body #game.projection-mode .cashflow-table td{
+  padding:5px 3px!important;
+  height:auto!important;
+  white-space:nowrap!important;
+}
+
+/* 投影時不該出現的普通頁面元件 */
+body #game.projection-mode .game-entry-card,
+body #game.projection-mode .game-history-card,
+body #game.projection-mode .game-trend-card,
+body #game.projection-mode .game-finish-btn,
+body #game.projection-mode #projectionBottom{
+  display:none!important;
+}
+
+/* 觀看直播投影：維持唯讀；左側座位直接吃滿上下兩格 */
+body #game.live-viewer-mode.projection-mode{
+  grid-template-areas:
+    "ticker ticker"
+    "status chart"
+    "status cash"!important;
+}
+body #game.live-viewer-mode.projection-mode .projection-score-panel{display:none!important}
+body #game.live-viewer-mode.projection-mode #liveViewerBackBtn,
+body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!important}
+
+/* 橫向小螢幕也維持左右，不准再回到舊版三欄或窄版 */
+@media (orientation:landscape){
+  body #game.projection-mode{
+    width:100vw!important;
+    max-width:none!important;
+    grid-template-columns:minmax(0,48fr) minmax(0,52fr)!important;
+  }
+}
 
 </style>
 
