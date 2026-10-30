@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V78: V77 + 歷史身份合併（龍隱王/麻將俠=麻俠；阿樹=場主） -->
+<!-- V79: V78 + PB歷史牌局刪除 + 房主移出房間成員 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -7027,19 +7027,32 @@ async function deleteSessionById(id){
   ensureAppData()
   const ss=appData.sessions.find(s=>s.id===id)
   if(!ss) return
-  if(ss.remote){ alert('共同房間的歷史牌局不能只從這支手機刪除。'); return }
-  const date=new Date(ss.createdAt).toLocaleDateString('zh-TW')
-  if(!await uiConfirm('刪除後，長期戰績、排行榜、名人堂都會重新計算。',`刪除 ${date} 這一場？`,{danger:true,okText:'刪除牌局'})) return
-  appData.sessions=appData.sessions.filter(s=>s.id!==id)
-  if(!persistAppData()) return
-  // 重新讀回剛剛實際寫入 localStorage 的資料，首頁不再使用刪除前的記憶體快取
-  const savedAfterDelete=safeParseStored(STORAGE_KEY)
-  if(savedAfterDelete) appData=normalizeAppData(savedAfterDelete)
-  const modal=document.getElementById('sessionDetailModal')
-  if(modal) modal.remove()
-  // 首頁與房間統計都從刪除後的 sessions 重新計算
-  renderHomeDashboard()
-  renderRoomDashboard()
+  const date=new Date(ss.startedAt||ss.createdAt).toLocaleDateString('zh-TW')
+  const remote=!!ss.remote
+  const msg=remote
+    ? '這會從共同房間永久刪除這一場，所有人的長期戰績、排行榜、名人堂與同桌勝負都會重新計算。'
+    : '刪除後，長期戰績、排行榜、名人堂都會重新計算。'
+  if(!await uiConfirm(msg,`刪除 ${date} 這一場？`,{danger:true,okText:'刪除牌局'})) return
+  try{
+    if(remote){
+      if(!pbAuth?.token) throw new Error('請先登入')
+      await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(id)}`,{method:'DELETE'})
+      v37RoomHistoryLoaded.delete(ss.roomId||currentRoomId)
+    }
+    appData.sessions=appData.sessions.filter(s=>s.id!==id)
+    if(!persistAppData()) return
+    const savedAfterDelete=safeParseStored(STORAGE_KEY)
+    if(savedAfterDelete) appData=normalizeAppData(savedAfterDelete)
+    const modal=document.getElementById('sessionDetailModal')
+    if(modal) modal.remove()
+    if(remote && (ss.roomId||currentRoomId)){
+      try{ await v37LoadSharedRoomHistory(ss.roomId||currentRoomId) }catch(e){ console.warn('V79：刪除後重新載入歷史失敗',e) }
+    }
+    renderHomeDashboard()
+    renderRoomDashboard()
+  }catch(e){
+    alert('刪除牌局失敗：'+(e.message||'你可能不是這場牌局的紀錄者'))
+  }
 }
 async function createRoomPrompt(){
   if(!pbAuth?.token){ alert('請先登入帳號'); return }
@@ -7635,7 +7648,7 @@ function showSessionDetail(id){
   const statsHtml=sessionDetailStatsHtml(ss)
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}${ss.remote?'':`<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button>`}</div>`
+  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
 }
 
@@ -8221,6 +8234,22 @@ window.addEventListener('focus',()=>{
   if(v73PresenceShouldRun()) v73StartPresence()
 })
 
+// V79：房主可把正式會員移出房間；只刪 room_members，不碰 users、room_players 或歷史牌局。
+async function removeRoomMemberById(memberId,name){
+  if(!memberId || !currentRoomId) return
+  const membership=await getCurrentRoomMembership()
+  if(membership?.role!=='owner'){ alert('只有房主可以移出房間成員。'); return }
+  if(memberId===membership.id){ alert('房主不能把自己移出房間。'); return }
+  if(!await uiConfirm('對方會失去這個房間的存取權，但過去的牌局與戰績都會保留。',`把「${name||'這位成員'}」移出房間？`,{danger:true,okText:'移出房間'})) return
+  try{
+    await pbRequest(`/api/collections/room_members/records/${encodeURIComponent(memberId)}`,{method:'DELETE'})
+    await syncCurrentRoomMembers()
+    renderRoomDashboard(false)
+  }catch(e){
+    alert('移出房間失敗：'+(e.message||'請稍後再試'))
+  }
+}
+
 // V73：房間名單顯示註冊會員的在線狀態；guest 沒有帳號，因此不顯示在線燈號。
 syncCurrentRoomMembers = async function(){
   const wrap=document.getElementById('roomMembers'), count=document.getElementById('roomMemberCount')
@@ -8235,28 +8264,33 @@ syncCurrentRoomMembers = async function(){
       v73LoadOnlineUserIds(roomId)
     ])
     const members=memberData.items||[], players=(playerData.items||[]).filter(p=>p.status!=='removed')
+    const myMembership=members.find(m=>m.user===pbAuth?.record?.id)
+    const viewerIsOwner=myMembership?.role==='owner'
     const rows=[]
     const byKey=new Map()
-    const addRow=(name,userId,isOwner,playerId)=>{
+    const addRow=(name,userId,isOwner,playerId,memberId='')=>{
       name=canonicalPlayerName(name); if(!name)return
       const key=userId?`u:${userId}`:`n:${name.toLocaleLowerCase()}`
       const existing=byKey.get(key) || (!userId ? rows.find(r=>r.name.toLocaleLowerCase()===name.toLocaleLowerCase()) : null)
-      if(existing){existing.isOwner=existing.isOwner||!!isOwner;existing.userId=existing.userId||userId||'';existing.playerId=existing.playerId||playerId||'';return}
-      const row={name,userId:userId||'',isOwner:!!isOwner,playerId:playerId||''}; rows.push(row);byKey.set(key,row)
+      if(existing){existing.isOwner=existing.isOwner||!!isOwner;existing.userId=existing.userId||userId||'';existing.playerId=existing.playerId||playerId||'';existing.memberId=existing.memberId||memberId||'';return}
+      const row={name,userId:userId||'',isOwner:!!isOwner,playerId:playerId||'',memberId:memberId||''}; rows.push(row);byKey.set(key,row)
     }
-    members.forEach(m=>addRow(m.nickname||'',m.user||'',m.role==='owner',''))
+    members.forEach(m=>addRow(m.nickname||'',m.user||'',m.role==='owner','',m.id||''))
     players.forEach(p=>{
       const member=p.user?members.find(m=>m.user===p.user):members.find(m=>(m.nickname||'').trim()===(p.display_name||'').trim())
-      addRow(p.display_name||member?.nickname||'',p.user||member?.user||'',member?.role==='owner',p.id||'')
+      addRow(p.display_name||member?.nickname||'',p.user||member?.user||'',member?.role==='owner',p.id||'',member?.id||'')
     })
     if(count) count.textContent=`${rows.length} 人`
     if(wrap) wrap.innerHTML=rows.length?rows.map(r=>{
-      const initial=escapeHtml(r.name.slice(0,1).toUpperCase()),uid=encodeURIComponent(r.userId||''),nn=encodeURIComponent(r.name)
+      const initial=escapeHtml(r.name.slice(0,1).toUpperCase()),uid=encodeURIComponent(r.userId||''),nn=encodeURIComponent(r.name),mid=encodeURIComponent(r.memberId||'')
       const online=!!r.userId && onlineUserIds.has(r.userId)
       const presence=r.userId
         ? `<span class="v73-presence ${online?'online':'offline'}"><span class="v73-presence-dot"></span>${online?'在線':'離線'}</span>`
         : ''
-      return `<div class="room-member-row member-stats-open" onclick="openRoomMemberStats(decodeURIComponent('${uid}'),decodeURIComponent('${nn}'))" role="button" tabindex="0"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(r.name)}</div><div class="room-member-role">${presence}<span>查看戰績</span></div></div></div><div style="display:flex;align-items:center;gap:8px">${r.isOwner?'<span class="room-owner-chip">房主</span>':''}<span class="member-stats-arrow">›</span></div></div>`
+      const kick=(viewerIsOwner && !r.isOwner && r.memberId)
+        ? `<button class="secondary" style="width:auto;padding:7px 10px;border-radius:10px;color:#b94f5f;background:#fff0f2;white-space:nowrap" onclick="event.stopPropagation();removeRoomMemberById(decodeURIComponent('${mid}'),decodeURIComponent('${nn}'))">移出房間</button>`
+        : ''
+      return `<div class="room-member-row member-stats-open" onclick="openRoomMemberStats(decodeURIComponent('${uid}'),decodeURIComponent('${nn}'))" role="button" tabindex="0"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(r.name)}</div><div class="room-member-role">${presence}<span>查看戰績</span></div></div></div><div style="display:flex;align-items:center;gap:8px">${r.isOwner?'<span class="room-owner-chip">房主</span>':''}${kick}<span class="member-stats-arrow">›</span></div></div>`
     }).join(''):'<div class="muted">這個房間目前還沒有玩家。</div>'
     return rows
   }catch(e){
