@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V101: V100 + 提款機改為跟計分水位一致的累積淨額，不重複計算來回付款 -->
+<!-- V102: V100 + 提款機完整累積矩陣 + 每人合計與計分水位一致 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -4853,35 +4853,20 @@ function handCashflowTransfers(hand){
 }
 function buildCashflowMatrix(sessionHands=hands,players=P){
   const matrix=emptyCashflow(players)
-
-  // V101：提款機顯示的是「累積淨付款」，不是逐把付款流水。
-  // 同兩人之間若曾互相付款，要先互抵，最後只保留淨方向。
-  const addNetTransfer=(from,to,amount)=>{
-    amount=Number(amount||0)
-    if(!from||!to||from===to||amount<=0) return
-    if(!matrix[from] || !Object.prototype.hasOwnProperty.call(matrix[from],to)) return
-
-    const reverse=Number(matrix[to]?.[from]||0)
-    if(reverse>=amount){
-      matrix[to][from]=reverse-amount
-    }else{
-      matrix[to][from]=0
-      matrix[from][to]=Number(matrix[from][to]||0)+(amount-reverse)
-    }
-  }
-
-  // 先承接前幾場已經淨額化的提款機。
+  // V100：先放入本輪連打「前面已完成場次」的累積付款。
   ;(players||[]).forEach(from=>{
     ;(players||[]).forEach(to=>{
       if(from===to) return
-      const amount=Number(seriesCashflowBase?.[from]?.[to]||0)
-      if(amount>0) addNetTransfer(from,to,amount)
+      matrix[from][to]=Number(seriesCashflowBase?.[from]?.[to]||0)
     })
   })
-
-  // 再把目前這場每一把的付款依序加入並互抵。
+  // 再加目前這一場已完成的每一把。
   ;(sessionHands||[]).forEach(hand=>{
-    handCashflowTransfers(hand).forEach(t=>addNetTransfer(t.from,t.to,t.amount))
+    handCashflowTransfers(hand).forEach(t=>{
+      if(matrix[t.from] && Object.prototype.hasOwnProperty.call(matrix[t.from],t.to)){
+        matrix[t.from][t.to]+=Number(t.amount||0)
+      }
+    })
   })
   return matrix
 }
@@ -4889,15 +4874,17 @@ function renderCashflowMatrix(){
   const el=document.getElementById('cashflowMatrix')
   if(!el) return
   if(!P?.length){el.innerHTML='<div class="muted">尚無玩家資料</div>';return}
+
+  // V102：提款機保留完整「誰付誰」累積流水，不做雙向互抵。
   const matrix=buildCashflowMatrix(hands,P)
-  const paid=Object.fromEntries(P.map(a=>[a,P.reduce((s,b)=>s+Number(matrix[a]?.[b]||0),0)]))
-  const received=Object.fromEntries(P.map(b=>[b,P.reduce((s,a)=>s+Number(matrix[a]?.[b]||0),0)]))
-  const net=Object.fromEntries(P.map(p=>[p,received[p]-paid[p]]))
-  const maxPayer=[...P].sort((a,b)=>paid[b]-paid[a])[0]
-  const totalPaid=P.reduce((s,p)=>s+paid[p],0)
+  const paid=Object.fromEntries(P.map(a=>[a,P.reduce((sum,b)=>sum+Number(matrix[a]?.[b]||0),0)]))
+  const received=Object.fromEntries(P.map(b=>[b,P.reduce((sum,a)=>sum+Number(matrix[a]?.[b]||0),0)]))
+  const net=Object.fromEntries(P.map(p=>[p,Number(received[p]||0)-Number(paid[p]||0)]))
+
   let html='<div class="cashflow-scroll"><table class="cashflow-table"><thead><tr><th>付款 ↓ / 收款 →</th>'
   html+=P.map(p=>`<th>${escapeHtml(p)}</th>`).join('')
-  html+='<th>淨額</th></tr></thead><tbody>'
+  html+='<th>合計</th></tr></thead><tbody>'
+
   P.forEach(from=>{
     html+=`<tr><th class="cashflow-rowname">${escapeHtml(from)}</th>`
     P.forEach(to=>{
@@ -4908,12 +4895,16 @@ function renderCashflowMatrix(){
     const n=Number(net[from]||0)
     html+=`<td class="cashflow-total ${n>0?'pos':n<0?'neg':''}">${n>0?'+':''}$${n.toLocaleString()}</td></tr>`
   })
-  html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">每一格為本輪連打累積淨額；同兩人之間的來回付款會互相抵銷，因此提款機的最終淨額會與上方計分水位一致。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
 
+  html+='</tbody></table></div>'
+  html+='<div class="cashflow-note">每格保留本輪連打累積「誰付誰」的完整金額，不互相抵銷；最右側合計＝收到－付出，應與上方計分水位完全一致。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
+
+  const mismatch=P.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
+  if(mismatch.length){
+    html+=`<div class="cashflow-note" style="color:#a35f6d;font-weight:900">⚠️ 對帳異常：${mismatch.map(escapeHtml).join('、')} 的提款機合計與計分水位不同</div>`
+  }
   el.innerHTML=html
-  // 對帳異常只記錄 console，不干擾牌桌操作；正式測試時可快速定位資料問題。
-  if((hands||[]).length && !cashflowReconciles()) console.warn('V58：本場金流與目前總輸贏不一致，請檢查該把 payments。')
+  if((hands||[]).length && mismatch.length) console.warn('V102：提款機合計與目前計分水位不一致',mismatch)
 }
 function cashflowReconciles(){
   if(!P?.length) return true
