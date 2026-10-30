@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V88: V87 + 直播跑馬燈內容/完整播放修正 -->
+<!-- V89: V88 + 提款機正負號 + 直播桌號重排 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -4846,7 +4846,9 @@ function renderCashflowMatrix(){
   html+='</tbody></table></div>'
   html+='<div class="cashflow-note">每一格都由實際逐把付款累加：放槍由放槍者付給胡牌者；自摸三家分別付款；詐胡由詐胡者分別賠三家。右側淨額應與目前本場總輸贏一致。</div>'
   if(totalPaid>0 && maxPayer){
-    html+=`<div class="cashflow-highlight">🏧 ${escapeHtml(maxPayer)} 目前累計付出 $${paid[maxPayer].toLocaleString()}</div>`
+    const atmNet=Number(net[maxPayer]||0)
+    const atmSigned=`${atmNet>0?'+':atmNet<0?'-':''}$${Math.abs(atmNet).toLocaleString()}`
+    html+=`<div class="cashflow-highlight">🏧 ${escapeHtml(maxPayer)} 目前累計付出 $${paid[maxPayer].toLocaleString()}・淨額 ${atmSigned}</div>`
   }
   el.innerHTML=html
   // 對帳異常只記錄 console，不干擾牌桌操作；正式測試時可快速定位資料問題。
@@ -8228,9 +8230,11 @@ syncCurrentRoomLiveSession=async function(){
     const data=await pbRequest(`/api/collections/game_sessions/records?perPage=50&sort=table_number,-updated&filter=${filter}`)
     const active=(data.items||[]).filter(x=>Array.isArray(x.players)&&x.players.length===4&&v32SessionIsFresh(x))
     if(!active.length){box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>';return}
-    active.sort((a,b)=>(Number(a.table_number||1)-Number(b.table_number||1)) || String(a.created||'').localeCompare(String(b.created||'')))
-    box.innerHTML=`<div class="muted" style="margin-bottom:8px">目前 ${active.length} 桌進行中</div>`+active.map(ss=>{
-      const table=Number(ss.table_number||1)
+    // V89：房間頁顯示的是「目前真的在線的桌」順序，不直接把 PB 舊 table_number 當畫面桌號。
+    // 因此只有一桌在打時永遠顯示第 1 桌；多桌時依實際建立時間排 1、2、3。
+    active.sort((a,b)=>String(a.created||'').localeCompare(String(b.created||'')))
+    box.innerHTML=`<div class="muted" style="margin-bottom:8px">目前 ${active.length} 桌進行中</div>`+active.map((ss,index)=>{
+      const table=index+1
       return `<div class="notice ok" style="margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b>🟢 第 ${table} 桌</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把</div><button class="secondary" style="width:auto;padding:9px 13px;white-space:nowrap" onclick="openLiveSession('${ss.id}')">👀 觀看</button></div></div>`
     }).join('')
   }catch(e){box.innerHTML='<div class="muted">目前無法讀取即時牌局。</div>'}
