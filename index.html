@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V74: V73 + 直播觀看頁房間聊天室 -->
+<!-- V75: V73 + 直播觀看頁房間聊天室（修正 script 載入） -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -8244,7 +8244,8 @@ if ('serviceWorker' in navigator) {
 </script>
 
 
-/* ===== V74：直播觀看頁聊天室 ===== */
+<script>
+/* ===== V75：直播觀看頁聊天室修正版 ===== */
 (function(){
   const style=document.createElement('style')
   style.textContent=`
@@ -8332,6 +8333,7 @@ if ('serviceWorker' in navigator) {
     return result
   }
 })()
+</script>
 
 </body>
 </html>
