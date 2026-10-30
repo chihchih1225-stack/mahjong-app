@@ -1794,6 +1794,42 @@ main{padding-bottom:74px}
 }
 </style>
 
+
+<style id="v110ProjectionLayoutFix">
+/* V110 投影：移除「目前金額分布」，右半邊整欄給提款機；左下計分縮短。 */
+html body #game.projection-mode{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-rows:36px minmax(0,65fr) minmax(0,35fr)!important;
+  grid-template-areas:
+    "ticker ticker"
+    "status cash"
+    "score cash"!important;
+}
+html body #game.projection-mode .game-chart-card{display:none!important}
+html body #game.projection-mode .game-status-card{grid-area:status!important;grid-column:1!important;grid-row:2!important}
+html body #game.projection-mode .projection-score-panel{grid-area:score!important;grid-column:1!important;grid-row:3!important}
+html body #game.projection-mode .game-cashflow-card{
+  grid-area:cash!important;grid-column:2!important;grid-row:2 / 4!important;
+  min-height:0!important;height:auto!important;
+}
+html body #game.projection-mode .cashflow-table th,
+html body #game.projection-mode .cashflow-table td{font-size:clamp(10px,1.05vw,16px)!important;height:auto!important;padding:5px 3px!important}
+html body #game.projection-mode .game-cashflow-card h2{font-size:clamp(17px,1.7vw,25px)!important}
+
+/* 觀看直播的投影保持唯讀：左側戰況吃滿，右側提款機吃滿。 */
+html body #game.live-viewer-mode.projection-mode{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-rows:36px minmax(0,1fr)!important;
+  grid-template-areas:"ticker ticker" "status cash"!important;
+}
+html body #game.live-viewer-mode.projection-mode .projection-score-panel{display:none!important}
+html body #game.live-viewer-mode.projection-mode .game-status-card{grid-area:status!important;grid-column:1!important;grid-row:2!important}
+html body #game.live-viewer-mode.projection-mode .game-cashflow-card{grid-area:cash!important;grid-column:2!important;grid-row:2!important}
+@media (orientation:landscape){
+  html body #game.projection-mode:not(.live-viewer-mode){grid-template-rows:36px minmax(0,65fr) minmax(0,35fr)!important}
+  html body #game.live-viewer-mode.projection-mode{grid-template-rows:36px minmax(0,1fr)!important}
+}
+</style>
 </head>
 
 
@@ -5151,17 +5187,50 @@ function v56TickerMessages(){
   // 去除重複，避免同一句在同一輪跑馬燈出現兩次。
   return [...new Set(msgs)]
 }
+// V110：跑馬燈改為真正的句庫輪播。每次只播 5 句；一輪內不重複，播完才重新洗牌。
+let v110TickerQueue=[]
+let v110TickerPoolKey=''
+let v110TickerBoundEl=null
+function v110Shuffle(xs){
+  const a=[...xs]
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]
+  }
+  return a
+}
+function v110NextTickerBatch(el){
+  const pool=v56TickerMessages()
+  if(!pool.length) return
+  // 玩家／戰況改變時更新句庫；保留尚未播過且仍有效的句子，再補入新句。
+  const poolKey=pool.join('\u241E')
+  if(poolKey!==v110TickerPoolKey){
+    const valid=new Set(pool)
+    v110TickerQueue=v110TickerQueue.filter(x=>valid.has(x))
+    const queued=new Set(v110TickerQueue)
+    const additions=v110Shuffle(pool.filter(x=>!queued.has(x)))
+    v110TickerQueue.push(...additions)
+    v110TickerPoolKey=poolKey
+  }
+  if(v110TickerQueue.length<5) v110TickerQueue.push(...v110Shuffle(pool))
+  const batch=v110TickerQueue.splice(0,5)
+  const nextText=batch.join('　◆　')
+  el.textContent=nextText
+  // 每組約 5 句，控制在看得到輪替、又不會跑太快的速度。
+  const seconds=Math.max(28,Math.min(48,Math.ceil(nextText.length*0.18)))
+  el.style.animationDuration=`${seconds}s`
+}
 function v56RenderTicker(){
   const el=document.getElementById('liveTickerTrack')
   if(!el) return
-  const msgs=v56TickerMessages()
-  const nextText=msgs.join('　◆　')
-  // V88：直播每次 polling 都會呼叫 render；以前每次都重啟動畫，
-  // 所以長句永遠跑不到尾。現在只換內容，不把動畫拉回起點。
-  if(el.textContent!==nextText) el.textContent=nextText
-  // 依文字長度給足播放時間；至少 45 秒，長內容自動更久。
-  const seconds=Math.max(45,Math.ceil(nextText.length*0.22))
-  el.style.animationDuration=`${seconds}s`
+  if(v110TickerBoundEl!==el){
+    v110TickerBoundEl=el
+    v110TickerQueue=[]
+    v110TickerPoolKey=''
+    el.addEventListener('animationiteration',()=>v110NextTickerBatch(el))
+    v110NextTickerBatch(el)
+  }else if(!el.textContent.trim()){
+    v110NextTickerBatch(el)
+  }
 }
 
 function renderGame(){
