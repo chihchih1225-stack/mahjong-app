@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V109: 跑馬燈豪華版（大量情境句 + 戰況動態句）；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
+<!-- V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -1831,108 +1831,112 @@ html body #game.live-viewer-mode.projection-mode .game-cashflow-card{grid-area:c
 }
 </style>
 
+
+
+
 <style>
-/* ===== V111 TEMP PROJECTION: 座位表 + 圓餅圖 בלבד =====
-   暫時讓現場投影可用；其餘投影元件先隱藏，日後再重做完整投影版。 */
+/* ===== V112 FINAL PROJECTION：跑馬燈 + 左戰況/短計分 + 右提款機 ===== */
 html body #game.projection-mode:not(.hidden){
-  display:grid !important;
-  grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
-  grid-template-rows:minmax(0,1fr) !important;
-  gap:18px !important;
-  width:100vw !important;
-  height:100vh !important;
-  max-width:none !important;
-  margin:0 !important;
-  padding:18px !important;
-  box-sizing:border-box !important;
-  overflow:hidden !important;
-  align-items:stretch !important;
+  position:fixed!important;inset:0!important;z-index:9990!important;
+  display:grid!important;width:100vw!important;max-width:none!important;height:100dvh!important;max-height:100dvh!important;
+  margin:0!important;padding:7px 9px!important;box-sizing:border-box!important;overflow:hidden!important;background:#fffaf6!important;
+  grid-template-columns:minmax(0,48fr) minmax(0,52fr)!important;
+  grid-template-rows:38px minmax(0,64fr) minmax(0,36fr)!important;
+  grid-template-areas:"ticker ticker" "status cash" "score cash"!important;
+  gap:7px!important;align-items:stretch!important;
 }
-
-/* 投影暫時只保留：返回、座位表、圓餅圖 */
-html body #game.projection-mode > :not(.projection-exit-btn):not(.game-status-card):not(.game-chart-card){
-  display:none !important;
+html body #game.projection-mode .live-ticker-wrap{
+  display:flex!important;grid-area:ticker!important;grid-column:1/-1!important;grid-row:1!important;
+  width:100%!important;height:38px!important;min-height:38px!important;margin:0!important;overflow:hidden!important;
 }
-
-html body #game.projection-mode .projection-exit-btn{
-  display:block !important;
-  position:fixed !important;
-  top:10px !important;
-  left:10px !important;
-  z-index:99999 !important;
-}
-
-html body #game.projection-mode .game-status-card,
-html body #game.projection-mode .game-chart-card{
-  display:flex !important;
-  width:100% !important;
-  height:100% !important;
-  min-width:0 !important;
-  min-height:0 !important;
-  margin:0 !important;
-  padding:18px !important;
-  box-sizing:border-box !important;
-  overflow:hidden !important;
-  align-self:stretch !important;
-}
+html body #game.projection-mode .live-ticker-track{font-size:clamp(13px,1.35vw,20px)!important;white-space:nowrap!important}
+html body #game.projection-mode .game-chart-card{display:none!important}
+html body #game.projection-mode .game-trend-card,
+html body #game.projection-mode .game-entry-card,
+html body #game.projection-mode .game-history-card,
+html body #game.projection-mode .game-finish-btn,
+html body #game.projection-mode #projectionBottom{display:none!important}
 
 html body #game.projection-mode .game-status-card{
-  grid-column:1 !important;
-  grid-row:1 !important;
-  flex-direction:column !important;
-  align-items:center !important;
-  justify-content:center !important;
+  display:flex!important;grid-area:status!important;grid-column:1!important;grid-row:2!important;
+  flex-direction:column!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  margin:0!important;padding:8px 10px!important;box-sizing:border-box!important;overflow:hidden!important;justify-content:flex-start!important;
 }
-html body #game.projection-mode .game-status-card .live-head{display:none !important;}
+html body #game.projection-mode .live-head{display:flex!important;flex:0 0 48px!important;min-height:48px!important;margin:0 0 3px!important;align-items:center!important}
+html body #game.projection-mode .live-head>div:first-child{width:auto!important}
+html body #game.projection-mode .live-head>div:last-child{display:block!important}
+html body #game.projection-mode .live-head .muted{display:none!important}
+html body #game.projection-mode .round-big{font-size:32px!important;line-height:.95!important}
+html body #game.projection-mode .dealer-pill{font-size:10px!important;padding:3px 7px!important}
+html body #game.projection-mode .hand-counter{font-size:23px!important;line-height:1!important}
 html body #game.projection-mode #playerStats{
-  display:grid !important;
-  width:100% !important;
-  max-width:620px !important;
-  margin:auto !important;
-  gap:12px !important;
+  display:grid!important;flex:1 1 0!important;min-height:0!important;width:100%!important;max-width:none!important;margin:0!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-areas:"top top" "left right" "bottom bottom"!important;
+  grid-template-rows:repeat(3,minmax(0,1fr))!important;gap:5px 7px!important;overflow:hidden!important;
 }
-html body #game.projection-mode #playerStats .player-card{min-height:88px !important;}
-html body #game.projection-mode #playerStats .current-money{font-size:clamp(22px,3vw,34px) !important;}
+html body #game.projection-mode #playerStats .player-card{min-height:0!important;height:100%!important;overflow:hidden!important}
+html body #game.projection-mode #playerStats .player-card.pos-top,
+html body #game.projection-mode #playerStats .player-card.pos-bottom{width:min(64%,260px)!important;justify-self:center!important}
+html body #game.projection-mode #playerStats .player-content{padding:4px 7px!important;width:100%!important}
+html body #game.projection-mode #playerStats .player-wind{font-size:9px!important;margin:0!important}
+html body #game.projection-mode #playerStats .player-name{font-size:12px!important;line-height:1.05!important}
+html body #game.projection-mode #playerStats .current-money{font-size:clamp(17px,2vw,24px)!important;line-height:1!important;margin-top:2px!important}
+html body #game.projection-mode #playerStats .net{font-size:9px!important;margin-top:1px!important}
+html body #game.projection-mode #playerStats .water-label,
+html body #game.projection-mode #playerStats .winrate{font-size:8px!important;margin-top:2px!important}
 
-html body #game.projection-mode .game-chart-card{
-  grid-column:2 !important;
-  grid-row:1 !important;
-  flex-direction:column !important;
-  justify-content:center !important;
-  align-items:stretch !important;
+html body #game.projection-mode .projection-score-panel{
+  display:block!important;grid-area:score!important;grid-column:1!important;grid-row:3!important;
+  width:100%!important;height:100%!important;min-height:0!important;margin:0!important;padding:7px 9px!important;box-sizing:border-box!important;overflow:hidden!important;
 }
-html body #game.projection-mode .game-chart-card .toprow{flex:0 0 auto !important;}
-html body #game.projection-mode .game-chart-card .chart-wrap{
-  flex:1 1 auto !important;
-  display:flex !important;
-  flex-direction:column !important;
-  justify-content:center !important;
-  align-items:center !important;
-  gap:14px !important;
-  min-height:0 !important;
+html body #game.projection-mode .projection-score-title{font-size:11px!important;margin:0 0 4px!important;line-height:1.05!important}
+html body #game.projection-mode .projection-score-title span{font-size:8px!important}
+html body #game.projection-mode .projection-result-row{gap:4px!important}
+html body #game.projection-mode .projection-result-row button{height:27px!important;min-height:27px!important;padding:2px!important;font-size:10px!important}
+html body #game.projection-mode .projection-tai-row{gap:4px!important;margin-top:4px!important}
+html body #game.projection-mode .projection-tai-row button{height:25px!important;min-height:25px!important;padding:2px!important;font-size:10px!important}
+html body #game.projection-mode .projection-tai-row b{font-size:11px!important}
+html body #game.projection-mode .projection-pattern-row{margin-top:4px!important;min-height:24px!important}
+html body #game.projection-mode .projection-pattern-row button{height:24px!important;padding:2px 7px!important;font-size:9px!important}
+html body #game.projection-mode .projection-pattern-row span{font-size:8px!important}
+html body #game.projection-mode .projection-calc-preview{margin-top:4px!important;padding:3px 6px!important;font-size:8px!important;line-height:1!important;min-height:17px!important}
+html body #game.projection-mode .projection-save-hand{margin-top:4px!important;height:27px!important;min-height:27px!important;padding:2px!important;font-size:10px!important}
+
+html body #game.projection-mode .game-cashflow-card{
+  display:flex!important;grid-area:cash!important;grid-column:2!important;grid-row:2/4!important;
+  flex-direction:column!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  margin:0!important;padding:10px 12px!important;box-sizing:border-box!important;overflow:hidden!important;justify-content:flex-start!important;
 }
-html body #game.projection-mode .game-chart-card .pie{
-  width:min(34vw,390px) !important;
-  height:min(34vw,390px) !important;
-  flex:0 0 auto !important;
+html body #game.projection-mode .cashflow-title-row{margin:0 0 5px!important;min-height:28px!important}
+html body #game.projection-mode .game-cashflow-card h2{font-size:clamp(18px,1.9vw,27px)!important;line-height:1!important;margin:0!important}
+html body #game.projection-mode .cashflow-note{display:none!important}
+html body #game.projection-mode .cashflow-highlight{font-size:11px!important;padding:5px 7px!important;margin-bottom:5px!important}
+html body #game.projection-mode .cashflow-table{flex:1 1 auto!important;width:100%!important;table-layout:fixed!important;border-spacing:4px!important;font-size:clamp(10px,1.05vw,15px)!important}
+html body #game.projection-mode .cashflow-table th,
+html body #game.projection-mode .cashflow-table td{padding:5px 3px!important;height:auto!important;line-height:1.05!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+
+html body #game.projection-mode .projection-exit-btn{display:block!important;position:fixed!important;right:12px!important;top:8px!important;left:auto!important;z-index:99999!important;font-size:12px!important;padding:6px 10px!important;opacity:.88!important}
+
+/* 直播觀看投影唯讀：左側戰況整欄，右側提款機整欄。 */
+html body #game.live-viewer-mode.projection-mode{
+  grid-template-rows:38px minmax(0,1fr)!important;
+  grid-template-areas:"ticker ticker" "status cash"!important;
 }
-html body #game.projection-mode #moneyLegend{
-  width:min(100%,520px) !important;
-  display:grid !important;
-  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-  gap:6px 12px !important;
-}
+html body #game.live-viewer-mode.projection-mode .game-status-card{grid-column:1!important;grid-row:2!important}
+html body #game.live-viewer-mode.projection-mode .projection-score-panel{display:none!important}
+html body #game.live-viewer-mode.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:2!important}
+html body #game.live-viewer-mode.projection-mode #liveViewerBackBtn,
+html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!important}
 
 @media (orientation:landscape) and (max-height:650px){
-  html body #game.projection-mode:not(.hidden){padding:10px !important;gap:10px !important;}
-  html body #game.projection-mode .game-status-card,
-  html body #game.projection-mode .game-chart-card{padding:10px !important;}
-  html body #game.projection-mode #playerStats{gap:6px !important;}
-  html body #game.projection-mode #playerStats .player-card{min-height:62px !important;}
-  html body #game.projection-mode .game-chart-card .pie{width:min(29vw,260px) !important;height:min(29vw,260px) !important;}
+  html body #game.projection-mode:not(.hidden){padding:5px 7px!important;gap:5px!important;grid-template-rows:34px minmax(0,65fr) minmax(0,35fr)!important}
+  html body #game.projection-mode .live-ticker-wrap{height:34px!important;min-height:34px!important}
+  html body #game.projection-mode .live-head{flex-basis:42px!important;min-height:42px!important}
+  html body #game.projection-mode .round-big{font-size:28px!important}
+  html body #game.projection-mode #playerStats{gap:4px 6px!important}
+  html body #game.projection-mode .game-cashflow-card{padding:7px 9px!important}
 }
 </style>
-
 </head>
 
 
