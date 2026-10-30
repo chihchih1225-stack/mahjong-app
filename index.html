@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V102: V100 + 提款機完整累積矩陣 + 每人合計與計分水位一致 -->
+<!-- V103: 提款機直接跟連打計分水位累積；舊連打也自動補齊起始水位 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -4853,14 +4853,43 @@ function handCashflowTransfers(hand){
 }
 function buildCashflowMatrix(sessionHands=hands,players=P){
   const matrix=emptyCashflow(players)
-  // V100：先放入本輪連打「前面已完成場次」的累積付款。
+
+  // V103：先承接已保存的連打提款機基底。
   ;(players||[]).forEach(from=>{
     ;(players||[]).forEach(to=>{
       if(from===to) return
       matrix[from][to]=Number(seriesCashflowBase?.[from]?.[to]||0)
     })
   })
-  // 再加目前這一場已完成的每一把。
+
+  // 舊連打是在提款機累積功能加入前開始的，seriesCashflowBase 可能是空的。
+  // 這時用「本場開始水位」補齊基底，讓提款機從現在起就能與計分板完全對帳。
+  const baseNet=Object.fromEntries((players||[]).map(p=>{
+    const paid=(players||[]).reduce((sum,to)=>sum+Number(matrix[p]?.[to]||0),0)
+    const received=(players||[]).reduce((sum,from)=>sum+Number(matrix[from]?.[p]||0),0)
+    return [p,received-paid]
+  }))
+  const need=Object.fromEntries((players||[]).map(p=>[
+    p,
+    Number(sessionOpeningBalances?.[p]||0)-Number(baseNet[p]||0)
+  ]))
+
+  const debtors=(players||[]).filter(p=>need[p]<0).map(p=>({p,amount:-need[p]}))
+  const creditors=(players||[]).filter(p=>need[p]>0).map(p=>({p,amount:need[p]}))
+  let di=0,ci=0
+  while(di<debtors.length && ci<creditors.length){
+    const d=debtors[di], c=creditors[ci]
+    const amount=Math.min(d.amount,c.amount)
+    if(amount>0 && matrix[d.p] && Object.prototype.hasOwnProperty.call(matrix[d.p],c.p)){
+      matrix[d.p][c.p]+=amount
+    }
+    d.amount-=amount
+    c.amount-=amount
+    if(d.amount<=0.000001) di++
+    if(c.amount<=0.000001) ci++
+  }
+
+  // 再加目前這一場每一把的實際付款；所以之後每記一把，提款機就跟計分板一起累積。
   ;(sessionHands||[]).forEach(hand=>{
     handCashflowTransfers(hand).forEach(t=>{
       if(matrix[t.from] && Object.prototype.hasOwnProperty.call(matrix[t.from],t.to)){
@@ -4897,7 +4926,7 @@ function renderCashflowMatrix(){
   })
 
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">每格保留本輪連打累積「誰付誰」的完整金額，不互相抵銷；最右側合計＝收到－付出，應與上方計分水位完全一致。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
+  html+='<div class="cashflow-note">提款機會直接跟著本輪連打計分累積；每記一把就同步增加。最右側合計＝收到－付出，會與上方計分水位一致。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
 
   const mismatch=P.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
   if(mismatch.length){
