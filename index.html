@@ -9325,6 +9325,111 @@ html body #game.live-viewer-mode.projection-mode #projectionBottom,
 html body #game.live-viewer-mode.projection-mode #liveViewerBackBtn,
 html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!important}
 
+
+/* =========================================================
+   V98 FINAL FIT — 四區內容完整塞入單一橫向畫面
+   不改四區位置，只壓縮各區內部尺寸；禁止裁切與捲動。
+========================================================= */
+html body #game.projection-mode,
+html body #game.live-viewer-mode.projection-mode{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-rows:36px minmax(0,52fr) minmax(0,48fr)!important;
+  gap:6px!important;
+  padding:6px 8px!important;
+}
+html body #game.projection-mode .live-ticker-wrap{
+  height:36px!important;min-height:36px!important;
+}
+
+/* 左上：標題只佔一小列，四張玩家卡平均吃剩餘高度 */
+html body #game.projection-mode .game-status-card{
+  padding:7px 9px!important;
+  overflow:hidden!important;
+}
+html body #game.projection-mode .live-head{
+  flex:0 0 54px!important;
+  min-height:54px!important;
+  margin:0 0 3px!important;
+}
+html body #game.projection-mode .round-big{font-size:34px!important;line-height:.95!important}
+html body #game.projection-mode .dealer-pill{font-size:10px!important;padding:3px 7px!important}
+html body #game.projection-mode .hand-counter{font-size:24px!important;line-height:1!important}
+html body #game.projection-mode #playerStats{
+  flex:1 1 0!important;
+  min-height:0!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:5px!important;
+  margin:0!important;
+  overflow:hidden!important;
+}
+html body #game.projection-mode #playerStats .player-card,
+html body #game.projection-mode #playerStats .viewer-player-card{
+  min-height:0!important;height:100%!important;
+  padding:5px 7px!important;
+  display:flex!important;align-items:center!important;
+}
+html body #game.projection-mode #playerStats .player-content{width:100%!important;padding:2px 4px!important}
+html body #game.projection-mode #playerStats .player-name,
+html body #game.projection-mode .viewer-player-name{font-size:13px!important;line-height:1.05!important}
+html body #game.projection-mode #playerStats .current-money,
+html body #game.projection-mode .viewer-player-money{font-size:20px!important;line-height:1.05!important}
+html body #game.projection-mode #playerStats .player-meta,
+html body #game.projection-mode .viewer-player-meta{font-size:9px!important;line-height:1.05!important;margin-top:3px!important}
+
+/* 左下：計分完整顯示，不讓任何一列超高 */
+html body #game.projection-mode .projection-score-panel{
+  padding:7px 9px!important;overflow:hidden!important;
+}
+html body #game.projection-mode .projection-score-title{font-size:11px!important;margin:0 0 4px!important;line-height:1.1!important}
+html body #game.projection-mode .projection-score-title span{font-size:8px!important}
+html body #game.projection-mode .projection-result-row{gap:4px!important}
+html body #game.projection-mode .projection-result-row button{min-height:28px!important;height:28px!important;padding:3px!important;font-size:10px!important}
+html body #game.projection-mode .projection-tai-row{gap:4px!important;margin-top:4px!important}
+html body #game.projection-mode .projection-tai-row button{min-height:26px!important;height:26px!important;padding:2px!important;font-size:10px!important}
+html body #game.projection-mode .projection-tai-row b{font-size:11px!important}
+html body #game.projection-mode .projection-pattern-row{margin-top:4px!important;min-height:25px!important}
+html body #game.projection-mode .projection-pattern-row button{height:25px!important;padding:2px 7px!important;font-size:9px!important}
+html body #game.projection-mode .projection-pattern-row span{font-size:8px!important}
+html body #game.projection-mode .projection-calc-preview{margin-top:4px!important;padding:4px 6px!important;font-size:8px!important;line-height:1.05!important;min-height:18px!important}
+html body #game.projection-mode .projection-save-hand{margin-top:4px!important;min-height:28px!important;height:28px!important;padding:3px!important;font-size:10px!important}
+
+/* 右上：標題一列；圓餅與圖例橫排，全部留在卡內 */
+html body #game.projection-mode .game-chart-card{padding:7px 9px!important;overflow:hidden!important}
+html body #game.projection-mode .game-chart-card h2{font-size:17px!important;line-height:1!important;margin:0!important}
+html body #game.projection-mode .chart-wrap{
+  flex:1 1 0!important;min-height:0!important;height:auto!important;
+  grid-template-columns:minmax(120px,.85fr) minmax(0,1.15fr)!important;
+  gap:6px!important;overflow:hidden!important;
+}
+html body #game.projection-mode .pie{width:min(19vh,145px)!important;height:min(19vh,145px)!important}
+html body #game.projection-mode #moneyLegend{gap:3px!important;align-content:center!important;overflow:hidden!important}
+html body #game.projection-mode .legend-item{font-size:9px!important;line-height:1.05!important;margin:0!important}
+
+/* 右下：提款機完整 5x5 表格 */
+html body #game.projection-mode .game-cashflow-card{padding:7px 9px!important;overflow:hidden!important}
+html body #game.projection-mode .cashflow-title-row{margin:0 0 3px!important;min-height:24px!important}
+html body #game.projection-mode .game-cashflow-card h2{font-size:16px!important;line-height:1!important}
+html body #game.projection-mode .cashflow-table{
+  flex:1 1 0!important;min-height:0!important;
+  width:100%!important;table-layout:fixed!important;
+  border-spacing:2px!important;font-size:9px!important;
+}
+html body #game.projection-mode .cashflow-table th,
+html body #game.projection-mode .cashflow-table td{
+  padding:2px!important;height:24px!important;line-height:1!important;
+  font-size:9px!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+
+/* 任何舊版窄橫屏規則都不能再把內容放大或改欄位 */
+@media (orientation:landscape){
+  html body #game.projection-mode,
+  html body #game.live-viewer-mode.projection-mode{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    grid-template-rows:36px minmax(0,52fr) minmax(0,48fr)!important;
+  }
+}
+
 </style>
 
 <script>
