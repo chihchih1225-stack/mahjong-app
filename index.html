@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V106: 修正真正生效的 V52 直播載入器：提款機快照同步 + 直播位置圖依東南西北實際座位 -->
+<!-- V107: 座位固定依東南西北圓形牌位 + 提款機完整雙向累積矩陣 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -4925,19 +4925,21 @@ function renderCashflowMatrix(){
   if(!el) return
   if(!P?.length){el.innerHTML='<div class="muted">尚無玩家資料</div>';return}
 
-  // V102：提款機保留完整「誰付誰」累積流水，不做雙向互抵。
-  const matrix=buildCashflowMatrix(hands,P)
-  const paid=Object.fromEntries(P.map(a=>[a,P.reduce((sum,b)=>sum+Number(matrix[a]?.[b]||0),0)]))
-  const received=Object.fromEntries(P.map(b=>[b,P.reduce((sum,a)=>sum+Number(matrix[a]?.[b]||0),0)]))
-  const net=Object.fromEntries(P.map(p=>[p,Number(received[p]||0)-Number(paid[p]||0)]))
+  // V107：提款機就是完整的「每個人對每個人」累積流水。
+  // A→B 與 B→A 各自保留，絕不互抵；只在連打總結算後才歸零。
+  const order=(Array.isArray(seats)&&seats.length===P.length&&seats.every(n=>P.includes(n)))?[...seats]:[...P]
+  const matrix=buildCashflowMatrix(hands,order)
+  const paid=Object.fromEntries(order.map(a=>[a,order.reduce((sum,b)=>sum+Number(matrix[a]?.[b]||0),0)]))
+  const received=Object.fromEntries(order.map(b=>[b,order.reduce((sum,a)=>sum+Number(matrix[a]?.[b]||0),0)]))
+  const net=Object.fromEntries(order.map(p=>[p,Number(received[p]||0)-Number(paid[p]||0)]))
 
   let html='<div class="cashflow-scroll"><table class="cashflow-table"><thead><tr><th>付款 ↓ / 收款 →</th>'
-  html+=P.map(p=>`<th>${escapeHtml(p)}</th>`).join('')
+  html+=order.map(p=>`<th>${escapeHtml(p)}</th>`).join('')
   html+='<th>合計</th></tr></thead><tbody>'
 
-  P.forEach(from=>{
+  order.forEach(from=>{
     html+=`<tr><th class="cashflow-rowname">${escapeHtml(from)}</th>`
-    P.forEach(to=>{
+    order.forEach(to=>{
       if(from===to){html+='<td class="cashflow-zero">—</td>';return}
       const v=Number(matrix[from]?.[to]||0)
       html+=`<td class="${v?'cashflow-pay':'cashflow-zero'}">${v?'$'+v.toLocaleString():'—'}</td>`
@@ -4949,7 +4951,7 @@ function renderCashflowMatrix(){
   html+='</tbody></table></div>'
   html+='<div class="cashflow-note">提款機由計分端依每一把實際付款累積完整「誰付誰」矩陣，並同步給直播／投影；最右側合計＝收到－付出，與計分水位對帳。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
 
-  const mismatch=P.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
+  const mismatch=order.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
   if(mismatch.length){
     html+=`<div class="cashflow-note" style="color:#a35f6d;font-weight:900">⚠️ 對帳異常：${mismatch.map(escapeHtml).join('、')} 的提款機合計與計分水位不同</div>`
   }
@@ -5561,11 +5563,11 @@ function getWaterHeight(amount){
 ========================= */
 
 function getTablePosition(player){
-  const recorderIndex=seats.indexOf(recorderPlayer)
+  // V107：座位是麻將桌的一個圓，不再以「記錄者」當視角旋轉。
+  // seats 永遠依 東、南、西、北 儲存，所以畫面固定為：東下、南右、西上、北左。
   const playerIndex=seats.indexOf(player)
-  if(recorderIndex<0 || playerIndex<0) return 'top'
-  const diff=(playerIndex-recorderIndex+4)%4
-  return ['bottom','right','top','left'][diff]
+  if(playerIndex<0) return 'top'
+  return ['bottom','right','top','left'][playerIndex]||'top'
 }
 
 function getPlayerWind(player){
