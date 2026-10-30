@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V97 FINAL: 投影觀看者也固定雙欄；左座位+計分，右圓餅+提款機 -->
+<!-- V99: V98 + 連打起始水位同步直播/投影 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -3578,6 +3578,15 @@ async function createRemoteGameSession(){
       place:(document.getElementById('place')?.value||'').trim(),
       stake:selectedStake||''
     }
+    // V99：active session 的 final_balances 暫存「這一場的起始水位」。
+    // 連打新場尚未產生第一把 game_hands 時，直播/投影就能接續上一場水位；
+    // 本場結束時 completeRemoteSession() 仍會覆寫成「本場淨輸贏」，歷史統計語意不變。
+    const openingBalancesById={}
+    P.forEach(name=>{
+      const pid=map[name]?.id
+      if(pid) openingBalancesById[pid]=Number(sessionOpeningBalances[name]||0)
+    })
+    sessionPayload.final_balances=openingBalancesById
     if(playerIds.length===4) sessionPayload.players=playerIds
     if(dealerId) sessionPayload.dealer=dealerId
     const rec=await pbRequest('/api/collections/game_sessions/records',{
@@ -3697,7 +3706,18 @@ async function openLiveSession(sessionId){
       repeats:Number(h.dealer_repeats||0)
     }))
     const last=(hd.items||[]).slice(-1)[0]
-    balances=last?.balances_after||Object.fromEntries(P.map(n=>[n,0]))
+    balances=Object.fromEntries(P.map(n=>[n,0]))
+    if(last?.balances_after && typeof last.balances_after==='object'){
+      Object.entries(last.balances_after).forEach(([name,value])=>{
+        const key=canonicalPlayerName(name)
+        if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
+      })
+    }else if(ss.status==='active' && ss.final_balances && typeof ss.final_balances==='object'){
+      Object.entries(ss.final_balances).forEach(([playerId,value])=>{
+        const key=canonicalPlayerName(byId[playerId]?.display_name||'')
+        if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
+      })
+    }
     currentRule=stakeRules[selectedStake]||stakeRules['100/20']
     liveViewerMode=true
     renderGame(); show('game')
@@ -8307,12 +8327,20 @@ v32LoadLiveSession=async function(sessionId,first=false){
   repeats=Number(ss.dealer_repeats||0)
   hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:byId[h.dealer]?.display_name||dealer,repeats:Number(h.dealer_repeats||0)}))
   const last=(hd.items||[]).slice(-1)[0]
-  const rawLiveBalances=(last?.balances_after&&typeof last.balances_after==='object')?last.balances_after:{}
   balances=Object.fromEntries(P.map(n=>[n,0]))
-  Object.entries(rawLiveBalances).forEach(([name,value])=>{
-    const key=canonicalPlayerName(name)
-    if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
-  })
+  if(last?.balances_after && typeof last.balances_after==='object'){
+    // 已有逐把紀錄：balances_after 本來就是連打後的累積水位，直接同步。
+    Object.entries(last.balances_after).forEach(([name,value])=>{
+      const key=canonicalPlayerName(name)
+      if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
+    })
+  }else if(ss.status==='active' && ss.final_balances && typeof ss.final_balances==='object'){
+    // V99：新一場剛建立、第一把尚未記錄時，讀取 createRemoteGameSession 暫存的起始水位。
+    Object.entries(ss.final_balances).forEach(([playerId,value])=>{
+      const key=canonicalPlayerName(byId[playerId]?.display_name||'')
+      if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
+    })
+  }
   selectedStake=ss.stake||selectedStake||'100/20'
   currentRule=stakeRules[selectedStake]||stakeRules['100/20']
   gameStartedAt=ss.started_at||ss.created||gameStartedAt;gameEndedAt=ss.ended_at||''
