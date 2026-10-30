@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V73: 同桌勝負 + 歷史日期整理 + 房間移除聊天室 + 房間在線狀態 -->
+<!-- V74: V73 + 直播觀看頁房間聊天室 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -8242,5 +8242,96 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
+
+/* ===== V74：直播觀看頁聊天室 ===== */
+(function(){
+  const style=document.createElement('style')
+  style.textContent=`
+    #game .v74-live-chat{display:none}
+    #game.live-viewer-mode .v74-live-chat{display:block!important;margin:0 0 8px}
+    .v74-chat-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .v74-chat-head h2{margin:0;font-size:16px}
+    .v74-chat-messages{height:220px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 2px 8px;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line)}
+    .v74-chat-compose{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px;align-items:end}
+    .v74-chat-compose input{min-width:0;margin:0;padding:11px 12px;font-size:15px}
+    .v74-chat-send{border:0;border-radius:14px;padding:11px 15px;background:var(--mint);color:#527c68;font-weight:900;white-space:nowrap}
+    .v74-chat-send:disabled{opacity:.55}
+    @media(max-width:560px){
+      .v74-chat-messages{height:190px}
+      #game.live-viewer-mode .v74-live-chat{padding:12px 14px}
+    }
+    #game.projection-mode .v74-live-chat{display:none!important}
+  `
+  document.head.appendChild(style)
+
+  function ensureLiveChatCard(){
+    const game=document.getElementById('game')
+    if(!game) return null
+    let card=document.getElementById('v74LiveChatCard')
+    if(card) return card
+    card=document.createElement('div')
+    card.id='v74LiveChatCard'
+    card.className='card v74-live-chat'
+    card.innerHTML=`
+      <div class="v74-chat-head">
+        <h2>💬 直播聊天室</h2>
+        <span class="muted">同房間會員</span>
+      </div>
+      <div id="v49ChatMessages" class="v74-chat-messages"><div class="muted">聊天室載入中…</div></div>
+      <div class="v74-chat-compose">
+        <input id="v49ChatInput" type="text" maxlength="500" autocomplete="off" placeholder="說點什麼…" aria-label="聊天室訊息">
+        <button id="v49ChatSendBtn" class="v74-chat-send" type="button" onclick="v49SendChat()">送出</button>
+      </div>`
+    const cash=document.querySelector('#game .game-cashflow-card')
+    const trend=document.querySelector('#game .game-trend-card')
+    const chart=document.querySelector('#game .game-chart-card')
+    const anchor=cash||trend||chart
+    if(anchor?.parentNode) anchor.parentNode.insertBefore(card,anchor.nextSibling)
+    else game.appendChild(card)
+    const input=card.querySelector('#v49ChatInput')
+    input?.addEventListener('keydown',e=>{
+      if(e.key==='Enter' && !e.shiftKey){e.preventDefault();v49SendChat()}
+    })
+    return card
+  }
+
+  function removeLiveChatCard(){
+    v49StopChat()
+    document.getElementById('v74LiveChatCard')?.remove()
+  }
+
+  const originalViewerDashboard=v32RenderViewerDashboard
+  v32RenderViewerDashboard=function(){
+    const result=originalViewerDashboard.apply(this,arguments)
+    if(liveViewerMode && currentRoomId){
+      ensureLiveChatCard()
+      v49StartChat(currentRoomId)
+    }
+    return result
+  }
+
+  const originalStopAllLiveRuntime=v52StopAllLiveRuntime
+  v52StopAllLiveRuntime=function(){
+    removeLiveChatCard()
+    return originalStopAllLiveRuntime.apply(this,arguments)
+  }
+
+  // 保險：直播首次載入時，以 session 的 room 作為聊天室房間。
+  const originalLoadLiveSession=v32LoadLiveSession
+  v32LoadLiveSession=async function(sessionId,first=false){
+    const result=await originalLoadLiveSession.apply(this,arguments)
+    if(result!==false && liveViewerMode){
+      try{
+        const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
+        if(ss?.room) currentRoomId=ss.room
+      }catch(e){}
+      ensureLiveChatCard()
+      if(currentRoomId) v49StartChat(currentRoomId)
+    }
+    return result
+  }
+})()
+
 </body>
 </html>
