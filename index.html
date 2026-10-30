@@ -7183,8 +7183,14 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
         // 這可保留「有參與但舊系統沒有 score」的歷史狀態，不把缺資料捏造成 0 元。
         const hasId=Object.prototype.hasOwnProperty.call(rawBalances,pid)
         const hasName=Object.prototype.hasOwnProperty.call(rawBalances,name)
-        if(!hasId && !hasName) return
-        const value=hasId?rawBalances[pid]:rawBalances[name]
+        // V71：人工貼入 JSON 時，key 可能混入肉眼看不出的空白/零寬字元。
+        // PocketBase relation ID 本身只含英數字，因此額外用「只保留英數字」做安全比對。
+        const canonicalId=v=>String(v??'').replace(/[^a-zA-Z0-9]/g,'')
+        const matchedIdKey=!hasId
+          ? Object.keys(rawBalances).find(k=>canonicalId(k)===canonicalId(pid))
+          : null
+        if(!hasId && !hasName && !matchedIdKey) return
+        const value=hasId?rawBalances[pid]:(hasName?rawBalances[name]:rawBalances[matchedIdKey])
         const num=Number(value)
         if(Number.isFinite(num)) nets[name]=num
       })
