@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V77: V75 + 一般會員修改暱稱後同步既有 room_players 歷史名稱 -->
+<!-- V78: V77 + 歷史身份合併（龍隱王/麻將俠=麻俠；阿樹=場主） -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -6814,8 +6814,28 @@ function ensureRoomMembers(room, names){
   persistAppData()
 }
 function roomSessions(roomId){ ensureAppData(); return appData.sessions.filter(x=>x.roomId===roomId) }
+
+// V78：舊暱稱只作歷史別名；統計與歷史顯示一律歸到目前身份。
+// 不改 game_sessions 原始資料，也不改計分/直播/投影流程。
+function canonicalPlayerName(name){
+  const clean=String(name??'').trim()
+  if(clean==='龍隱王' || clean==='麻將俠') return '麻俠'
+  if(clean==='阿樹') return '場主'
+  return clean
+}
 function money(n){ return (n>=0?'+':'-')+'$'+Math.abs(n||0).toLocaleString() }
-function sessionNets(session){ return session.nets||{} }
+function sessionNets(session){
+  const raw=session?.nets||{}
+  const merged={}
+  Object.entries(raw).forEach(([name,value])=>{
+    const key=canonicalPlayerName(name)
+    if(!key) return
+    const num=Number(value)
+    if(!Number.isFinite(num)) return
+    merged[key]=(merged[key]||0)+num
+  })
+  return merged
+}
 function aggregateSessions(sessions){
   const players={}
   const touch=name=>players[name]||(players[name]={
@@ -7178,12 +7198,12 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
       let hd={items:[]}
       try{ hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`) }catch(e){ console.warn('V37：讀取歷史逐把資料失敗',rs.id,e) }
       const remoteHands=hd.items||[]
-      const players=(rs.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
+      const players=(rs.players||[]).map(id=>canonicalPlayerName(byId[id]?.display_name)).filter(Boolean)
       const hands=remoteHands.map(h=>({
         round:h.round||'',result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,
-        winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',tai:Number(h.tai||0),
+        winner:canonicalPlayerName(byId[h.winner]?.display_name||''),discarder:canonicalPlayerName(byId[h.discarder]?.display_name||''),tai:Number(h.tai||0),
         patterns:h.patterns||[],changes:h.payments||{},balancesAfter:h.balances_after||{},
-        dealer:byId[h.dealer]?.display_name||'',repeats:Number(h.dealer_repeats||0)
+        dealer:canonicalPlayerName(byId[h.dealer]?.display_name||''),repeats:Number(h.dealer_repeats||0)
       }))
       const last=remoteHands[remoteHands.length-1]
       // V70：完整牌局以最後一手 balances_after 為準；沒有逐手資料的歷史牌局改讀 game_sessions.final_balances。
@@ -7194,12 +7214,13 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
         : ((rs.final_balances&&typeof rs.final_balances==='object')?rs.final_balances:{})
       const nets={}
       ;(rs.players||[]).forEach(pid=>{
-        const name=byId[pid]?.display_name
+        const rawName=byId[pid]?.display_name
+        const name=canonicalPlayerName(rawName)
         if(!name) return
         // V70：只有原始 final_balances 真的存在這位玩家的 key 才建立戰績。
         // 這可保留「有參與但舊系統沒有 score」的歷史狀態，不把缺資料捏造成 0 元。
         const hasId=Object.prototype.hasOwnProperty.call(rawBalances,pid)
-        const hasName=Object.prototype.hasOwnProperty.call(rawBalances,name)
+        const hasName=Object.prototype.hasOwnProperty.call(rawBalances,name) || (rawName && Object.prototype.hasOwnProperty.call(rawBalances,rawName))
         // V71：人工貼入 JSON 時，key 可能混入肉眼看不出的空白/零寬字元。
         // PocketBase relation ID 本身只含英數字，因此額外用「只保留英數字」做安全比對。
         const canonicalId=v=>String(v??'').replace(/[^a-zA-Z0-9]/g,'')
@@ -7207,7 +7228,7 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
           ? Object.keys(rawBalances).find(k=>canonicalId(k)===canonicalId(pid))
           : null
         if(!hasId && !hasName && !matchedIdKey) return
-        const value=hasId?rawBalances[pid]:(hasName?rawBalances[name]:rawBalances[matchedIdKey])
+        const value=hasId?rawBalances[pid]:(hasName?(Object.prototype.hasOwnProperty.call(rawBalances,name)?rawBalances[name]:rawBalances[rawName]):rawBalances[matchedIdKey])
         const num=Number(value)
         if(Number.isFinite(num)) nets[name]=num
       })
@@ -7875,7 +7896,7 @@ function renderPaymentPreview(){
 /* ===== V40：點房間成員 → 此房間個人戰績卡 ===== */
 function v40MemberPlayerName(member, roomPlayers){
   const linked=(roomPlayers||[]).find(p=>member?.user && p.user===member.user && p.status!=='removed')
-  return (linked?.display_name || member?.nickname || '未命名玩家').trim() || '未命名玩家'
+  return canonicalPlayerName(linked?.display_name || member?.nickname || '未命名玩家') || '未命名玩家'
 }
 function v40SinglePlayerTrendHtml(sessions,name){
   const mine=(sessions||[]).filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),name)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt))
@@ -7965,7 +7986,7 @@ syncCurrentRoomMembers = async function(){
     const rows=[]
     const byKey=new Map()
     const addRow=(name,userId,isOwner,playerId)=>{
-      name=(name||'').trim(); if(!name)return
+      name=canonicalPlayerName(name); if(!name)return
       const key=userId?`u:${userId}`:`n:${name.toLocaleLowerCase()}`
       const existing=byKey.get(key) || (!userId ? rows.find(r=>r.name.toLocaleLowerCase()===name.toLocaleLowerCase()) : null)
       if(existing){existing.isOwner=existing.isOwner||!!isOwner;existing.userId=existing.userId||userId||'';existing.playerId=existing.playerId||playerId||'';return}
@@ -8217,7 +8238,7 @@ syncCurrentRoomMembers = async function(){
     const rows=[]
     const byKey=new Map()
     const addRow=(name,userId,isOwner,playerId)=>{
-      name=(name||'').trim(); if(!name)return
+      name=canonicalPlayerName(name); if(!name)return
       const key=userId?`u:${userId}`:`n:${name.toLocaleLowerCase()}`
       const existing=byKey.get(key) || (!userId ? rows.find(r=>r.name.toLocaleLowerCase()===name.toLocaleLowerCase()) : null)
       if(existing){existing.isOwner=existing.isOwner||!!isOwner;existing.userId=existing.userId||userId||'';existing.playerId=existing.playerId||playerId||'';return}
