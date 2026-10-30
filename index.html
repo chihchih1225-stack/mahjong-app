@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V83: V82 + 特殊牌型明確支援複選與已選狀態提示 -->
+<!-- V84: V83 + 逐把計分遠端牌局建立時同步場地與金額 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -3524,7 +3524,11 @@ async function createRemoteGameSession(){
       room:currentRoomId,status:'active',recorder:pbAuth.record.id,
       round:getRoundName(roundIndex),dealer_repeats:repeats,
       hand_number:hands.length+1,started_at:gameStartedAt||new Date().toISOString(),
-      table_number:tableNumber,seat_map:buildSeatMap(map)
+      table_number:tableNumber,seat_map:buildSeatMap(map),
+      // V84：逐把計分也要把開局時選的場地與金額一起寫進 PB，
+      // 歷史牌局才會和 final-only 一樣顯示 100/20、200/50 等資訊。
+      place:(document.getElementById('place')?.value||'').trim(),
+      stake:selectedStake||''
     }
     if(playerIds.length===4) sessionPayload.players=playerIds
     if(dealerId) sessionPayload.dealer=dealerId
