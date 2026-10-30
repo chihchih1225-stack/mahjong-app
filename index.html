@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 <meta name="application-name" content="誰與爭鋒">
 
-<!-- V41: member stats card + corrected seat direction; original macaron palette only -->
+<!-- V111: temporary projection = seat map + pie chart only; keep return button -->
 <!-- V39: historical version -->
 
 <style>
@@ -1830,6 +1830,109 @@ html body #game.live-viewer-mode.projection-mode .game-cashflow-card{grid-area:c
   html body #game.live-viewer-mode.projection-mode{grid-template-rows:36px minmax(0,1fr)!important}
 }
 </style>
+
+<style>
+/* ===== V111 TEMP PROJECTION: 座位表 + 圓餅圖 בלבד =====
+   暫時讓現場投影可用；其餘投影元件先隱藏，日後再重做完整投影版。 */
+html body #game.projection-mode:not(.hidden){
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+  grid-template-rows:minmax(0,1fr) !important;
+  gap:18px !important;
+  width:100vw !important;
+  height:100vh !important;
+  max-width:none !important;
+  margin:0 !important;
+  padding:18px !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+  align-items:stretch !important;
+}
+
+/* 投影暫時只保留：返回、座位表、圓餅圖 */
+html body #game.projection-mode > :not(.projection-exit-btn):not(.game-status-card):not(.game-chart-card){
+  display:none !important;
+}
+
+html body #game.projection-mode .projection-exit-btn{
+  display:block !important;
+  position:fixed !important;
+  top:10px !important;
+  left:10px !important;
+  z-index:99999 !important;
+}
+
+html body #game.projection-mode .game-status-card,
+html body #game.projection-mode .game-chart-card{
+  display:flex !important;
+  width:100% !important;
+  height:100% !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:18px !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+  align-self:stretch !important;
+}
+
+html body #game.projection-mode .game-status-card{
+  grid-column:1 !important;
+  grid-row:1 !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+html body #game.projection-mode .game-status-card .live-head{display:none !important;}
+html body #game.projection-mode #playerStats{
+  display:grid !important;
+  width:100% !important;
+  max-width:620px !important;
+  margin:auto !important;
+  gap:12px !important;
+}
+html body #game.projection-mode #playerStats .player-card{min-height:88px !important;}
+html body #game.projection-mode #playerStats .current-money{font-size:clamp(22px,3vw,34px) !important;}
+
+html body #game.projection-mode .game-chart-card{
+  grid-column:2 !important;
+  grid-row:1 !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:stretch !important;
+}
+html body #game.projection-mode .game-chart-card .toprow{flex:0 0 auto !important;}
+html body #game.projection-mode .game-chart-card .chart-wrap{
+  flex:1 1 auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:center !important;
+  gap:14px !important;
+  min-height:0 !important;
+}
+html body #game.projection-mode .game-chart-card .pie{
+  width:min(34vw,390px) !important;
+  height:min(34vw,390px) !important;
+  flex:0 0 auto !important;
+}
+html body #game.projection-mode #moneyLegend{
+  width:min(100%,520px) !important;
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:6px 12px !important;
+}
+
+@media (orientation:landscape) and (max-height:650px){
+  html body #game.projection-mode:not(.hidden){padding:10px !important;gap:10px !important;}
+  html body #game.projection-mode .game-status-card,
+  html body #game.projection-mode .game-chart-card{padding:10px !important;}
+  html body #game.projection-mode #playerStats{gap:6px !important;}
+  html body #game.projection-mode #playerStats .player-card{min-height:62px !important;}
+  html body #game.projection-mode .game-chart-card .pie{width:min(29vw,260px) !important;height:min(29vw,260px) !important;}
+}
+</style>
+
 </head>
 
 
