@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V104: 修正直播提款機：直播端同步讀取本場起始水位，提款機合計跟直播計分一致 -->
+<!-- V105: 提款機完整矩陣由計分端保存並同步直播，不再由直播端反推 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -3255,6 +3255,8 @@ let balances={}
 let sessionOpeningBalances={}
 // V100：已完成前幾場的提款機累積基底；目前這場再加 hands 即為整輪連打金流。
 let seriesCashflowBase={}
+// V105：直播端直接使用計分端同步的完整提款機快照，不自行反推。
+let liveCashflowSnapshot=null
 
 let tai=0
 
@@ -3541,6 +3543,8 @@ function buildSeatMap(roomPlayerMap={}){
   // V100：沿用既有 JSON 欄位保存「前幾場」提款機累積，不新增 PB 欄位。
   // 東南西北座位讀取邏輯不受影響。
   seatMap._series_cashflow_base=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
+  // 新場剛建立時，完整快照等於前面場次的累積基底。
+  seatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
   return seatMap
 }
 
@@ -3623,11 +3627,19 @@ async function syncRemoteConfirmedHand(hand){
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
     }
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+
+    // V105：每存一把，計分端把「目前整輪連打」完整提款機矩陣一起同步。
+    // 直播端只讀這份快照，不再猜上一場誰付誰。
+    const exactCashflowSnapshot=buildCashflowMatrix(hands,P)
+    const syncedSeatMap=buildSeatMap(map)
+    syncedSeatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(exactCashflowSnapshot||{}))
+
     await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
       method:'PATCH',
       body:JSON.stringify({
         dealer:map[dealer]?.id||payload.dealer,round:getRoundName(roundIndex),
-        dealer_repeats:repeats,hand_number:hands.length+1
+        dealer_repeats:repeats,hand_number:hands.length+1,
+        seat_map:syncedSeatMap
       })
     })
   }catch(e){ console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e) }
@@ -4852,44 +4864,26 @@ function handCashflowTransfers(hand){
   return out
 }
 function buildCashflowMatrix(sessionHands=hands,players=P){
-  const matrix=emptyCashflow(players)
+  // V105：觀看直播時直接使用計分端同步到 PB 的完整矩陣。
+  if(liveViewerMode && liveCashflowSnapshot && typeof liveCashflowSnapshot==='object'){
+    const matrix=emptyCashflow(players)
+    ;(players||[]).forEach(from=>{
+      ;(players||[]).forEach(to=>{
+        if(from===to) return
+        matrix[from][to]=Number(liveCashflowSnapshot?.[from]?.[to]||0)
+      })
+    })
+    return matrix
+  }
 
-  // V103：先承接已保存的連打提款機基底。
+  // 計分端：前面已完成場次的完整矩陣 + 目前場每一把實際 payments。
+  const matrix=emptyCashflow(players)
   ;(players||[]).forEach(from=>{
     ;(players||[]).forEach(to=>{
       if(from===to) return
       matrix[from][to]=Number(seriesCashflowBase?.[from]?.[to]||0)
     })
   })
-
-  // 舊連打是在提款機累積功能加入前開始的，seriesCashflowBase 可能是空的。
-  // 這時用「本場開始水位」補齊基底，讓提款機從現在起就能與計分板完全對帳。
-  const baseNet=Object.fromEntries((players||[]).map(p=>{
-    const paid=(players||[]).reduce((sum,to)=>sum+Number(matrix[p]?.[to]||0),0)
-    const received=(players||[]).reduce((sum,from)=>sum+Number(matrix[from]?.[p]||0),0)
-    return [p,received-paid]
-  }))
-  const need=Object.fromEntries((players||[]).map(p=>[
-    p,
-    Number(sessionOpeningBalances?.[p]||0)-Number(baseNet[p]||0)
-  ]))
-
-  const debtors=(players||[]).filter(p=>need[p]<0).map(p=>({p,amount:-need[p]}))
-  const creditors=(players||[]).filter(p=>need[p]>0).map(p=>({p,amount:need[p]}))
-  let di=0,ci=0
-  while(di<debtors.length && ci<creditors.length){
-    const d=debtors[di], c=creditors[ci]
-    const amount=Math.min(d.amount,c.amount)
-    if(amount>0 && matrix[d.p] && Object.prototype.hasOwnProperty.call(matrix[d.p],c.p)){
-      matrix[d.p][c.p]+=amount
-    }
-    d.amount-=amount
-    c.amount-=amount
-    if(d.amount<=0.000001) di++
-    if(c.amount<=0.000001) ci++
-  }
-
-  // 再加目前這一場每一把的實際付款；所以之後每記一把，提款機就跟計分板一起累積。
   ;(sessionHands||[]).forEach(hand=>{
     handCashflowTransfers(hand).forEach(t=>{
       if(matrix[t.from] && Object.prototype.hasOwnProperty.call(matrix[t.from],t.to)){
@@ -4899,6 +4893,7 @@ function buildCashflowMatrix(sessionHands=hands,players=P){
   })
   return matrix
 }
+
 function renderCashflowMatrix(){
   const el=document.getElementById('cashflowMatrix')
   if(!el) return
@@ -4926,7 +4921,7 @@ function renderCashflowMatrix(){
   })
 
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">提款機會直接跟著本輪連打計分累積；每記一把就同步增加。最右側合計＝收到－付出，會與上方計分水位一致。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
+  html+='<div class="cashflow-note">提款機由計分端依每一把實際付款累積完整「誰付誰」矩陣，並同步給直播／投影；最右側合計＝收到－付出，與計分水位對帳。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
 
   const mismatch=P.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
   if(mismatch.length){
@@ -6479,6 +6474,7 @@ function continueNextMatch(){
   P.forEach(player=>sessionOpeningBalances[player]=Number(balances[player]||0))
   // V100：提款機不是單場歸零。先把剛完成這一場併入整輪連打基底，再清空本場 hands。
   seriesCashflowBase=buildCashflowMatrix(hands,P)
+  liveCashflowSnapshot=null
   hands=[]
   roundIndex=0
   repeats=0
@@ -6561,6 +6557,7 @@ async function finishSeriesSettlement(){
   balances={}
   sessionOpeningBalances={}
   seriesCashflowBase={}
+  liveCashflowSnapshot=null
   P=[]
   hands=[]
   clearActiveGame()
@@ -8148,6 +8145,9 @@ async function v32LoadLiveSession(sessionId,first=false){
   seriesCashflowBase=(ss.seat_map && typeof ss.seat_map._series_cashflow_base==='object')
     ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_base))
     :{}
+  liveCashflowSnapshot=(ss.seat_map && typeof ss.seat_map._series_cashflow_snapshot==='object')
+    ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_snapshot))
+    :null
 
   // V104：直播端以前漏掉「本場開始水位」。
   // game_sessions.final_balances 在 active 狀態就是建立這一場時同步的連打起始水位（key 為 room_player id）。
@@ -8171,7 +8171,7 @@ async function openLiveSession(sessionId){
   try{v32StopLivePoll();await v32LoadLiveSession(sessionId,true);v32LivePollTimer=setInterval(()=>v32LoadLiveSession(sessionId,false).catch(()=>{}),4000)}catch(e){alert('目前無法開啟直播：'+(e.message||'請稍後再試'))}
 }
 function exitLiveViewer(){
-  v32StopLivePoll();if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}liveViewerMode=false;v32ViewingSessionId=''
+  v32StopLivePoll();if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}liveViewerMode=false;liveCashflowSnapshot=null;v32ViewingSessionId=''
   const game=document.getElementById('game');if(game){game.classList.remove('live-viewer-mode','projection-mode');const b=document.getElementById('liveViewerBackBtn');if(b)b.remove()}
   document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn,#projectionBottom').forEach(el=>el.style.display='')
   const pbtn=document.querySelector('#projectionBottom button');if(pbtn)pbtn.textContent='📺 投影'
