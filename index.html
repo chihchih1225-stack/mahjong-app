@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V107: 座位固定依東南西北圓形牌位 + 提款機完整雙向累積矩陣 -->
+<!-- V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -3281,6 +3281,8 @@ let balances={}
 let sessionOpeningBalances={}
 // V100：已完成前幾場的提款機累積基底；目前這場再加 hands 即為整輪連打金流。
 let seriesCashflowBase={}
+// V108：計分端的權威提款機帳本。null 代表舊進度尚未初始化；第一次讀取時由 base + hands 建立。
+let seriesCashflowLedger=null
 // V105：直播端直接使用計分端同步的完整提款機快照，不自行反推。
 let liveCashflowSnapshot=null
 
@@ -4890,7 +4892,7 @@ function handCashflowTransfers(hand){
   return out
 }
 function buildCashflowMatrix(sessionHands=hands,players=P){
-  // V105：觀看直播時直接使用計分端同步到 PB 的完整矩陣。
+  // 直播端：只讀計分端同步的完整快照。
   if(liveViewerMode && liveCashflowSnapshot && typeof liveCashflowSnapshot==='object'){
     const matrix=emptyCashflow(players)
     ;(players||[]).forEach(from=>{
@@ -4902,7 +4904,19 @@ function buildCashflowMatrix(sessionHands=hands,players=P){
     return matrix
   }
 
-  // 計分端：前面已完成場次的完整矩陣 + 目前場每一把實際 payments。
+  // V108：計分端以「權威帳本」為準，不再每次畫面重算上一場。
+  // 舊進度第一次進來時，才用既有 base + hands 初始化一次，之後每把直接累加帳本。
+  if(seriesCashflowLedger && typeof seriesCashflowLedger==='object'){
+    const matrix=emptyCashflow(players)
+    ;(players||[]).forEach(from=>{
+      ;(players||[]).forEach(to=>{
+        if(from===to) return
+        matrix[from][to]=Number(seriesCashflowLedger?.[from]?.[to]||0)
+      })
+    })
+    return matrix
+  }
+
   const matrix=emptyCashflow(players)
   ;(players||[]).forEach(from=>{
     ;(players||[]).forEach(to=>{
@@ -4918,6 +4932,34 @@ function buildCashflowMatrix(sessionHands=hands,players=P){
     })
   })
   return matrix
+}
+
+function commitHandToCashflowLedger(hand){
+  if(!hand) return
+  // 第一次提交時，hands 已含這一把；為避免重複，先用「這把以前的 hands」初始化。
+  if(!seriesCashflowLedger || typeof seriesCashflowLedger!=='object'){
+    const previousHands=(hands||[]).slice(0,-1)
+    const matrix=emptyCashflow(P)
+    ;(P||[]).forEach(from=>{
+      ;(P||[]).forEach(to=>{
+        if(from===to) return
+        matrix[from][to]=Number(seriesCashflowBase?.[from]?.[to]||0)
+      })
+    })
+    previousHands.forEach(h=>{
+      handCashflowTransfers(h).forEach(t=>{
+        if(matrix[t.from] && Object.prototype.hasOwnProperty.call(matrix[t.from],t.to)) matrix[t.from][t.to]+=Number(t.amount||0)
+      })
+    })
+    seriesCashflowLedger=matrix
+  }
+  handCashflowTransfers(hand).forEach(t=>{
+    if(seriesCashflowLedger[t.from] && Object.prototype.hasOwnProperty.call(seriesCashflowLedger[t.from],t.to)){
+      seriesCashflowLedger[t.from][t.to]+=Number(t.amount||0)
+    }
+  })
+  // 相容舊欄位：base 永遠同步為目前完整帳本，跨場/重整都不會少上一場。
+  seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger||{}))
 }
 
 function renderCashflowMatrix(){
@@ -5877,6 +5919,8 @@ function saveHand(){
 
 
   hands.push(hand)
+  // V108：這一把確認後，立即寫進整輪連打提款機帳本。
+  commitHandToCashflowLedger(hand)
 
 
   /* ===== 流局 ===== */
@@ -6500,8 +6544,10 @@ function continueNextMatch(){
   // sessionOpeningBalances 只用來算「這一場」的輸贏，避免長期戰績重複累加。
   sessionOpeningBalances={}
   P.forEach(player=>sessionOpeningBalances[player]=Number(balances[player]||0))
-  // V100：提款機不是單場歸零。先把剛完成這一場併入整輪連打基底，再清空本場 hands。
-  seriesCashflowBase=buildCashflowMatrix(hands,P)
+  // V108：提款機帳本已在每一把確認時即時累積；跨場只原封不動帶過去，不再重算。
+  if(seriesCashflowLedger && typeof seriesCashflowLedger==='object') seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))
+  else seriesCashflowBase=buildCashflowMatrix(hands,P)
+  seriesCashflowLedger=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
   liveCashflowSnapshot=null
   hands=[]
   roundIndex=0
@@ -6585,6 +6631,7 @@ async function finishSeriesSettlement(){
   balances={}
   sessionOpeningBalances={}
   seriesCashflowBase={}
+  seriesCashflowLedger=null
   liveCashflowSnapshot=null
   P=[]
   hands=[]
@@ -7172,7 +7219,7 @@ function aggregateSessions(sessions){
 function activeGameSnapshot(){
   return {
     savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
-    balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, seriesCashflowBase:JSON.parse(JSON.stringify(seriesCashflowBase||{})), hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
+    balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, seriesCashflowBase:JSON.parse(JSON.stringify(seriesCashflowBase||{})), seriesCashflowLedger:seriesCashflowLedger?JSON.parse(JSON.stringify(seriesCashflowLedger)):null, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
     dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt,
     seriesId,seriesGameCount,seriesStartedAt
   }
@@ -7199,7 +7246,7 @@ function resumeActiveGame(){
   remoteSessionId=''
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
   currentRoomId=g.currentRoomId||''; P=g.P||[]; seats=g.seats||[...P]; selectedStake=g.selectedStake||selectedStake
-  currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); seriesCashflowBase=g.seriesCashflowBase||{}; hands=g.hands||[]
+  currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); seriesCashflowBase=g.seriesCashflowBase||{}; seriesCashflowLedger=g.seriesCashflowLedger||null; hands=g.hands||[]
   roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
   recorderPlayer=g.recorderPlayer||P[0]||''; roundLeaders=g.roundLeaders||[]; sessionSaved=false
   seriesId=g.seriesId||makeId('series'); seriesGameCount=Number(g.seriesGameCount||0); seriesStartedAt=g.seriesStartedAt||g.savedAt||new Date().toISOString()
