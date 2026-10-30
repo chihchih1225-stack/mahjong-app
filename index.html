@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
+<!-- V109: 跑馬燈豪華版（大量情境句 + 戰況動態句）；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -5046,39 +5046,110 @@ function v57ResolveCheerFromCurrentMap(){
 function v56TickerMessages(){
   const cheer=v57ResolveCheerFromCurrentMap()
   const msgs=[]
-  if(cheer) msgs.push(`📣📣 ${cheer} 加油！加油！第一名！ 📣📣`)
-  // V88：「誰胡誰」不是固定口號，只能用實際上一把結果組句子。
+  const add=(...xs)=>xs.filter(Boolean).forEach(x=>msgs.push(x))
+  const canon=x=>canonicalPlayerName(x||'')
+  const names=(P||[]).map(canon).filter(Boolean)
+  const money=Object.fromEntries(names.map(n=>[n,Number(balances?.[n]||0)]))
+  const sorted=[...names].sort((a,b)=>money[b]-money[a])
+  const leader=sorted[0]||'', trailer=sorted[sorted.length-1]||''
   const lastHand=(hands||[]).length?hands[hands.length-1]:null
+
+  if(cheer) add(`📣📣 ${cheer} 加油！加油！第一名！ 📣📣`)
+
+  // 上一把真實事件：只講真的發生過的結果。
   if(lastHand?.result==='胡牌' && lastHand?.winner && lastHand?.discarder){
-    msgs.push(`🀄 剛剛 ${canonicalPlayerName(lastHand.winner)} 胡了 ${canonicalPlayerName(lastHand.discarder)}！`)
+    const w=canon(lastHand.winner),d=canon(lastHand.discarder)
+    add(`🀄 剛剛 ${w} 胡了 ${d}！`,`💥 ${d} 一張牌送進 ${w} 的口袋`,`🎯 ${w} 抓到機會，${d} 這把買單`)
   }else if(lastHand?.result==='自摸' && lastHand?.winner){
-    msgs.push(`🎯 剛剛 ${canonicalPlayerName(lastHand.winner)} 自摸！其他三家一起買單`)
+    const w=canon(lastHand.winner)
+    add(`🎯 剛剛 ${w} 自摸！其他三家一起買單`,`✨ ${w} 自己摸到答案，三家一起掏錢`,`🀄 ${w} 自摸成功，這把全桌都有份`)
   }else if(lastHand?.result==='流局'){
-    msgs.push('🌊 剛剛流局，下一把重新來過')
+    add('🌊 剛剛流局，下一把重新來過','🀄 四家都守住了，這把和平收場','👀 沒人胡？下一把火力再開')
   }else if(lastHand?.result==='詐胡' && lastHand?.winner){
-    msgs.push(`🚨 剛剛 ${canonicalPlayerName(lastHand.winner)} 詐胡，牌桌瞬間安靜三秒`)
+    const w=canon(lastHand.winner)
+    add(`🚨 剛剛 ${w} 詐胡，牌桌瞬間安靜三秒`,`😳 ${w} 這聲胡喊得有點貴`,`🧾 ${w} 詐胡帳單已送達`)
   }
-  if(P?.length){
-    const names=P.map(canonicalPlayerName)
-    if(names.length===4) msgs.push(`🎲 今晚牌桌：${names.join('・')}，四位都別想跑`)
-    msgs.push(`🔥 ${names[0]} 摸好一點，${names[1]} 小心放槍`)
-    msgs.push(`👀 ${names[2]} 正在等機會，${names[3]} 牌要拿穩`)
+
+  if(names.length===4){
+    const [a,b,c,d]=names
+    add(
+      `🎲 今晚牌桌：${names.join('・')}，四位都別想跑`,
+      `🔥 ${a} 摸好一點，${b} 小心放槍`,
+      `👀 ${c} 正在等機會，${d} 牌要拿穩`,
+      `🀄 ${a} 看起來很淡定，${c} 不一定相信`,
+      `😈 ${b} 今天的牌運，${d} 正在偷偷觀察`,
+      `🎲 ${c} 下一張摸什麼，另外三家都很關心`,
+      `💸 ${d} 先別算錢，牌還沒打完`,
+      `👀 ${a} 跟 ${b} 的眼神交流，看起來不太單純`,
+      `🔥 ${c} 還沒出手，不代表沒有在等大的`,
+      `🀄 ${d} 牌拿穩，旁邊三家都在等機會`
+    )
   }
-  msgs.push('💸 今天誰要負責請宵夜？','😈 牌桌無朋友，結帳才有朋友','🍀 摸起來！摸起來！','💰 輸贏乃兵家常事，結帳才是大事','🀄 好牌慢慢摸，錢包顧好','🔥 一把翻身的機會永遠在下一把')
-  if(dealer) msgs.push(`👑 ${canonicalPlayerName(dealer)} 正在坐莊${repeats>0?`・連 ${repeats}`:''}`)
-  if(P?.length){
-    const leader=[...P].sort((a,b)=>Number(balances[b]||0)-Number(balances[a]||0))[0]
-    if(leader && Number(balances[leader]||0)>0) msgs.push(`💰 ${leader} 目前領先 +$${Number(balances[leader]||0).toLocaleString()}`)
-    const discards=Object.fromEntries(P.map(p=>[p,0]))
-    ;(hands||[]).forEach(h=>{if(h.result==='胡牌'&&h.discarder&&discards[h.discarder]!=null)discards[h.discarder]++})
-    const bomber=[...P].sort((a,b)=>discards[b]-discards[a])[0]
-    if(bomber && discards[bomber]>=2) msgs.push(`💣 ${bomber} 已經放槍 ${discards[bomber]} 次`)
+
+  add(
+    '💸 今天誰要負責請宵夜？','😈 牌桌無朋友，結帳才有朋友','🍀 摸起來！摸起來！',
+    '💰 輸贏乃兵家常事，結帳才是大事','🀄 好牌慢慢摸，錢包顧好','🔥 一把翻身的機會永遠在下一把',
+    '🎲 骰子沒有感情，牌桌也沒有','👀 安靜不代表安全，可能只是在做大牌','💳 今日消費請以牌桌結算為準',
+    '🧧 贏錢先別急著笑，連打還沒結束','🀄 牌可以亂摸，帳不能亂算','😎 贏的先低調，輸的還有下一把',
+    '💸 錢沒有不見，只是換到別人的水位','🔥 牌局還沒結束，誰都可能翻盤','🎯 好牌要胡到才算數',
+    '👑 王座坐得穩不穩，下一把就知道','🍀 今天的運氣可能正在洗牌中','😈 牌桌最遠的距離，是聽牌到流局',
+    '🀄 摸牌前人人平等，摸牌後各憑本事','💰 水位只是暫時，結帳才是現實','👀 有人正在做大事，只是還沒被發現',
+    '🎲 下一把會發生什麼？錢包比你更想知道','🔥 連莊不可怕，可怕的是莊家越坐越舒服','💸 一張牌的距離，也可能是一頓宵夜的距離',
+    '🀄 先別問誰最強，先看最後誰收錢','😏 笑最大聲的不一定贏最多','🎯 胡牌靠實力，自摸有時也要一點命',
+    '💰 贏錢的人記得保持禮貌，等等可能要吐回去','👀 牌桌上的沉默，通常都在醞釀事情','🍀 好運正在路上，至於到誰家就不知道了',
+    '🧾 本桌不賒帳，感情可以下次再談','🔥 一把不夠就兩把，兩把不夠就連打','🀄 摸到好牌先藏好表情',
+    '😈 今天沒有永遠的贏家，只有暫時的債主','💸 牌局越晚，錢包越誠實','🎲 每一張牌都有自己的命運，尤其是放槍那張',
+    '👑 想坐王座？先問另外三家答不答應','💰 數字會說話，而且通常說得很直接','🀄 有聽就有希望，有胡才有收入',
+    '🔥 逆風不要怕，怕的是下一張又打錯','👀 這桌氣氛很好，直到有人開始算錢','😎 表情管理很重要，尤其拿到大牌的時候',
+    '💸 今日財富重新分配進行中','🎯 放槍是一瞬間，提款機紀錄是一整晚','🀄 牌桌沒有劇本，但每一把都有劇情',
+    '🍀 拜託下一張，來一張有用的','😈 想偷雞？另外三家都看著呢','💰 先贏不算贏，結帳拿錢才算',
+    '🔥 今晚的冠軍還沒有下班','👀 有人水位正在悄悄變化','🎲 摸牌三秒鐘，人生跑馬燈三分鐘',
+    '🀄 這不是運氣不好，只是好牌還在路上','💸 宵夜錢、計程車錢，今晚都可能在桌上流動','😏 嘴上說隨便打，手上每張都想很久',
+    '🎯 聽牌不說話，胡牌再大聲','🔥 下一把就是新的故事','💰 請珍惜目前的正數，它可能很短暫',
+    '🀄 四個人一桌，總有人覺得自己今天特別衰','👀 不要偷看別人的水位，先顧好自己的','🍀 摸到想要的那張，就是今晚最浪漫的事',
+    '😈 牌桌上的友情，經得起自摸嗎？','💸 今日提款額度由牌運決定','🎲 每一次出牌，都是一次小型財務決策'
+  )
+
+  if(dealer){
+    const dn=canon(dealer)
+    add(`👑 ${dn} 正在坐莊${repeats>0?`・連 ${repeats}`:''}`)
+    if(repeats>=1) add(`🔥 ${dn} 已經連莊 ${repeats}，三家準備拆台`,`👑 ${dn} 的莊還沒下班，其他三家加油`)
+    if(repeats>=2) add(`😈 ${dn} 這個莊坐得有點舒服了吧`,`💸 再讓 ${dn} 連下去，今晚宵夜可能有人包了`)
+  }
+
+  if(names.length){
+    if(leader && money[leader]>0){
+      add(`💰 ${leader} 目前領先 +$${money[leader].toLocaleString()}`,`👑 ${leader} 暫坐第一名，後面三家正在追`,`😎 ${leader} 現在水位最好，但還不能太早開香檳`)
+    }
+    if(trailer && money[trailer]<0){
+      add(`🔥 ${trailer} 目前 $${money[trailer].toLocaleString()}，逆轉劇本可以開始了`,`🍀 ${trailer} 別急，下一把可能就是轉折點`,`💸 ${trailer} 現在先蹲低一點，等等看能不能跳回來`)
+    }
+    if(leader && trailer && leader!==trailer){
+      const gap=money[leader]-money[trailer]
+      if(gap>0) add(`📊 ${leader} 和 ${trailer} 目前相差 $${gap.toLocaleString()}，牌局還有得追`)
+    }
+
+    const discards=Object.fromEntries(names.map(p=>[p,0]))
+    ;(hands||[]).forEach(h=>{const d=canon(h.discarder);if(h.result==='胡牌'&&d&&discards[d]!=null)discards[d]++})
+    const bomber=[...names].sort((a,b)=>discards[b]-discards[a])[0]
+    if(bomber && discards[bomber]>=2) add(`💣 ${bomber} 已經放槍 ${discards[bomber]} 次`,`🚨 ${bomber} 今日危險牌雷達可能需要校正`,`😈 ${bomber} 再放一槍，另外三家可能要頒感謝狀`)
+
+    const selfdraws=Object.fromEntries(names.map(p=>[p,0]))
+    const wins=Object.fromEntries(names.map(p=>[p,0]))
+    ;(hands||[]).forEach(h=>{const w=canon(h.winner);if(w&&wins[w]!=null&&(h.result==='胡牌'||h.result==='自摸'))wins[w]++;if(w&&selfdraws[w]!=null&&h.result==='自摸')selfdraws[w]++})
+    const hot=[...names].sort((a,b)=>wins[b]-wins[a])[0]
+    if(hot && wins[hot]>=2) add(`🔥 ${hot} 已經胡了 ${wins[hot]} 把，手感正在熱`,`🎯 ${hot} 今天胡牌雷達有開`)
+    const selfKing=[...names].sort((a,b)=>selfdraws[b]-selfdraws[a])[0]
+    if(selfKing && selfdraws[selfKing]>=2) add(`✨ ${selfKing} 已經自摸 ${selfdraws[selfKing]} 次，另外三家壓力不小`)
+
     const matrix=buildCashflowMatrix(hands,P)
-    const paid=Object.fromEntries(P.map(a=>[a,P.reduce((s,b)=>s+Number(matrix[a]?.[b]||0),0)]))
-    const payer=[...P].sort((a,b)=>paid[b]-paid[a])[0]
-    if(payer && paid[payer]>0) msgs.push(`🏧 ${payer} 目前已付出 $${paid[payer].toLocaleString()}`)
+    const paid=Object.fromEntries(names.map(a=>[a,names.reduce((s,b)=>s+Number(matrix[a]?.[b]||0),0)]))
+    const payer=[...names].sort((a,b)=>paid[b]-paid[a])[0]
+    if(payer && paid[payer]>0) add(`🏧 ${payer} 目前累積付出 $${paid[payer].toLocaleString()}`,`💳 ${payer} 的付款紀錄目前最忙`,`🧾 ${payer} 今日金流很活躍，提款機正在認真記帳`)
   }
-  return msgs
+
+  // 去除重複，避免同一句在同一輪跑馬燈出現兩次。
+  return [...new Set(msgs)]
 }
 function v56RenderTicker(){
   const el=document.getElementById('liveTickerTrack')
