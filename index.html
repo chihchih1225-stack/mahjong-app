@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V85: V84 + 連打總結算（真正收付金額；與今日總結分離） -->
+<!-- V88: V87 + 直播跑馬燈內容/完整播放修正 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -2249,7 +2249,7 @@ main{padding-bottom:74px}
   </div>
 
   <div id="liveTickerWrap" class="live-ticker-wrap" aria-live="polite">
-    <div id="liveTickerTrack" class="live-ticker-track">🀄 誰胡誰！　・　💸 今天誰要負責請宵夜？　・　🍀 摸起來！摸起來！</div>
+    <div id="liveTickerTrack" class="live-ticker-track">🀄 牌局進行中　・　🍀 摸起來！摸起來！　・　💰 結帳才是大事</div>
   </div>
 
 
@@ -3491,7 +3491,15 @@ async function getNextTableNumber(roomId=currentRoomId){
   try{
     const f=encodeURIComponent(`room="${pbFilterValue(roomId)}" && status="active"`)
     const data=await pbRequest(`/api/collections/game_sessions/records?perPage=100&sort=table_number&filter=${f}`)
-    const used=new Set((data.items||[]).map(x=>Number(x.table_number||0)).filter(n=>n>0))
+    // V86：只有 10 分鐘內仍有活動的 active session 才占桌號。
+    // 舊的殘留 active 紀錄不能讓今天第一桌跳成第 2 / 第 3 桌。
+    const now=Date.now()
+    const used=new Set((data.items||[])
+      .filter(x=>{
+        const t=new Date(x.updated||x.created||0).getTime()
+        return !!t && (now-t)<600000
+      })
+      .map(x=>Number(x.table_number||0)).filter(n=>n>0))
     let n=1
     while(used.has(n)) n++
     return n
@@ -3527,7 +3535,12 @@ async function createRemoteGameSession(){
       try{
         const tf=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active" && table_number=${tableNumber}`)
         const td=await pbRequest(`/api/collections/game_sessions/records?perPage=5&filter=${tf}`)
-        if((td.items||[]).length) tableNumber=0
+        const now=Date.now()
+        const occupied=(td.items||[]).some(x=>{
+          const t=new Date(x.updated||x.created||0).getTime()
+          return !!t && (now-t)<600000
+        })
+        if(occupied) tableNumber=0
       }catch(e){ tableNumber=0 }
     }
     if(!tableNumber) tableNumber=await getNextTableNumber(currentRoomId)
@@ -4886,8 +4899,25 @@ function v56TickerMessages(){
   const cheer=v57ResolveCheerFromCurrentMap()
   const msgs=[]
   if(cheer) msgs.push(`📣📣 ${cheer} 加油！加油！第一名！ 📣📣`)
-  msgs.push('🀄 誰胡誰！','🔥 放槍請自行面壁','💸 今天誰要負責請宵夜？','😈 牌桌無朋友','🍀 摸起來！摸起來！','💰 輸贏乃兵家常事，結帳才是大事')
-  if(dealer) msgs.push(`👑 ${dealer} 正在坐莊${repeats>0?`・連 ${repeats}`:''}`)
+  // V88：「誰胡誰」不是固定口號，只能用實際上一把結果組句子。
+  const lastHand=(hands||[]).length?hands[hands.length-1]:null
+  if(lastHand?.result==='胡牌' && lastHand?.winner && lastHand?.discarder){
+    msgs.push(`🀄 剛剛 ${canonicalPlayerName(lastHand.winner)} 胡了 ${canonicalPlayerName(lastHand.discarder)}！`)
+  }else if(lastHand?.result==='自摸' && lastHand?.winner){
+    msgs.push(`🎯 剛剛 ${canonicalPlayerName(lastHand.winner)} 自摸！其他三家一起買單`)
+  }else if(lastHand?.result==='流局'){
+    msgs.push('🌊 剛剛流局，下一把重新來過')
+  }else if(lastHand?.result==='詐胡' && lastHand?.winner){
+    msgs.push(`🚨 剛剛 ${canonicalPlayerName(lastHand.winner)} 詐胡，牌桌瞬間安靜三秒`)
+  }
+  if(P?.length){
+    const names=P.map(canonicalPlayerName)
+    if(names.length===4) msgs.push(`🎲 今晚牌桌：${names.join('・')}，四位都別想跑`)
+    msgs.push(`🔥 ${names[0]} 摸好一點，${names[1]} 小心放槍`)
+    msgs.push(`👀 ${names[2]} 正在等機會，${names[3]} 牌要拿穩`)
+  }
+  msgs.push('💸 今天誰要負責請宵夜？','😈 牌桌無朋友，結帳才有朋友','🍀 摸起來！摸起來！','💰 輸贏乃兵家常事，結帳才是大事','🀄 好牌慢慢摸，錢包顧好','🔥 一把翻身的機會永遠在下一把')
+  if(dealer) msgs.push(`👑 ${canonicalPlayerName(dealer)} 正在坐莊${repeats>0?`・連 ${repeats}`:''}`)
   if(P?.length){
     const leader=[...P].sort((a,b)=>Number(balances[b]||0)-Number(balances[a]||0))[0]
     if(leader && Number(balances[leader]||0)>0) msgs.push(`💰 ${leader} 目前領先 +$${Number(balances[leader]||0).toLocaleString()}`)
@@ -4906,9 +4936,13 @@ function v56RenderTicker(){
   const el=document.getElementById('liveTickerTrack')
   if(!el) return
   const msgs=v56TickerMessages()
-  el.textContent=msgs.join('　◆　')
-  // 內容變化後重啟動畫，避免更新文字卡在半途。
-  el.style.animation='none'; void el.offsetWidth; el.style.animation=''
+  const nextText=msgs.join('　◆　')
+  // V88：直播每次 polling 都會呼叫 render；以前每次都重啟動畫，
+  // 所以長句永遠跑不到尾。現在只換內容，不把動畫拉回起點。
+  if(el.textContent!==nextText) el.textContent=nextText
+  // 依文字長度給足播放時間；至少 45 秒，長內容自動更久。
+  const seconds=Math.max(45,Math.ceil(nextText.length*0.22))
+  el.style.animationDuration=`${seconds}s`
 }
 
 function renderGame(){
@@ -5436,9 +5470,10 @@ function getPlayerWind(player){
 
 
 function renderLiveStats(){
-  const maxBalance=Math.max(...P.map(p=>balances[p]))
+  const maxBalance=Math.max(...P.map(p=>Number(balances[p]||0)))
   const playerCardsHtml=P.map(player=>{
-    const net=balances[player]
+    // V86：直播同步瞬間即使某個舊名稱沒有對到，也先以 0 顯示，不能整頁炸掉。
+    const net=Number(balances[player]||0)
     const height=getWaterHeight(net)
     const safePlayer=player.replace(/'/g,"\\'")
     return `
@@ -8157,8 +8192,8 @@ function v52SeatNamesFromSession(ss,byId,fallbackNames=[]){
   const ordered=['東','南','西','北'].map(w=>{
     const v=sm?.[w]
     if(!v) return ''
-    if(typeof v==='string') return byId[v]?.display_name||v
-    return byId[v.player_id]?.display_name||v.name||''
+    if(typeof v==='string') return canonicalPlayerName(byId[v]?.display_name||v)
+    return canonicalPlayerName(byId[v.player_id]?.display_name||v.name||'')
   }).filter(Boolean)
   return ordered.length===4?ordered:[...fallbackNames]
 }
@@ -8216,21 +8251,27 @@ v32LoadLiveSession=async function(sessionId,first=false){
   const roomPlayers=await loadRoomPlayersList(ss.room),byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
   remoteRoomPlayerMap=Object.fromEntries(roomPlayers.filter(x=>x.display_name).map(x=>[x.display_name,x]))
   if(first){try{await v57ResolveCheerForRoomPlayers(roomPlayers)}catch(e){}}
-  const relationNames=(ss.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
+  const relationNames=(ss.players||[]).map(id=>canonicalPlayerName(byId[id]?.display_name||'')).filter(Boolean)
   if(relationNames.length!==4) throw new Error('本局四位玩家尚未同步完成')
-  const officialSeats=v52SeatNamesFromSession(ss,byId,relationNames)
+  const officialSeats=v52SeatNamesFromSession(ss,byId,relationNames).map(canonicalPlayerName)
   const hf=encodeURIComponent(`session="${pbFilterValue(sessionId)}"`)
   const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
   P=[...relationNames]
   seats=[...officialSeats]
-  dealer=byId[ss.dealer]?.display_name||officialSeats[0]||relationNames[0]
+  dealer=canonicalPlayerName(byId[ss.dealer]?.display_name||officialSeats[0]||relationNames[0])
   dealerSeatIndex=Math.max(0,seats.indexOf(dealer))
   recorderPlayer=relationNames[0]
   roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round))
   repeats=Number(ss.dealer_repeats||0)
   hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:byId[h.dealer]?.display_name||dealer,repeats:Number(h.dealer_repeats||0)}))
   const last=(hd.items||[]).slice(-1)[0]
-  balances=last?.balances_after||Object.fromEntries(P.map(n=>[n,0]))
+  const rawLiveBalances=(last?.balances_after&&typeof last.balances_after==='object')?last.balances_after:{}
+  balances=Object.fromEntries(P.map(n=>[n,0]))
+  Object.entries(rawLiveBalances).forEach(([name,value])=>{
+    const key=canonicalPlayerName(name)
+    if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
+  })
+  selectedStake=ss.stake||selectedStake||'100/20'
   currentRule=stakeRules[selectedStake]||stakeRules['100/20']
   gameStartedAt=ss.started_at||ss.created||gameStartedAt;gameEndedAt=ss.ended_at||''
   liveViewerMode=true;v32ViewingSessionId=sessionId;v52LiveEndedNoticeFor=''
