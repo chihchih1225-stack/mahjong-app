@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V105: 提款機完整矩陣由計分端保存並同步直播，不再由直播端反推 -->
+<!-- V106: 修正真正生效的 V52 直播載入器：提款機快照同步 + 直播位置圖依東南西北實際座位 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -1768,6 +1768,32 @@ main{padding-bottom:74px}
 <!-- 誰與爭鋒 V52：多桌直播／直播清理／正式座位 -->
 
 <!-- 誰與爭鋒 V49：房間聊天室（PocketBase chat_messages） -->
+
+<style id="v106-live-seat-map-fix">
+/* V106：直播位置圖與計分座位一致，東下／南右／西上／北左。 */
+#game.live-viewer-mode:not(.projection-mode) #playerStats{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-areas:
+    "top top"
+    "left right"
+    "bottom bottom"!important;
+  gap:8px 10px!important;
+  align-items:center!important;
+}
+#game.live-viewer-mode #playerStats .viewer-player-card.pos-top{grid-area:top;justify-self:center;width:min(76%,280px)}
+#game.live-viewer-mode #playerStats .viewer-player-card.pos-left{grid-area:left;width:100%}
+#game.live-viewer-mode #playerStats .viewer-player-card.pos-right{grid-area:right;width:100%}
+#game.live-viewer-mode #playerStats .viewer-player-card.pos-bottom{grid-area:bottom;justify-self:center;width:min(76%,280px)}
+#game.live-viewer-mode.projection-mode #playerStats{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-areas:
+    "top top"
+    "left right"
+    "bottom bottom"!important;
+}
+</style>
+
 </head>
 
 
@@ -8111,7 +8137,18 @@ function v32ViewerStatsHtml(){
     if(h.result==='自摸'&&counts[h.winner]) counts[h.winner].self++
     if(h.result==='胡牌'&&counts[h.discarder]) counts[h.discarder].discard++
   })
-  return P.map(p=>{const c=counts[p]||{win:0,self:0,discard:0};const n=Number(balances[p]||0);return `<div class="viewer-player-card ${p===dealer?'dealer':''}"><div class="viewer-player-top"><span class="viewer-player-name">${escapeHtml(p)} ${p===dealer?'<span class="viewer-dealer-tag">莊</span>':''}</span><span class="viewer-player-money" style="color:${n>=0?'#6caa8b':'#cf7f91'}">${n>=0?'+':''}$${n.toLocaleString()}</span></div><div class="viewer-player-meta">胡 ${c.win}・自摸 ${c.self}・放槍 ${c.discard}</div></div>`}).join('')
+
+  // V106：直播位置圖固定依實際座位顯示：
+  // 東＝下、南＝右、西＝上、北＝左。
+  // 不再用 players relation 的陣列順序排成普通 2x2。
+  const posBySeat=['bottom','right','top','left']
+  return seats.map((p,seatIndex)=>{
+    const c=counts[p]||{win:0,self:0,discard:0}
+    const n=Number(balances[p]||0)
+    const wind=winds[seatIndex]||''
+    const pos=posBySeat[seatIndex]||'top'
+    return `<div class="viewer-player-card pos-${pos} ${p===dealer?'dealer':''}"><div class="viewer-player-top"><span class="viewer-player-name">${escapeHtml(wind)}家・${escapeHtml(p)} ${p===dealer?'<span class="viewer-dealer-tag">莊</span>':''}</span><span class="viewer-player-money" style="color:${n>=0?'#6caa8b':'#cf7f91'}">${n>=0?'+':''}$${n.toLocaleString()}</span></div><div class="viewer-player-meta">胡 ${c.win}・自摸 ${c.self}・放槍 ${c.discard}</div></div>`
+  }).join('')
 }
 function v32RenderViewerDashboard(){
   const game=document.getElementById('game'); if(!game) return
@@ -8395,7 +8432,26 @@ v32LoadLiveSession=async function(sessionId,first=false){
   recorderPlayer=relationNames[0]
   roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round))
   repeats=Number(ss.dealer_repeats||0)
-  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:byId[h.dealer]?.display_name||dealer,repeats:Number(h.dealer_repeats||0)}))
+  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalPlayerName(byId[h.winner]?.display_name||''),discarder:canonicalPlayerName(byId[h.discarder]?.display_name||''),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
+
+  // V106：真正執行中的 V52 直播載入器也必須讀提款機資料。
+  // 之前 V103~V105 修改的是前一版 loader，後面這個 override 又把它蓋掉，所以畫面才一直沒變。
+  seriesCashflowBase=(ss.seat_map && typeof ss.seat_map._series_cashflow_base==='object')
+    ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_base))
+    :{}
+  liveCashflowSnapshot=(ss.seat_map && typeof ss.seat_map._series_cashflow_snapshot==='object')
+    ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_snapshot))
+    :null
+
+  sessionOpeningBalances=Object.fromEntries(P.map(n=>[n,0]))
+  const openingById=(ss.final_balances && typeof ss.final_balances==='object')?ss.final_balances:{}
+  Object.entries(openingById).forEach(([playerId,value])=>{
+    const name=canonicalPlayerName(byId[playerId]?.display_name||'')
+    if(name && Object.prototype.hasOwnProperty.call(sessionOpeningBalances,name)){
+      sessionOpeningBalances[name]=Number(value||0)
+    }
+  })
+
   const last=(hd.items||[]).slice(-1)[0]
   balances=Object.fromEntries(P.map(n=>[n,0]))
   if(last?.balances_after && typeof last.balances_after==='object'){
