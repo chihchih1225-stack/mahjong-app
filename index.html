@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V96 FINAL: 投影滿版重置；左座位/紀錄者計分，右圓餅/提款機 -->
+<!-- V97 FINAL: 投影觀看者也固定雙欄；左座位+計分，右圓餅+提款機 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -9278,6 +9278,52 @@ body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!importan
     grid-template-columns:minmax(0,48fr) minmax(0,52fr)!important;
   }
 }
+
+
+/* =========================================================
+   V97 FINAL VIEWER PROJECTION FIX
+   根因：V92 的 live-viewer-mode.projection-mode 選擇器比 V96 更具體，
+   所以觀看者投影仍被舊版三欄規則接管。這裡用更高 specificity 完整覆蓋。
+========================================================= */
+html body #game.live-viewer-mode.projection-mode{
+  display:grid!important;
+  width:100vw!important;
+  max-width:none!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  padding:8px 10px!important;
+  overflow:hidden!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-rows:40px minmax(0,56fr) minmax(0,44fr)!important;
+  grid-template-areas:
+    "ticker ticker"
+    "status chart"
+    "score cash"!important;
+  gap:8px!important;
+  align-items:stretch!important;
+}
+html body #game.live-viewer-mode.projection-mode .live-ticker-wrap{
+  grid-area:ticker!important;grid-column:1/-1!important;grid-row:1!important;
+}
+html body #game.live-viewer-mode.projection-mode .game-status-card{
+  grid-area:status!important;grid-column:1!important;grid-row:2!important;
+}
+html body #game.live-viewer-mode.projection-mode .projection-score-panel{
+  display:block!important;grid-area:score!important;grid-column:1!important;grid-row:3!important;
+}
+html body #game.live-viewer-mode.projection-mode .game-chart-card{
+  grid-area:chart!important;grid-column:2!important;grid-row:2!important;
+}
+html body #game.live-viewer-mode.projection-mode .game-cashflow-card{
+  grid-area:cash!important;grid-column:2!important;grid-row:3!important;
+}
+html body #game.live-viewer-mode.projection-mode .game-trend-card,
+html body #game.live-viewer-mode.projection-mode .game-entry-card,
+html body #game.live-viewer-mode.projection-mode .game-history-card,
+html body #game.live-viewer-mode.projection-mode .game-finish-btn,
+html body #game.live-viewer-mode.projection-mode #projectionBottom,
+html body #game.live-viewer-mode.projection-mode #liveViewerBackBtn,
+html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!important}
 
 </style>
 
