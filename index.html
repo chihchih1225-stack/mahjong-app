@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V94: V93 + 投影左右雙區（紀錄者可直接計分；觀看者唯讀） -->
+<!-- V95: V93 + 投影 50/50 左座位+精簡計分、右圓餅+提款機 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -2311,6 +2311,23 @@ main{padding-bottom:74px}
 
 
   <!-- 金額圓餅 -->
+
+  <div id="projectionScorePanel" class="card projection-score-panel">
+    <div class="projection-score-title"><b>✍️ 這一把</b><span id="projectionScoreHint">選結果後直接點座位</span></div>
+    <div class="projection-result-row">
+      <button type="button" data-proj-result="胡牌" onclick="projectionPickResult('胡牌')">胡牌</button>
+      <button type="button" data-proj-result="自摸" onclick="projectionPickResult('自摸')">自摸</button>
+      <button type="button" data-proj-result="詐胡" onclick="projectionPickResult('詐胡')">詐胡</button>
+      <button type="button" data-proj-result="流局" onclick="projectionPickResult('流局')">流局</button>
+    </div>
+    <div id="projectionTaiRow" class="projection-tai-row">
+      <button type="button" onclick="addTai(-1)">−1</button><b id="projectionTaiValue">0 台</b>
+      <button type="button" onclick="addTai(1)">+1</button><button type="button" onclick="addTai(2)">+2</button><button type="button" onclick="addTai(3)">+3</button>
+    </div>
+    <div class="projection-pattern-row"><button type="button" onclick="togglePatterns()">＋ 特殊牌型</button><span id="projectionPatternSummary">未選</span></div>
+    <div id="projectionCalcPreview" class="projection-calc-preview">選好結果與玩家後會顯示金額</div>
+    <button type="button" class="projection-save-hand" onclick="saveHand()">記錄這一把</button>
+  </div>
 
   <div class="card game-chart-card">
 
@@ -5124,6 +5141,7 @@ function renderGame(){
   renderHistory()
 
   renderPaymentPreview()
+  syncProjectionScorePanel()
 
 }
 
@@ -7889,12 +7907,31 @@ async function clearAllLocalData(){
 /* =========================
    投影模式
 ========================= */
+
+function projectionPickResult(value){
+  if(liveViewerMode) return
+  const source=[...document.querySelectorAll('#game .game-entry-card [data-result]')].find(btn=>btn.dataset.result===value)
+  if(source) pickResult(source,value)
+}
+function syncProjectionScorePanel(){
+  const panel=document.getElementById('projectionScorePanel'); if(!panel) return
+  panel.querySelectorAll('[data-proj-result]').forEach(btn=>btn.classList.toggle('active',btn.dataset.projResult===result))
+  const tv=document.getElementById('projectionTaiValue'); if(tv) tv.textContent=`${tai} 台`
+  const tr=document.getElementById('projectionTaiRow'); if(tr) tr.classList.toggle('hidden',result==='流局'||result==='詐胡')
+  const hint=document.getElementById('projectionScoreHint')
+  if(hint) hint.textContent=result==='流局'?'流局不用選玩家':result==='詐胡'?(winner?`${winner} 詐胡`:'點左上座位選詐胡者'):result==='自摸'?(winner?`${winner} 自摸`:'點左上座位選自摸者'):!winner?'點左上座位選胡牌者':!discarder?`${winner} 胡・再點放槍者`:`${winner} 胡・${discarder} 放槍`
+  const ps=document.getElementById('projectionPatternSummary'); if(ps) ps.textContent=selectedPatterns?.length?selectedPatterns.join('、'):'未選'
+  const cp=document.getElementById('projectionCalcPreview'), src=document.getElementById('calculationPreview')
+  if(cp&&src) cp.textContent=src.textContent||'選好結果與玩家後會顯示金額'
+}
+
 function toggleProjectionMode(){
   const game=document.getElementById('game')
   const btn=document.getElementById('projectionToggleBtn')
   const entering=!game.classList.contains('projection-mode')
   const viewerProjection=!!liveViewerMode
   game.classList.toggle('projection-mode',entering)
+  if(entering) syncProjectionScorePanel()
 
   if(btn){
     btn.textContent=entering?(viewerProjection?'👀 回到直播':'✍️ 回到紀錄'):(viewerProjection?'📺 全螢幕投影':'📺 投影')
@@ -8937,144 +8974,37 @@ button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 #game.live-viewer-mode.projection-mode .cashflow-table th{font-size:11px!important}
 
 
-/* ===== V94：投影改成左右雙區 =====
-   紀錄者：左＝座位戰況 + 計分；右＝圓餅圖 + 提款機。
-   觀看者：左＝座位戰況；右＝圓餅圖 + 提款機，維持唯讀。
-*/
-#game.projection-mode{
-  width:100vw!important;
-  height:100dvh!important;
-  max-height:100dvh!important;
-  min-height:0!important;
-  overflow:hidden!important;
-  box-sizing:border-box!important;
-  padding:7px 9px!important;
-  display:grid!important;
-  grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)!important;
-  grid-template-rows:38px minmax(0,1fr) minmax(0,1fr)!important;
-  gap:7px!important;
-  background:#fffaf6!important;
-}
-#game.projection-mode .live-ticker-wrap{
-  grid-column:1/-1!important;grid-row:1!important;
-  height:38px!important;min-height:38px!important;margin:0!important;
-}
-#game.projection-mode .game-status-card{
-  grid-column:1!important;grid-row:2!important;
-  margin:0!important;padding:9px 11px!important;
-  min-height:0!important;height:100%!important;overflow:hidden!important;
-}
-#game.projection-mode .game-entry-card{
-  grid-column:1!important;grid-row:3!important;
-  display:block!important;
-  margin:0!important;padding:9px 11px!important;
-  min-height:0!important;height:100%!important;overflow:auto!important;
-  overscroll-behavior:contain;
-}
-#game.projection-mode .game-chart-card{
-  grid-column:2!important;grid-row:2!important;
-  margin:0!important;padding:9px 11px!important;
-  min-height:0!important;height:100%!important;overflow:hidden!important;
-}
-#game.projection-mode .game-cashflow-card{
-  grid-column:2!important;grid-row:3!important;
-  margin:0!important;padding:9px 11px!important;
-  min-height:0!important;height:100%!important;overflow:hidden!important;
-}
-#game.projection-mode .game-trend-card,
-#game.projection-mode .game-history-card,
-#game.projection-mode .game-finish-btn,
-#game.projection-mode #projectionBottom{display:none!important}
-
-/* 左上：座位與水位 */
-#game.projection-mode .live-head{margin:0 0 3px!important;align-items:center!important}
+/* ===== V95：投影固定 50/50，不再把內容擠在左半邊 ===== */
+#game.projection-mode{width:100vw!important;height:100dvh!important;max-height:100dvh!important;min-height:0!important;overflow:hidden!important;padding:7px 9px!important;box-sizing:border-box!important;display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:38px minmax(0,.56fr) minmax(0,.44fr)!important;gap:7px!important;background:#fffaf6!important}
+#game.projection-mode .live-ticker-wrap{grid-column:1/-1!important;grid-row:1!important;margin:0!important;height:38px!important;min-height:38px!important}
+#game.projection-mode .game-status-card{grid-column:1!important;grid-row:2!important;margin:0!important;height:100%!important;min-height:0!important;overflow:hidden!important;padding:9px 11px!important}
+#game.projection-mode .projection-score-panel{grid-column:1!important;grid-row:3!important;display:block!important;margin:0!important;height:100%!important;min-height:0!important;overflow:hidden!important;padding:8px 10px!important}
+#game.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important;margin:0!important;height:100%!important;min-height:0!important;overflow:hidden!important;padding:9px 11px!important}
+#game.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:3!important;margin:0!important;height:100%!important;min-height:0!important;overflow:hidden!important;padding:8px 10px!important}
+#game.projection-mode .game-entry-card,#game.projection-mode .game-history-card,#game.projection-mode .game-trend-card,#game.projection-mode .game-finish-btn,#game.projection-mode #projectionBottom{display:none!important}
+#game.projection-mode .live-head{margin:0 0 4px!important;align-items:center!important}
 #game.projection-mode .live-head>div:first-child{width:auto!important}
 #game.projection-mode .live-head>div:last-child{display:block!important}
 #game.projection-mode .live-head .muted{display:none!important}
-#game.projection-mode .round-big{font-size:34px!important;line-height:1!important}
+#game.projection-mode .round-big{font-size:32px!important;line-height:1!important}
 #game.projection-mode .dealer-pill{font-size:11px!important;padding:3px 8px!important}
-#game.projection-mode .hand-counter{font-size:25px!important}
-#game.projection-mode #playerStats{
-  display:grid!important;grid-template-columns:1fr 1fr!important;
-  gap:5px!important;margin-top:4px!important;
-}
-#game.projection-mode #playerStats .player-card,
-#game.projection-mode #playerStats .viewer-player-card{
-  min-height:58px!important;height:auto!important;padding:6px 8px!important;
-}
-#game.projection-mode #playerStats .player-content{padding:5px 7px!important}
-#game.projection-mode #playerStats .player-name,
-#game.projection-mode .viewer-player-name{font-size:12px!important;white-space:nowrap!important}
-#game.projection-mode #playerStats .current-money,
-#game.projection-mode .viewer-player-money{font-size:18px!important;white-space:nowrap!important}
-#game.projection-mode .viewer-player-meta{font-size:8px!important;margin-top:2px!important}
-
-/* 左下：計分操作壓縮成橫向可操作區 */
-#game.projection-mode .game-entry-card .entry-title{font-size:14px!important;margin:0 0 3px!important}
-#game.projection-mode .game-entry-card .entry-round{font-size:17px!important}
-#game.projection-mode .game-entry-card .entry-dealer,
-#game.projection-mode .game-entry-card .entry-hand{font-size:10px!important}
-#game.projection-mode .game-entry-card .player-pick-hint{font-size:10px!important;margin:2px 0 4px!important}
-#game.projection-mode .game-entry-card .seat-picker-wrap{display:none!important}
-#game.projection-mode .game-entry-card h3{font-size:11px!important;margin:5px 0!important}
-#game.projection-mode .game-entry-card .grid4{gap:5px!important}
-#game.projection-mode .game-entry-card .choice,
-#game.projection-mode .game-entry-card .player-btn{
-  min-height:31px!important;padding:5px 6px!important;font-size:11px!important;border-radius:9px!important;
-}
-#game.projection-mode .game-entry-card .tai-box{margin-top:6px!important;padding:6px!important}
-#game.projection-mode .game-entry-card .tai-number{font-size:20px!important;margin:2px 0!important}
-#game.projection-mode .game-entry-card .tai-quick-grid{gap:4px!important}
-#game.projection-mode .game-entry-card .tai-btn{min-height:30px!important;padding:4px!important;font-size:11px!important}
-#game.projection-mode .game-entry-card .pattern-box{margin-top:5px!important}
-#game.projection-mode .game-entry-card .pattern-toggle{padding:6px 8px!important;font-size:10px!important}
-#game.projection-mode .game-entry-card .pattern-list{gap:4px!important}
-#game.projection-mode .game-entry-card .pattern{padding:5px 6px!important;font-size:10px!important}
-#game.projection-mode .game-entry-card #calculationPreview{padding:6px 8px!important;font-size:10px!important;margin-top:5px!important}
-#game.projection-mode .game-entry-card > .primary{margin-top:5px!important;padding:7px!important;font-size:11px!important}
-
-/* 右上：圓餅 */
-#game.projection-mode .game-chart-card h2,
-#game.projection-mode .game-cashflow-card h2{font-size:16px!important;margin:0!important}
-#game.projection-mode .chart-wrap{
-  height:calc(100% - 30px)!important;
-  display:grid!important;grid-template-columns:minmax(120px,.8fr) minmax(0,1.2fr)!important;
-  align-items:center!important;gap:8px!important;
-}
-#game.projection-mode .pie{width:min(20vh,150px)!important;height:min(20vh,150px)!important}
-#game.projection-mode #moneyLegend{display:grid!important;grid-template-columns:1fr!important;gap:4px!important}
-#game.projection-mode .legend-item{font-size:10px!important;line-height:1.2!important}
-
-/* 右下：提款機 */
-#game.projection-mode .cashflow-title-row{margin-bottom:4px!important}
-#game.projection-mode .cashflow-note{display:none!important}
-#game.projection-mode .cashflow-table{font-size:10px!important;border-spacing:3px!important}
-#game.projection-mode .cashflow-table th,
-#game.projection-mode .cashflow-table td{padding:5px 3px!important;height:auto!important}
-
-/* 觀看者仍然不能計分：不顯示左下操作區，左側戰況跨兩列。 */
-#game.live-viewer-mode.projection-mode .game-entry-card{display:none!important}
-#game.live-viewer-mode.projection-mode .game-status-card{
-  grid-column:1!important;grid-row:2/4!important;
-}
-#game.live-viewer-mode.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}
-#game.live-viewer-mode.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:3!important}
-#game.live-viewer-mode.projection-mode .v74-live-chat,
-#game.live-viewer-mode.projection-mode #liveViewerBackBtn{display:none!important}
-
-/* V94 以橫向投影為主；窄橫屏仍保持左右兩區，不再拆成上下三頁。 */
-@media(max-width:900px) and (orientation:landscape){
-  #game.projection-mode{
-    grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)!important;
-    grid-template-rows:36px minmax(0,1fr) minmax(0,1fr)!important;
-    overflow:hidden!important;
-  }
-  #game.projection-mode .game-status-card{grid-column:1!important;grid-row:2!important}
-  #game.projection-mode .game-entry-card{grid-column:1!important;grid-row:3!important}
-  #game.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}
-  #game.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:3!important;min-height:0!important}
-  #game.live-viewer-mode.projection-mode .game-status-card{grid-row:2/4!important}
-}
+#game.projection-mode .hand-counter{font-size:22px!important;white-space:nowrap!important}
+#game.projection-mode #playerStats{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;margin-top:4px!important}
+#game.projection-mode #playerStats .player-card,#game.projection-mode #playerStats .viewer-player-card{min-height:55px!important;height:auto!important;padding:5px 7px!important;overflow:hidden!important}
+#game.projection-mode #playerStats .player-content{padding:4px 6px!important;min-width:0!important}
+#game.projection-mode #playerStats .player-name,#game.projection-mode .viewer-player-name{font-size:12px!important;white-space:nowrap!important}
+#game.projection-mode #playerStats .current-money,#game.projection-mode .viewer-player-money{font-size:18px!important;white-space:nowrap!important}
+#game.projection-mode #playerStats .player-meta,#game.projection-mode .viewer-player-meta{font-size:8px!important;white-space:nowrap!important;margin-top:2px!important}
+.projection-score-panel{display:none}.projection-score-title{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;margin-bottom:5px}.projection-score-title span{font-size:9px;color:#8c8185;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.projection-result-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.projection-result-row button,.projection-tai-row button,.projection-pattern-row button{border:1px solid #eadfda;background:#fffaf5;color:#665b60;border-radius:9px;padding:5px 4px;font-weight:900;font-size:10px}.projection-result-row button.active{background:#ffe1e8;border-color:#e89aaa;color:#8d4858}
+.projection-tai-row{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;align-items:center;margin-top:5px}.projection-tai-row b{text-align:center;font-size:12px}.projection-pattern-row{display:flex;align-items:center;gap:7px;margin-top:5px}.projection-pattern-row span{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.projection-calc-preview{font-size:9px;line-height:1.25;margin-top:5px;padding:5px 7px;border-radius:8px;background:#fffaf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.projection-save-hand{width:100%;margin-top:5px;border:0;border-radius:9px;padding:6px;background:#344b54;color:white;font-weight:900;font-size:10px}
+#game.projection-mode .game-chart-card h2,#game.projection-mode .game-cashflow-card h2{font-size:15px!important;margin:0!important}
+#game.projection-mode .chart-wrap{height:calc(100% - 28px)!important;display:grid!important;grid-template-columns:minmax(120px,.9fr) minmax(0,1.1fr)!important;align-items:center!important;gap:8px!important}
+#game.projection-mode .pie{width:min(19vh,145px)!important;height:min(19vh,145px)!important}
+#game.projection-mode #moneyLegend{display:grid!important;grid-template-columns:1fr!important;gap:3px!important}.projection-mode .legend-item{font-size:9px!important;line-height:1.15!important}
+#game.projection-mode .cashflow-title-row{margin-bottom:3px!important}#game.projection-mode .cashflow-note{display:none!important}#game.projection-mode .cashflow-table{font-size:9px!important;border-spacing:2px!important}#game.projection-mode .cashflow-table th,#game.projection-mode .cashflow-table td{padding:4px 2px!important;height:auto!important}
+#game.live-viewer-mode.projection-mode .projection-score-panel{display:none!important}#game.live-viewer-mode.projection-mode .game-status-card{grid-column:1!important;grid-row:2/4!important}#game.live-viewer-mode.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}#game.live-viewer-mode.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:3!important}#game.live-viewer-mode.projection-mode #liveViewerBackBtn,#game.live-viewer-mode.projection-mode .v74-live-chat{display:none!important}
+@media(max-width:900px) and (orientation:landscape){#game.projection-mode{grid-template-columns:1fr 1fr!important;grid-template-rows:36px minmax(0,.56fr) minmax(0,.44fr)!important;overflow:hidden!important}#game.projection-mode .game-status-card{grid-column:1!important;grid-row:2!important}#game.projection-mode .projection-score-panel{grid-column:1!important;grid-row:3!important}#game.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}#game.projection-mode .game-cashflow-card{grid-column:2!important;grid-row:3!important;min-height:0!important}#game.live-viewer-mode.projection-mode .game-status-card{grid-row:2/4!important}}
 
 </style>
 
