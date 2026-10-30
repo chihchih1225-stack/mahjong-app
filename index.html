@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V70: complete final-only PocketBase support + place/stake + sparse historical scores -->
+<!-- V73: 同桌勝負 + 歷史日期整理 + 房間移除聊天室 + 房間在線狀態 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -1916,16 +1916,6 @@ main{padding-bottom:74px}
   </div>
 
   <div class="card room-protected">
-    <div class="toprow"><h2>💬 房間聊天室</h2><button class="link" onclick="v49LoadChat()">重新整理</button></div>
-    <div id="v49ChatMessages" style="max-height:360px;overflow:auto;padding:4px 0 10px"><div class="muted">正在讀取訊息…</div></div>
-    <div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
-      <textarea id="v49ChatInput" maxlength="500" rows="2" placeholder="輸入訊息…" style="flex:1;resize:none;margin:0"></textarea>
-      <button id="v49ChatSendBtn" class="primary" style="width:auto;min-width:76px;margin:0" onclick="v49SendChat()">送出</button>
-    </div>
-    <div class="muted" style="margin-top:6px">最多 500 字・訊息送出後不可修改或刪除</div>
-  </div>
-
-  <div class="card room-protected">
     <div class="toprow"><h2>📡 即時牌局</h2><button class="link" onclick="syncCurrentRoomLiveSession()">重新整理</button></div>
     <div id="roomLiveSession"><div class="muted">正在確認目前是否有進行中的牌局…</div></div>
   </div>
@@ -1952,7 +1942,7 @@ main{padding-bottom:74px}
     <div id="roomBadges" class="badge-grid"></div>
   </div>
   <div class="card room-protected">
-    <div class="toprow"><h2>⚔️ 玩家對玩家</h2><span class="muted">同桌戰績明細</span></div>
+    <div class="toprow"><h2>⚔️ 同桌勝負</h2><span class="muted">兩位玩家共同牌局</span></div>
     <div id="roomPlayerVsPlayer"></div>
   </div>
 
@@ -7223,6 +7213,13 @@ async function v37RefreshCurrentRoomHistory(){
 }
 
 
+/* ===== V72：本輪調整 =====
+   1. 房間「玩家對玩家」正式改名「同桌勝負」，保留勝／平計算。
+   2. 歷史牌局與同桌勝負優先使用 startedAt（實際開打時間），避免 PB created 時間污染歷史日期。
+   3. 房間首頁移除聊天室，並停止在 roomDashboard 啟動聊天室輪詢。
+   4. 在線狀態需要可更新 last_seen 的 PB presence 資料來源；V72 不以假資料冒充在線。
+===== */
+
 /* ===== V49：PocketBase 房間聊天室 ===== */
 let v49ChatRoomId=''
 let v49ChatTimer=null
@@ -7308,11 +7305,9 @@ async function v49SendChat(){
     input?.focus()
   }
 }
+// V72：房間首頁不再啟動聊天室；聊天室保留給後續直播觀看頁使用。
 document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden && currentRoomId && document.getElementById('roomDashboard') && !document.getElementById('roomDashboard').classList.contains('hidden')){
-    v49StartChat(currentRoomId)
-    v49LoadChat(true)
-  }
+  if(!document.hidden && liveViewerMode && v49ChatRoomId){ v49LoadChat(true) }
 })
 
 function renderRoomDashboard(loadShared=true){
@@ -7335,7 +7330,8 @@ function renderRoomDashboard(loadShared=true){
   applyCurrentRoomAccess().then(ok=>{
     if(ok){
       syncCurrentRoomLiveSession()
-      v49StartChat(room.id)
+      // V72：房間頁不啟動聊天室。
+      v49StopChat()
     }else{
       v49StopChat()
     }
@@ -7352,7 +7348,7 @@ function renderRoomDashboard(loadShared=true){
   renderRoomNemesis(ss)
   const kingHistory=document.getElementById('roomKingHistory'); if(kingHistory) kingHistory.innerHTML=roomKingHistoryHtml(allSs)
   document.getElementById('roomSessionCount').textContent=`${ss.length} 場`
-  document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(sessionRowHtml).join(''):'還沒有歷史牌局'
+  document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(sessionRowHtml).join(''):'還沒有歷史牌局'
 }
 
 function v48PairStats(sessions,a,b){
@@ -7372,9 +7368,9 @@ function v48PairStats(sessions,a,b){
 function v48PairDetailHtml(a,b,sessions){
   const st=v48PairStats(sessions,a,b)
   if(!st.shared.length) return '<div class="muted">這兩位玩家目前沒有共同牌局。</div>'
-  const detail=[...st.shared].sort((x,y)=>y.createdAt.localeCompare(x.createdAt)).map(ss=>{
+  const detail=[...st.shared].sort((x,y)=>String(y.startedAt||y.createdAt).localeCompare(String(x.startedAt||x.createdAt))).map(ss=>{
     const nets=sessionNets(ss)
-    const d=new Date(ss.createdAt).toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    const d=new Date(ss.startedAt||ss.createdAt).toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
     return `<div class="session-row" onclick="showSessionDetail('${ss.id}')" style="cursor:pointer">
       <div class="session-head"><span>${d}</span><span>›</span></div>
       <div class="session-result">${escapeHtml(a)} ${money(Number(nets[a]||0))}・${escapeHtml(b)} ${money(Number(nets[b]||0))}</div>
@@ -7489,7 +7485,7 @@ function badgeHtml(rows,sessions){
 }
 function sessionRowHtml(ss){
   const room=appData.rooms.find(r=>r.id===ss.roomId)
-  const date=new Date(ss.createdAt).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})
+  const date=new Date(ss.startedAt||ss.createdAt).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})
   const ti=sessionTimeInfo(ss)
   const result=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${n} ${money(v)}`).join('・')
   return `<div class="session-row" onclick="showSessionDetail('${ss.id}')" style="cursor:pointer"><div class="session-head"><span>${date}・${room?.name||ss.roomName||'牌局'}</span><span>${ss.stake||''} ›</span></div><div class="session-result">${result}</div><div class="session-time-row">⏱️ ${escapeHtml(ti.duration)}</div></div>`
@@ -7580,7 +7576,7 @@ function sessionDetailStatsHtml(ss){
 function showSessionDetail(id){
   ensureAppData(); const ss=appData.sessions.find(s=>s.id===id); if(!ss) return
   const old=document.getElementById('sessionDetailModal'); if(old) old.remove()
-  const date=new Date(ss.createdAt).toLocaleString('zh-TW')
+  const date=new Date(ss.startedAt||ss.createdAt).toLocaleString('zh-TW')
   const ti=sessionTimeInfo(ss)
   const netEntries=Object.entries(sessionNets(ss)).sort((a,b)=>b[1]-a[1])
   const rows=netEntries.map(([n,v])=>`<div class="session-head"><b>${escapeHtml(n)}</b><b>${money(v)}</b></div>`).join('')
@@ -7891,7 +7887,7 @@ async function openRoomMemberStats(userId,nickname){
   const discardRate=stat.handAppearances?stat.discards/stat.handAppearances:0
   const best=Number.isFinite(stat.maxWin)?stat.maxWin:0
   const worst=Number.isFinite(stat.minWin)?stat.minWin:0
-  const history=[...playerSs].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(ss=>{
+  const history=[...playerSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(ss=>{
     const d=new Date(ss.createdAt), net=Number(sessionNets(ss)[name]||0)
     return `<div class="member-history-row" onclick="closeRoomMemberStats();showSessionDetail('${ss.id}')" style="cursor:pointer"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・點擊查看牌局 ›</div></div>`
   }).join('')||'<div class="muted">目前沒有參與過的歷史牌局。</div>'
@@ -8074,9 +8070,170 @@ exitLiveViewer=function(){
 }
 
 
+
+/* ===== V73：房間在線狀態（PocketBase room_presence） ===== */
+const V73_PRESENCE_HEARTBEAT_MS=25000
+const V73_PRESENCE_ONLINE_MS=90000
+let v73PresenceTimer=null
+let v73PresenceBusy=false
+
+function v73PresenceShouldRun(){
+  if(!pbAuth?.token || !pbAuth?.record?.id || !currentRoomId || document.hidden) return false
+  const id=currentVisibleSectionId()
+  return id && id!=='auth' && id!=='home'
+}
+
+async function v73TouchPresence(roomId=currentRoomId){
+  if(v73PresenceBusy || !roomId || !pbAuth?.record?.id || !pbAuth?.token) return false
+  v73PresenceBusy=true
+  try{
+    const uid=pbAuth.record.id
+    const f=encodeURIComponent(`room="${pbFilterValue(roomId)}" && user="${pbFilterValue(uid)}"`)
+    const data=await pbRequest(`/api/collections/room_presence/records?perPage=10&sort=-last_seen&filter=${f}`)
+    const now=new Date().toISOString()
+    const existing=(data.items||[])[0]
+    if(existing?.id){
+      await pbRequest(`/api/collections/room_presence/records/${encodeURIComponent(existing.id)}`,{
+        method:'PATCH',body:JSON.stringify({last_seen:now})
+      })
+    }else{
+      await pbRequest('/api/collections/room_presence/records',{
+        method:'POST',body:JSON.stringify({room:roomId,user:uid,last_seen:now})
+      })
+    }
+    return true
+  }catch(e){
+    console.warn('V73：在線狀態更新失敗',e)
+    return false
+  }finally{
+    v73PresenceBusy=false
+  }
+}
+
+async function v73LoadOnlineUserIds(roomId=currentRoomId){
+  const set=new Set()
+  if(!roomId || !pbAuth?.token) return set
+  try{
+    const f=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
+    const data=await pbRequest(`/api/collections/room_presence/records?perPage=500&sort=-last_seen&filter=${f}`)
+    const cutoff=Date.now()-V73_PRESENCE_ONLINE_MS
+    for(const p of (data.items||[])){
+      const t=new Date(p.last_seen||p.updated||0).getTime()
+      if(p.user && Number.isFinite(t) && t>=cutoff) set.add(p.user)
+    }
+  }catch(e){ console.warn('V73：在線名單讀取失敗',e) }
+  return set
+}
+
+function v73StartPresence(){
+  if(v73PresenceTimer){clearInterval(v73PresenceTimer);v73PresenceTimer=null}
+  if(!v73PresenceShouldRun()) return
+  const roomId=currentRoomId
+  v73TouchPresence(roomId).then(ok=>{
+    if(ok && currentRoomId===roomId && currentVisibleSectionId()==='roomDashboard') syncCurrentRoomMembers()
+  })
+  v73PresenceTimer=setInterval(()=>{
+    if(!v73PresenceShouldRun()){clearInterval(v73PresenceTimer);v73PresenceTimer=null;return}
+    v73TouchPresence(currentRoomId)
+  },V73_PRESENCE_HEARTBEAT_MS)
+}
+
+function v73StopPresenceTimer(){
+  if(v73PresenceTimer){clearInterval(v73PresenceTimer);v73PresenceTimer=null}
+}
+
+const v73OriginalShow=show
+show=function(id){
+  v73OriginalShow(id)
+  if(id==='auth' || id==='home') v73StopPresenceTimer()
+  else if(currentRoomId) v73StartPresence()
+}
+
+const v73OriginalOpenRoom=openRoom
+openRoom=function(id){
+  v73OriginalOpenRoom(id)
+  v73StartPresence()
+}
+
+const v73OriginalLogoutAccount=logoutAccount
+logoutAccount=async function(){
+  v73StopPresenceTimer()
+  return v73OriginalLogoutAccount()
+}
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    v73StopPresenceTimer()
+  }else if(v73PresenceShouldRun()){
+    v73StartPresence()
+  }
+})
+
+window.addEventListener('focus',()=>{
+  if(v73PresenceShouldRun()) v73StartPresence()
+})
+
+// V73：房間名單顯示註冊會員的在線狀態；guest 沒有帳號，因此不顯示在線燈號。
+syncCurrentRoomMembers = async function(){
+  const wrap=document.getElementById('roomMembers'), count=document.getElementById('roomMemberCount')
+  if(!currentRoomId){if(wrap)wrap.innerHTML='<div class="muted">尚未選擇房間</div>';if(count)count.textContent='0 人';return []}
+  if(wrap)wrap.innerHTML='<div class="muted">正在讀取房間成員…</div>'
+  try{
+    const roomId=currentRoomId
+    const filter=encodeURIComponent(`room="${roomId}"`)
+    const [memberData,playerData,onlineUserIds]=await Promise.all([
+      pbRequest(`/api/collections/room_members/records?perPage=200&sort=created&filter=${filter}`),
+      pbRequest(`/api/collections/room_players/records?perPage=200&sort=joined_at&filter=${filter}`),
+      v73LoadOnlineUserIds(roomId)
+    ])
+    const members=memberData.items||[], players=(playerData.items||[]).filter(p=>p.status!=='removed')
+    const rows=[]
+    const byKey=new Map()
+    const addRow=(name,userId,isOwner,playerId)=>{
+      name=(name||'').trim(); if(!name)return
+      const key=userId?`u:${userId}`:`n:${name.toLocaleLowerCase()}`
+      const existing=byKey.get(key) || (!userId ? rows.find(r=>r.name.toLocaleLowerCase()===name.toLocaleLowerCase()) : null)
+      if(existing){existing.isOwner=existing.isOwner||!!isOwner;existing.userId=existing.userId||userId||'';existing.playerId=existing.playerId||playerId||'';return}
+      const row={name,userId:userId||'',isOwner:!!isOwner,playerId:playerId||''}; rows.push(row);byKey.set(key,row)
+    }
+    members.forEach(m=>addRow(m.nickname||'',m.user||'',m.role==='owner',''))
+    players.forEach(p=>{
+      const member=p.user?members.find(m=>m.user===p.user):members.find(m=>(m.nickname||'').trim()===(p.display_name||'').trim())
+      addRow(p.display_name||member?.nickname||'',p.user||member?.user||'',member?.role==='owner',p.id||'')
+    })
+    if(count) count.textContent=`${rows.length} 人`
+    if(wrap) wrap.innerHTML=rows.length?rows.map(r=>{
+      const initial=escapeHtml(r.name.slice(0,1).toUpperCase()),uid=encodeURIComponent(r.userId||''),nn=encodeURIComponent(r.name)
+      const online=!!r.userId && onlineUserIds.has(r.userId)
+      const presence=r.userId
+        ? `<span class="v73-presence ${online?'online':'offline'}"><span class="v73-presence-dot"></span>${online?'在線':'離線'}</span>`
+        : ''
+      return `<div class="room-member-row member-stats-open" onclick="openRoomMemberStats(decodeURIComponent('${uid}'),decodeURIComponent('${nn}'))" role="button" tabindex="0"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(r.name)}</div><div class="room-member-role">${presence}<span>查看戰績</span></div></div></div><div style="display:flex;align-items:center;gap:8px">${r.isOwner?'<span class="room-owner-chip">房主</span>':''}<span class="member-stats-arrow">›</span></div></div>`
+    }).join(''):'<div class="muted">這個房間目前還沒有玩家。</div>'
+    return rows
+  }catch(e){
+    console.error('PocketBase room players/presence sync failed',e)
+    if(count)count.textContent='讀取失敗'
+    if(wrap)wrap.innerHTML='<div class="muted">房間成員讀取失敗，請重新整理後再試。</div>'
+    return []
+  }
+}
+
 // V42：維持 V41 固定馬卡龍配色；無主題切換。
 </script>
 
+
+
+<style>
+/* ===== V73：在線狀態 ===== */
+.room-member-role{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.v73-presence{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;white-space:nowrap}
+.v73-presence-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.v73-presence.online{color:#56806b}
+.v73-presence.online .v73-presence-dot{background:#6caa8b;box-shadow:0 0 0 3px rgba(108,170,139,.14)}
+.v73-presence.offline{color:#a39a9e}
+.v73-presence.offline .v73-presence-dot{background:#c9c2c5}
+</style>
 
 <script>
 if ('serviceWorker' in navigator) {
