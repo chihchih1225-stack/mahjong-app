@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V92: V91 + 觀看者投影固定單一 16:9 Dashboard、不需上下滑 -->
+<!-- V93: V92 + 投影資訊放大填滿版面、減少空白 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -8859,6 +8859,82 @@ button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   #game.live-viewer-mode.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}
   #game.live-viewer-mode.projection-mode .game-cashflow-card{grid-column:1/-1!important;grid-row:3!important}
 }
+
+
+/* ===== V93：投影資訊放大填滿，減少三欄下方空白 ===== */
+#game.live-viewer-mode.projection-mode{
+  grid-template-columns:minmax(0,1fr) minmax(0,.92fr) minmax(0,1.12fr)!important;
+}
+#game.live-viewer-mode.projection-mode .game-status-card,
+#game.live-viewer-mode.projection-mode .game-chart-card,
+#game.live-viewer-mode.projection-mode .game-cashflow-card{
+  display:flex!important;
+  flex-direction:column!important;
+}
+#game.live-viewer-mode.projection-mode .game-status-card{
+  justify-content:flex-start!important;
+}
+#game.live-viewer-mode.projection-mode .round-big{font-size:48px!important}
+#game.live-viewer-mode.projection-mode .dealer-pill{font-size:14px!important;padding:6px 11px!important}
+#game.live-viewer-mode.projection-mode #playerStats{
+  flex:1!important;
+  align-content:center!important;
+  gap:12px!important;
+  margin-top:10px!important;
+}
+#game.live-viewer-mode.projection-mode #playerStats .viewer-player-card{
+  padding:15px 14px!important;
+  min-height:105px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
+#game.live-viewer-mode.projection-mode .viewer-player-name{font-size:17px!important}
+#game.live-viewer-mode.projection-mode .viewer-player-money{font-size:25px!important}
+#game.live-viewer-mode.projection-mode .viewer-player-meta{font-size:12px!important;margin-top:7px!important}
+#game.live-viewer-mode.projection-mode .game-chart-card{
+  justify-content:flex-start!important;
+}
+#game.live-viewer-mode.projection-mode .chart-wrap{
+  flex:1!important;
+  height:auto!important;
+  justify-content:center!important;
+  gap:16px!important;
+}
+#game.live-viewer-mode.projection-mode .pie{
+  width:min(27vh,190px)!important;
+  height:min(27vh,190px)!important;
+}
+#game.live-viewer-mode.projection-mode .legend{
+  gap:8px 14px!important;
+}
+#game.live-viewer-mode.projection-mode .legend-item{
+  font-size:12px!important;
+  line-height:1.35!important;
+}
+#game.live-viewer-mode.projection-mode .game-chart-card h2,
+#game.live-viewer-mode.projection-mode .game-cashflow-card h2{
+  font-size:20px!important;
+  margin-bottom:10px!important;
+}
+#game.live-viewer-mode.projection-mode .game-cashflow-card{
+  justify-content:flex-start!important;
+}
+#game.live-viewer-mode.projection-mode .cashflow-note{
+  font-size:11px!important;
+  line-height:1.45!important;
+  margin-bottom:10px!important;
+}
+#game.live-viewer-mode.projection-mode .cashflow-table{
+  flex:1!important;
+  font-size:12px!important;
+}
+#game.live-viewer-mode.projection-mode .cashflow-table th,
+#game.live-viewer-mode.projection-mode .cashflow-table td{
+  padding:10px 7px!important;
+  height:48px!important;
+}
+#game.live-viewer-mode.projection-mode .cashflow-table th{font-size:11px!important}
 
 </style>
 
