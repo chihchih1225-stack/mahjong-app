@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V90: V89 + 移除提款機底部摘要條 -->
+<!-- V91: V90 + 直播觀看者可進入投影模式 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -7893,10 +7893,11 @@ function toggleProjectionMode(){
   const game=document.getElementById('game')
   const btn=document.getElementById('projectionToggleBtn')
   const entering=!game.classList.contains('projection-mode')
+  const viewerProjection=!!liveViewerMode
   game.classList.toggle('projection-mode',entering)
 
   if(btn){
-    btn.textContent=entering?'✍️ 回到紀錄':'📺 投影'
+    btn.textContent=entering?(viewerProjection?'👀 回到直播':'✍️ 回到紀錄'):(viewerProjection?'📺 全螢幕投影':'📺 投影')
   }
 
   if(entering){
@@ -7913,7 +7914,9 @@ function toggleProjectionMode(){
     if(document.fullscreenElement && document.exitFullscreen){
       document.exitFullscreen().catch(()=>{})
     }
-    if(!liveViewerMode){
+    if(liveViewerMode){
+      setTimeout(()=>v32RenderViewerDashboard(),50)
+    }else{
       setTimeout(()=>{
         const entry=document.querySelector('.game-entry-card')
         if(entry) entry.scrollIntoView({behavior:'smooth',block:'start'})
@@ -8007,14 +8010,16 @@ function v32ViewerStatsHtml(){
 }
 function v32RenderViewerDashboard(){
   const game=document.getElementById('game'); if(!game) return
-  game.classList.remove('projection-mode');game.classList.add('live-viewer-mode')
+  // V91：觀看者進入投影後，4 秒一次的直播同步不能把 projection-mode 拔掉。
+  game.classList.add('live-viewer-mode')
   let back=document.getElementById('liveViewerBackBtn')
   if(!back){back=document.createElement('button');back.id='liveViewerBackBtn';back.className='live-viewer-back';back.textContent='← 返回房間';back.onclick=exitLiveViewer;game.prepend(back)}
+  back.style.display=game.classList.contains('projection-mode')?'none':'block'
   const stats=document.getElementById('playerStats');if(stats) stats.innerHTML=v32ViewerStatsHtml()
   document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn').forEach(el=>el.style.display='none')
   const projection=document.getElementById('projectionBottom')
   if(projection){
-    projection.style.display='flex'
+    projection.style.display=game.classList.contains('projection-mode')?'none':'flex'
     const btn=projection.querySelector('button')
     if(btn) btn.textContent='📺 全螢幕投影'
   }
@@ -8696,6 +8701,21 @@ button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   .series-settlement-row{padding:12px 11px}
   .series-money b{font-size:17px}
 }
+
+
+/* ===== V91：直播觀看者也可投影 ===== */
+#game.live-viewer-mode #projectionBottom{
+  display:flex!important;
+  justify-content:flex-end;
+  margin:0 0 8px;
+  order:-1;
+}
+#game.live-viewer-mode #projectionBottom .projection-btn{
+  width:auto;
+  font-size:13px;
+  padding:9px 13px;
+}
+#game.live-viewer-mode.projection-mode #projectionBottom{display:none!important}
 
 </style>
 
