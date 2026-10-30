@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V99: V98 + 連打起始水位同步直播/投影 -->
+<!-- V100: V99 + 提款機改為整輪連打累積，直到連打總結算才歸零 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -3253,6 +3253,8 @@ let currentRule=stakeRules[selectedStake]
 
 let balances={}
 let sessionOpeningBalances={}
+// V100：已完成前幾場的提款機累積基底；目前這場再加 hands 即為整輪連打金流。
+let seriesCashflowBase={}
 
 let tai=0
 
@@ -3536,6 +3538,9 @@ function buildSeatMap(roomPlayerMap={}){
       name
     }
   })
+  // V100：沿用既有 JSON 欄位保存「前幾場」提款機累積，不新增 PB 欄位。
+  // 東南西北座位讀取邏輯不受影響。
+  seatMap._series_cashflow_base=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
   return seatMap
 }
 
@@ -4848,6 +4853,14 @@ function handCashflowTransfers(hand){
 }
 function buildCashflowMatrix(sessionHands=hands,players=P){
   const matrix=emptyCashflow(players)
+  // V100：先放入本輪連打「前面已完成場次」的累積付款。
+  ;(players||[]).forEach(from=>{
+    ;(players||[]).forEach(to=>{
+      if(from===to) return
+      matrix[from][to]=Number(seriesCashflowBase?.[from]?.[to]||0)
+    })
+  })
+  // 再加目前這一場已完成的每一把。
   ;(sessionHands||[]).forEach(hand=>{
     handCashflowTransfers(hand).forEach(t=>{
       if(matrix[t.from] && Object.prototype.hasOwnProperty.call(matrix[t.from],t.to)){
@@ -4881,7 +4894,7 @@ function renderCashflowMatrix(){
     html+=`<td class="cashflow-total ${n>0?'pos':n<0?'neg':''}">${n>0?'+':''}$${n.toLocaleString()}</td></tr>`
   })
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">每一格都由實際逐把付款累加：放槍由放槍者付給胡牌者；自摸三家分別付款；詐胡由詐胡者分別賠三家。右側淨額應與目前本場總輸贏一致。</div>'
+  html+='<div class="cashflow-note">每一格為本輪連打累積付款：放槍由放槍者付給胡牌者；自摸三家分別付款；詐胡由詐胡者分別賠三家。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
 
   el.innerHTML=html
   // 對帳異常只記錄 console，不干擾牌桌操作；正式測試時可快速定位資料問題。
@@ -6429,6 +6442,8 @@ function continueNextMatch(){
   // sessionOpeningBalances 只用來算「這一場」的輸贏，避免長期戰績重複累加。
   sessionOpeningBalances={}
   P.forEach(player=>sessionOpeningBalances[player]=Number(balances[player]||0))
+  // V100：提款機不是單場歸零。先把剛完成這一場併入整輪連打基底，再清空本場 hands。
+  seriesCashflowBase=buildCashflowMatrix(hands,P)
   hands=[]
   roundIndex=0
   repeats=0
@@ -6510,6 +6525,7 @@ async function finishSeriesSettlement(){
   seriesStartedAt=''
   balances={}
   sessionOpeningBalances={}
+  seriesCashflowBase={}
   P=[]
   hands=[]
   clearActiveGame()
@@ -7096,7 +7112,7 @@ function aggregateSessions(sessions){
 function activeGameSnapshot(){
   return {
     savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
-    balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
+    balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, seriesCashflowBase:JSON.parse(JSON.stringify(seriesCashflowBase||{})), hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
     dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt,
     seriesId,seriesGameCount,seriesStartedAt
   }
@@ -7123,7 +7139,7 @@ function resumeActiveGame(){
   remoteSessionId=''
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
   currentRoomId=g.currentRoomId||''; P=g.P||[]; seats=g.seats||[...P]; selectedStake=g.selectedStake||selectedStake
-  currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); hands=g.hands||[]
+  currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); seriesCashflowBase=g.seriesCashflowBase||{}; hands=g.hands||[]
   roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
   recorderPlayer=g.recorderPlayer||P[0]||''; roundLeaders=g.roundLeaders||[]; sessionSaved=false
   seriesId=g.seriesId||makeId('series'); seriesGameCount=Number(g.seriesGameCount||0); seriesStartedAt=g.seriesStartedAt||g.savedAt||new Date().toISOString()
@@ -8092,7 +8108,11 @@ async function v32LoadLiveSession(sessionId,first=false){
   const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
   P=[...names];seats=[...names];dealer=byId[ss.dealer]?.display_name||names[0];dealerSeatIndex=Math.max(0,seats.indexOf(dealer));recorderPlayer=names[0]
   roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round));repeats=Number(ss.dealer_repeats||0)
-  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:byId[h.dealer]?.display_name||dealer,repeats:Number(h.dealer_repeats||0)}))
+  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalPlayerName(byId[h.winner]?.display_name||''),discarder:canonicalPlayerName(byId[h.discarder]?.display_name||''),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
+  // V100：直播/投影也讀到這一輪前幾場的提款機累積基底。
+  seriesCashflowBase=(ss.seat_map && typeof ss.seat_map._series_cashflow_base==='object')
+    ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_base))
+    :{}
   const last=(hd.items||[]).slice(-1)[0];balances=last?.balances_after||Object.fromEntries(P.map(n=>[n,0]));currentRule=stakeRules[selectedStake]||stakeRules['100/20']
   gameStartedAt=ss.started_at||ss.created||gameStartedAt;gameEndedAt=ss.ended_at||''
   liveViewerMode=true;v32ViewingSessionId=sessionId;renderGame();v33StartGameClock();if(first) show('game');v32RenderViewerDashboard()
