@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V82: V81 + 選擇玩家名單套用歷史身份合併（龍隱王/麻將俠=麻俠；阿樹=場主） -->
+<!-- V83: V82 + 特殊牌型明確支援複選與已選狀態提示 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -2505,7 +2505,8 @@ main{padding-bottom:74px}
         class="pattern-toggle"
         onclick="togglePatterns()"
       >
-        ＋ 特殊牌型（選填）
+        ＋ 特殊牌型（可複選）
+        <span id="patternSelectedCount" class="pattern-selected-count"></span>
         <span id="patternArrow">⌄</span>
       </button>
 
@@ -5287,16 +5288,36 @@ function syncPatterns(){
     .querySelectorAll('.pattern')
     .forEach(element=>{
 
+      const selected=
+        selectedPatterns.includes(
+          element.dataset.pattern
+        )
+
       element
         .classList
         .toggle(
           'active',
-          selectedPatterns.includes(
-            element.dataset.pattern
-          )
+          selected
         )
 
+      element.setAttribute(
+        'aria-pressed',
+        selected?'true':'false'
+      )
+
     })
+
+  const count=
+    document.getElementById(
+      'patternSelectedCount'
+    )
+
+  if(count){
+    count.textContent=
+      selectedPatterns.length
+      ?`已選 ${selectedPatterns.length} 個`
+      :''
+  }
 
 }
 
@@ -8489,6 +8510,33 @@ button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   .nav-action{font-size:12px;padding:8px 10px}
   .room-header-actions{gap:6px}
   .member-kick-btn{padding:7px 8px;font-size:11px}
+}
+
+
+/* ===== V83：特殊牌型複選提示 ===== */
+.pattern-toggle{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.pattern-toggle #patternArrow{margin-left:auto}
+.pattern-selected-count{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#fff;
+  border:1px solid #eadfe4;
+  color:#9b6270;
+  font-size:11px;
+  font-weight:900;
+}
+.pattern.active{
+  background:var(--pink)!important;
+  border-color:#dcaebb!important;
+  color:#7d4553!important;
+  box-shadow:inset 0 0 0 1px rgba(157,92,109,.08);
 }
 
 </style>
