@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V91: V90 + 直播觀看者可進入投影模式 -->
+<!-- V92: V91 + 觀看者投影固定單一 16:9 Dashboard、不需上下滑 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -8716,6 +8716,149 @@ button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   padding:9px 13px;
 }
 #game.live-viewer-mode.projection-mode #projectionBottom{display:none!important}
+
+
+/* ===== V92：觀看者投影 = 單一 16:9 Dashboard =====
+   live-viewer-mode + projection-mode 時只顯示：
+   跑馬燈 / 即時戰況 / 金額分布 / 提款機，全部塞進一個螢幕。
+*/
+#game.live-viewer-mode.projection-mode{
+  width:100vw!important;
+  height:100dvh!important;
+  min-height:0!important;
+  max-height:100dvh!important;
+  overflow:hidden!important;
+  padding:8px 10px!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr) minmax(0,1.15fr)!important;
+  grid-template-rows:40px minmax(0,1fr)!important;
+  gap:8px!important;
+  background:#fffaf6!important;
+}
+#game.live-viewer-mode.projection-mode .live-ticker-wrap{
+  grid-column:1/-1!important;
+  grid-row:1!important;
+  margin:0!important;
+  min-height:38px!important;
+  height:38px!important;
+}
+#game.live-viewer-mode.projection-mode .game-status-card{
+  grid-column:1!important;
+  grid-row:2!important;
+  display:block!important;
+  margin:0!important;
+  min-height:0!important;
+  height:100%!important;
+  overflow:hidden!important;
+  padding:12px!important;
+}
+#game.live-viewer-mode.projection-mode .game-chart-card{
+  grid-column:2!important;
+  grid-row:2!important;
+  display:block!important;
+  margin:0!important;
+  min-height:0!important;
+  height:100%!important;
+  overflow:hidden!important;
+  padding:12px!important;
+}
+#game.live-viewer-mode.projection-mode .game-cashflow-card{
+  grid-column:3!important;
+  grid-row:2!important;
+  display:block!important;
+  margin:0!important;
+  min-height:0!important;
+  height:100%!important;
+  overflow:hidden!important;
+  padding:12px!important;
+}
+#game.live-viewer-mode.projection-mode .game-trend-card,
+#game.live-viewer-mode.projection-mode .game-entry-card,
+#game.live-viewer-mode.projection-mode .game-history-card,
+#game.live-viewer-mode.projection-mode .game-finish-btn,
+#game.live-viewer-mode.projection-mode #projectionBottom,
+#game.live-viewer-mode.projection-mode #liveViewerBackBtn,
+#game.live-viewer-mode.projection-mode .v74-live-chat{
+  display:none!important;
+}
+#game.live-viewer-mode.projection-mode .game-timebar{
+  margin:0 0 4px!important;
+  gap:5px!important;
+}
+#game.live-viewer-mode.projection-mode .game-time-chip{
+  font-size:9px!important;
+  padding:3px 7px!important;
+}
+#game.live-viewer-mode.projection-mode .live-head{
+  margin:0 0 5px!important;
+}
+#game.live-viewer-mode.projection-mode .round-big{
+  font-size:36px!important;
+}
+#game.live-viewer-mode.projection-mode #playerStats{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:6px!important;
+  margin-top:6px!important;
+}
+#game.live-viewer-mode.projection-mode #playerStats .viewer-player-card{
+  padding:8px 9px!important;
+  min-height:0!important;
+}
+#game.live-viewer-mode.projection-mode .viewer-player-money{font-size:17px!important}
+#game.live-viewer-mode.projection-mode .viewer-player-name{font-size:13px!important}
+#game.live-viewer-mode.projection-mode .viewer-player-meta{font-size:9px!important}
+#game.live-viewer-mode.projection-mode .game-chart-card h2,
+#game.live-viewer-mode.projection-mode .game-cashflow-card h2{
+  font-size:15px!important;
+  margin:0 0 5px!important;
+}
+#game.live-viewer-mode.projection-mode .chart-wrap{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  align-items:center!important;
+  gap:5px!important;
+  height:calc(100% - 28px)!important;
+}
+#game.live-viewer-mode.projection-mode .pie{
+  width:min(17vh,120px)!important;
+  height:min(17vh,120px)!important;
+  flex:0 0 auto!important;
+}
+#game.live-viewer-mode.projection-mode .legend{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:3px 7px!important;
+}
+#game.live-viewer-mode.projection-mode .legend-item{
+  font-size:9px!important;
+  margin:0!important;
+}
+#game.live-viewer-mode.projection-mode .cashflow-note{
+  font-size:9px!important;
+  margin-bottom:5px!important;
+}
+#game.live-viewer-mode.projection-mode .cashflow-table{
+  font-size:9px!important;
+}
+#game.live-viewer-mode.projection-mode .cashflow-table th,
+#game.live-viewer-mode.projection-mode .cashflow-table td{
+  padding:5px 4px!important;
+}
+@media (orientation:portrait){
+  #game.live-viewer-mode.projection-mode{
+    /* 瀏覽器若無法鎖橫向，仍維持單一畫面而不是變成三個直向區塊。 */
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    grid-template-rows:38px minmax(0,.92fr) minmax(0,1.08fr)!important;
+  }
+  #game.live-viewer-mode.projection-mode .live-ticker-wrap{grid-column:1/-1!important;grid-row:1!important}
+  #game.live-viewer-mode.projection-mode .game-status-card{grid-column:1!important;grid-row:2!important}
+  #game.live-viewer-mode.projection-mode .game-chart-card{grid-column:2!important;grid-row:2!important}
+  #game.live-viewer-mode.projection-mode .game-cashflow-card{grid-column:1/-1!important;grid-row:3!important}
+}
 
 </style>
 
