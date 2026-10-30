@@ -2812,10 +2812,11 @@ let liveViewerMode=false
 
 /* V59：指定帳號固定暱稱。前端立即鎖定；PB 關聯資料同步為「麻俠」。
    真正防 API 直接 PATCH 的後端強制規則，留到 PB 安全規則階段處理。 */
-const LOCKED_NICKNAME_EMAIL='justin81111@gmail.com'
+const LOCKED_NICKNAME_USER_ID='6bd4yixda2auia0'
 const LOCKED_NICKNAME='麻俠'
 function isLockedNicknameAccount(record=pbAuth?.record){
-  return String(record?.email||'').trim().toLowerCase()===LOCKED_NICKNAME_EMAIL
+  // V76：只用 PocketBase users.id 鎖定麻俠，避免其他帳號被 email/舊資料誤判。
+  return String(record?.id||'').trim()===LOCKED_NICKNAME_USER_ID
 }
 function accountDisplayName(record=pbAuth?.record){
   return isLockedNicknameAccount(record)?LOCKED_NICKNAME:(record?.name||'')
@@ -3058,8 +3059,12 @@ function renderAccountHeader(){
   const e=document.getElementById('profileEmailDisplay'); if(e) e.textContent=email
   const edit=document.getElementById('editNicknameBtn')
   const chip=document.getElementById('lockedNicknameChip')
-  if(edit) edit.classList.toggle('hidden',isLockedNicknameAccount())
-  if(chip) chip.classList.toggle('hidden',!isLockedNicknameAccount())
+  const locked=isLockedNicknameAccount()
+  if(edit){
+    edit.classList.toggle('hidden',locked)
+    edit.style.display=locked?'none':''
+  }
+  if(chip) chip.classList.toggle('hidden',!locked)
 }
 async function editAccountName(){
   if(!pbAuth?.record?.id) return
