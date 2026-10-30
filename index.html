@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V79: V78 + PB歷史牌局刪除 + 房主移出房間成員 -->
+<!-- V82: V81 + 選擇玩家名單套用歷史身份合併（龍隱王/麻將俠=麻俠；阿樹=場主） -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -3219,6 +3219,7 @@ const stakeRules={
 let currentRule=stakeRules[selectedStake]
 
 let balances={}
+let sessionOpeningBalances={}
 
 let tai=0
 
@@ -3400,7 +3401,12 @@ async function loadRoomPlayerMap(roomId=currentRoomId){
     const filter=encodeURIComponent(`room="${pbFilterValue(roomId)}" && status="active"`)
     const data=await pbRequest(`/api/collections/room_players/records?perPage=200&filter=${filter}`)
     const map={}
-    ;(data.items||[]).forEach(x=>{ if(x.display_name) map[x.display_name]=x })
+    ;(data.items||[]).forEach(x=>{
+      if(!x.display_name) return
+      map[x.display_name]=x
+      const canonical=canonicalPlayerName(x.display_name)
+      if(canonical && !map[canonical]) map[canonical]=x
+    })
     remoteRoomPlayerMap=map
     return map
   }catch(e){
@@ -3563,11 +3569,17 @@ async function syncRemoteConfirmedHand(hand){
 async function completeRemoteSession(reason='normal'){
   if(!remoteSessionId) return
   try{
+    const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
+    const finalBalances={}
+    P.forEach(name=>{
+      const pid=map[name]?.id
+      if(pid) finalBalances[pid]=Number(balances[name]||0)-Number(sessionOpeningBalances[name]||0)
+    })
     await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
       method:'PATCH',
-      body:JSON.stringify({status:'completed',ended_reason:reason,ended_at:new Date().toISOString()})
+      body:JSON.stringify({status:'completed',ended_reason:reason,ended_at:new Date().toISOString(),final_balances:finalBalances})
     })
-  }catch(e){ console.warn('V28：遠端結束狀態同步失敗',e) }
+  }catch(e){ console.warn('V81：遠端結束狀態同步失敗',e) }
 }
 
 async function getCurrentRoomPlayerAccess(roomId=currentRoomId){
@@ -3739,18 +3751,18 @@ async function loadV35RoomPlayerPicker(roomId=currentRoomId){
     ])
     const members=md.items||[], players=pd||[], registered=[], seen=new Set()
     members.forEach(m=>{
-      const name=(m.nickname||'').trim()
+      const name=canonicalPlayerName(m.nickname||'')
       if(!name||seen.has(name)) return
       seen.add(name); registered.push({name,user:m.user||'',role:m.role||'member'})
     })
     players.filter(p=>p.user).forEach(p=>{
-      const name=(p.display_name||'').trim()
+      const name=canonicalPlayerName(p.display_name||'')
       if(!name||seen.has(name)) return
       seen.add(name); registered.push({name,user:p.user,role:'member'})
     })
     const guests=[], guestSeen=new Set()
     players.filter(p=>!p.user && p.status==='active').forEach(p=>{
-      const name=(p.display_name||'').trim()
+      const name=canonicalPlayerName(p.display_name||'')
       if(!name||seen.has(name)||guestSeen.has(name)) return
       guestSeen.add(name); guests.push({name})
     })
@@ -3805,10 +3817,12 @@ function startGame(){
   currentRule=stakeRules[selectedStake]
 
   balances={}
+  sessionOpeningBalances={}
 
   P.forEach(player=>{
 
     balances[player]=0
+    sessionOpeningBalances[player]=0
 
   })
 
@@ -6207,7 +6221,7 @@ async function finishDetailedGame(){
       ranking.map(player=>{
 
         const net=
-          balances[player]
+          Number(balances[player]||0)-Number(sessionOpeningBalances[player]||0)
 
 
         return `
@@ -6254,7 +6268,7 @@ async function finishDetailedGame(){
 
               <div class="muted">
 
-                水位（0 起算）
+                累積水位
                 ${(balances[player]>=0?'+':'')}$${balances[player].toLocaleString()}
 
               </div>
@@ -6293,8 +6307,10 @@ function continueNextMatch(){
   // V53：同一桌接著打下一場，保留桌號；牌局本身仍建立全新的 game_session。
   preferredNextTableNumber=Number(currentTableNumber||0)
   remoteSessionId=''
-  balances={}
-  P.forEach(player=>balances[player]=0)
+  // V81：連打時不把桌上水位歸零；下一場以目前水位作為起點。
+  // sessionOpeningBalances 只用來算「這一場」的輸贏，避免長期戰績重複累加。
+  sessionOpeningBalances={}
+  P.forEach(player=>sessionOpeningBalances[player]=Number(balances[player]||0))
   hands=[]
   roundIndex=0
   repeats=0
@@ -6902,7 +6918,7 @@ function aggregateSessions(sessions){
 function activeGameSnapshot(){
   return {
     savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
-    balances:{...balances}, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
+    balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
     dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt
   }
 }
@@ -6928,7 +6944,7 @@ function resumeActiveGame(){
   remoteSessionId=''
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
   currentRoomId=g.currentRoomId||''; P=g.P||[]; seats=g.seats||[...P]; selectedStake=g.selectedStake||selectedStake
-  currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; hands=g.hands||[]
+  currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); hands=g.hands||[]
   roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
   recorderPlayer=g.recorderPlayer||P[0]||''; roundLeaders=g.roundLeaders||[]; sessionSaved=false
   gameStartedAt=g.gameStartedAt||g.savedAt||new Date().toISOString(); gameEndedAt=g.gameEndedAt||''
@@ -7222,9 +7238,10 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
       // V70：完整牌局以最後一手 balances_after 為準；沒有逐手資料的歷史牌局改讀 game_sessions.final_balances。
       // final_balances 正式格式使用 room_player ID 當 key，避免玩家日後改暱稱造成歷史戰績斷線；
       // 同時相容名稱 key，方便舊資料/人工資料過渡。
-      const rawBalances=(last&&last.balances_after&&typeof last.balances_after==='object')
-        ? last.balances_after
-        : ((rs.final_balances&&typeof rs.final_balances==='object')?rs.final_balances:{})
+      const hasFinalBalances=rs.final_balances&&typeof rs.final_balances==='object'&&Object.keys(rs.final_balances).length>0
+      const rawBalances=hasFinalBalances
+        ? rs.final_balances
+        : ((last&&last.balances_after&&typeof last.balances_after==='object')?last.balances_after:{})
       const nets={}
       ;(rs.players||[]).forEach(pid=>{
         const rawName=byId[pid]?.display_name
@@ -7648,7 +7665,7 @@ function showSessionDetail(id){
   const statsHtml=sessionDetailStatsHtml(ss)
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary" style="margin-top:18px;color:#b94f5f;background:#fff0f2;border-color:#f0c8cf" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
+  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary danger-soft session-delete-btn" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
   document.body.appendChild(div)
 }
 
@@ -7659,7 +7676,7 @@ function saveCurrentSession(kind, finalValues){
   if(!room) room=ensureRoom((document.getElementById('room').value||'我的麻將房').trim())
   const nets={}
   if(kind==='final') P.forEach((name,i)=>nets[name]=Number(finalValues[i])||0)
-  else P.forEach(name=>nets[name]=(balances[name]||0))
+  else P.forEach(name=>nets[name]=Number(balances[name]||0)-Number(sessionOpeningBalances[name]||0))
   let createdAt=new Date().toISOString()
   if(kind==='final'){
     const picked=document.getElementById('finalPlayedAt')?.value
@@ -8288,7 +8305,7 @@ syncCurrentRoomMembers = async function(){
         ? `<span class="v73-presence ${online?'online':'offline'}"><span class="v73-presence-dot"></span>${online?'在線':'離線'}</span>`
         : ''
       const kick=(viewerIsOwner && !r.isOwner && r.memberId)
-        ? `<button class="secondary" style="width:auto;padding:7px 10px;border-radius:10px;color:#b94f5f;background:#fff0f2;white-space:nowrap" onclick="event.stopPropagation();removeRoomMemberById(decodeURIComponent('${mid}'),decodeURIComponent('${nn}'))">移出房間</button>`
+        ? `<button class="member-kick-btn danger-soft" onclick="event.stopPropagation();removeRoomMemberById(decodeURIComponent('${mid}'),decodeURIComponent('${nn}'))">移出房間</button>`
         : ''
       return `<div class="room-member-row member-stats-open" onclick="openRoomMemberStats(decodeURIComponent('${uid}'),decodeURIComponent('${nn}'))" role="button" tabindex="0"><div class="room-member-main"><div class="room-member-avatar">${initial}</div><div style="min-width:0"><div class="room-member-name">${escapeHtml(r.name)}</div><div class="room-member-role">${presence}<span>查看戰績</span></div></div></div><div style="display:flex;align-items:center;gap:8px">${r.isOwner?'<span class="room-owner-chip">房主</span>':''}${kick}<span class="member-stats-arrow">›</span></div></div>`
     }).join(''):'<div class="muted">這個房間目前還沒有玩家。</div>'
@@ -8315,6 +8332,165 @@ syncCurrentRoomMembers = async function(){
 .v73-presence.online .v73-presence-dot{background:#6caa8b;box-shadow:0 0 0 3px rgba(108,170,139,.14)}
 .v73-presence.offline{color:#a39a9e}
 .v73-presence.offline .v73-presence-dot{background:#c9c2c5}
+
+/* ===== V80：全站按鈕 / 框框 / 導航視覺統一 ===== */
+:root{
+  --ui-border:#eadfda;
+  --ui-soft:#fffaf7;
+  --ui-neutral:#f5f1ef;
+  --ui-danger-bg:#fff0f2;
+  --ui-danger-border:#f0c8cf;
+  --ui-danger-text:#a65364;
+}
+
+/* 所有按鈕都有穩定的盒模型與觸控尺寸，不因文字長短黏在一起。 */
+button{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+.primary,.secondary,.finish{
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1.25;
+}
+.primary+.primary,.primary+.secondary,.secondary+.secondary,.secondary+.primary,.finish+.secondary{
+  margin-top:10px;
+}
+
+/* 頁面右上導航：彼此保留間距，手機可自然換行。 */
+.page-nav-group,.room-header-actions,.modal-nav-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.nav-action{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:42px;
+  padding:9px 13px;
+  border:1px solid var(--ui-border);
+  border-radius:13px;
+  background:var(--ui-soft);
+  color:#665b60;
+  font-weight:900;
+  font-size:13px;
+  line-height:1.15;
+  white-space:nowrap;
+  box-shadow:none;
+}
+.nav-action:hover{background:#fff5ef;border-color:#dfd0c9}
+.nav-action:active{transform:translateY(1px)}
+
+/* 房間首頁右上三個動作不要擠成一坨。 */
+.room-header-actions{max-width:min(100%,360px)}
+.room-header-actions .link{
+  min-height:42px;
+  padding:9px 13px;
+  border-radius:13px;
+  border:1px solid transparent;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+/* 危險操作統一淡粉紅，不和一般返回/次要按鈕混色。 */
+.danger-soft{
+  color:var(--ui-danger-text)!important;
+  background:var(--ui-danger-bg)!important;
+  border:1px solid var(--ui-danger-border)!important;
+}
+.session-delete-btn{margin-top:18px!important}
+.member-kick-btn{
+  min-height:36px;
+  width:auto;
+  padding:7px 10px;
+  border-radius:11px;
+  font-weight:900;
+  font-size:12px;
+  line-height:1.1;
+  white-space:nowrap;
+}
+
+/* 歷史詳情頂部：返回與關閉明確分開。 */
+.session-detail-sticky{
+  gap:12px;
+  align-items:flex-start!important;
+}
+.session-detail-sticky>div:first-child{min-width:0;flex:1 1 auto}
+.modal-nav-actions{flex:0 0 auto}
+.session-back-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:42px!important;
+  padding:9px 13px!important;
+  border:1px solid #eadb9a!important;
+  border-radius:13px!important;
+  background:#fff3b8!important;
+  color:#514a42!important;
+  font-weight:900!important;
+  white-space:nowrap;
+}
+.modal-close-round{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0!important;
+  margin:0!important;
+}
+
+/* 房間成員列：姓名區優先，右側按鈕不壓住文字。 */
+.room-member-main{flex:1 1 auto;min-width:0}
+.room-member-row>div:last-child{flex:0 0 auto}
+.room-member-role{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+
+/* 切換、選項類按鈕維持同一框線語言。 */
+.rule-btn,.stake,.mode,.choice,.tai-btn,.player-btn,.dealer-choice,.draw-card{
+  box-sizing:border-box;
+}
+.rule-btn{border-color:transparent}
+.room-members-toggle{min-height:52px}
+.projection-btn,.undo-btn{min-height:40px}
+
+/* 小螢幕：導航不要硬塞同一列；標題與按鈕之間保留真正的空間。 */
+@media(max-width:700px){
+  .toprow{gap:12px}
+  #seat .toprow,
+  #dealerSetup .toprow,
+  #final .toprow,
+  #roomDashboard>.card:first-child>.toprow{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  #seat .toprow>h2,
+  #dealerSetup .toprow>h2,
+  #final .toprow>h2{
+    flex:1 1 150px;
+  }
+  .page-nav-group,.room-header-actions{
+    width:100%;
+    justify-content:flex-start;
+    gap:8px;
+  }
+  .page-nav-group .nav-action,.room-header-actions .nav-action,.room-header-actions .link{
+    flex:0 0 auto;
+  }
+  .session-detail-sticky{flex-wrap:wrap}
+  .session-detail-sticky .modal-nav-actions{
+    width:100%;
+    justify-content:space-between;
+  }
+  .session-detail-sticky .session-back-btn{flex:1 1 auto}
+  .room-member-row{align-items:flex-start}
+  .room-member-row>div:last-child{gap:6px!important}
+}
+@media(max-width:390px){
+  .nav-action{font-size:12px;padding:8px 10px}
+  .room-header-actions{gap:6px}
+  .member-kick-btn{padding:7px 8px;font-size:11px}
+}
+
 </style>
 
 <script>
