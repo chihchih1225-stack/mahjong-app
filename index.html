@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V100: V99 + 提款機改為整輪連打累積，直到連打總結算才歸零 -->
+<!-- V101: V100 + 提款機改為跟計分水位一致的累積淨額，不重複計算來回付款 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -4853,20 +4853,35 @@ function handCashflowTransfers(hand){
 }
 function buildCashflowMatrix(sessionHands=hands,players=P){
   const matrix=emptyCashflow(players)
-  // V100：先放入本輪連打「前面已完成場次」的累積付款。
+
+  // V101：提款機顯示的是「累積淨付款」，不是逐把付款流水。
+  // 同兩人之間若曾互相付款，要先互抵，最後只保留淨方向。
+  const addNetTransfer=(from,to,amount)=>{
+    amount=Number(amount||0)
+    if(!from||!to||from===to||amount<=0) return
+    if(!matrix[from] || !Object.prototype.hasOwnProperty.call(matrix[from],to)) return
+
+    const reverse=Number(matrix[to]?.[from]||0)
+    if(reverse>=amount){
+      matrix[to][from]=reverse-amount
+    }else{
+      matrix[to][from]=0
+      matrix[from][to]=Number(matrix[from][to]||0)+(amount-reverse)
+    }
+  }
+
+  // 先承接前幾場已經淨額化的提款機。
   ;(players||[]).forEach(from=>{
     ;(players||[]).forEach(to=>{
       if(from===to) return
-      matrix[from][to]=Number(seriesCashflowBase?.[from]?.[to]||0)
+      const amount=Number(seriesCashflowBase?.[from]?.[to]||0)
+      if(amount>0) addNetTransfer(from,to,amount)
     })
   })
-  // 再加目前這一場已完成的每一把。
+
+  // 再把目前這場每一把的付款依序加入並互抵。
   ;(sessionHands||[]).forEach(hand=>{
-    handCashflowTransfers(hand).forEach(t=>{
-      if(matrix[t.from] && Object.prototype.hasOwnProperty.call(matrix[t.from],t.to)){
-        matrix[t.from][t.to]+=Number(t.amount||0)
-      }
-    })
+    handCashflowTransfers(hand).forEach(t=>addNetTransfer(t.from,t.to,t.amount))
   })
   return matrix
 }
@@ -4894,7 +4909,7 @@ function renderCashflowMatrix(){
     html+=`<td class="cashflow-total ${n>0?'pos':n<0?'neg':''}">${n>0?'+':''}$${n.toLocaleString()}</td></tr>`
   })
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">每一格為本輪連打累積付款：放槍由放槍者付給胡牌者；自摸三家分別付款；詐胡由詐胡者分別賠三家。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
+  html+='<div class="cashflow-note">每一格為本輪連打累積淨額；同兩人之間的來回付款會互相抵銷，因此提款機的最終淨額會與上方計分水位一致。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
 
   el.innerHTML=html
   // 對帳異常只記錄 console，不干擾牌桌操作；正式測試時可快速定位資料問題。
