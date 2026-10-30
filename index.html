@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V75: V73 + 直播觀看頁房間聊天室（修正 script 載入） -->
+<!-- V77: V75 + 一般會員修改暱稱後同步既有 room_players 歷史名稱 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -3081,8 +3081,30 @@ async function editAccountName(){
     const record=await pbRequest(`/api/collections/users/records/${encodeURIComponent(pbAuth.record.id)}`,{method:'PATCH',body:JSON.stringify({name:clean})})
     savePocketBaseAuth({token:pbAuth.token,record})
     syncLocalProfileFromAccount()
+    await v77SyncMyRoomPlayerNames(clean)
     renderHomeDashboard(); renderAccountHeader()
+    if(currentRoomId) await syncCurrentRoomMembers()
   }catch(e){ alert('暱稱修改失敗：'+e.message) }
+}
+
+async function v77SyncMyRoomPlayerNames(newName){
+  const uid=pbAuth?.record?.id
+  const clean=(newName||'').trim()
+  if(!uid || !clean || isLockedNicknameAccount()) return
+  try{
+    const f=encodeURIComponent(`user="${pbFilterValue(uid)}"`)
+    const d=await pbRequest(`/api/collections/room_players/records?perPage=500&filter=${f}`)
+    for(const r of (d.items||[])){
+      if((r.display_name||'').trim()===clean) continue
+      await pbRequest(`/api/collections/room_players/records/${encodeURIComponent(r.id)}`,{
+        method:'PATCH',
+        body:JSON.stringify({display_name:clean})
+      })
+    }
+  }catch(e){
+    console.warn('V77：room_players 暱稱同步失敗',e)
+    throw new Error('帳號暱稱已更新，但舊戰績名稱同步失敗，請再試一次')
+  }
 }
 async function logoutAccount(){
   if(!await uiConfirm('登出後，下次需要重新輸入帳號密碼。','要登出誰與爭鋒嗎？',{icon:'👋',okText:'登出'})) return
