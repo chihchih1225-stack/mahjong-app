@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V89: V88 + 提款機正負號 + 直播桌號重排 -->
+<!-- V90: V89 + 移除提款機底部摘要條 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -4845,11 +4845,7 @@ function renderCashflowMatrix(){
   })
   html+='</tbody></table></div>'
   html+='<div class="cashflow-note">每一格都由實際逐把付款累加：放槍由放槍者付給胡牌者；自摸三家分別付款；詐胡由詐胡者分別賠三家。右側淨額應與目前本場總輸贏一致。</div>'
-  if(totalPaid>0 && maxPayer){
-    const atmNet=Number(net[maxPayer]||0)
-    const atmSigned=`${atmNet>0?'+':atmNet<0?'-':''}$${Math.abs(atmNet).toLocaleString()}`
-    html+=`<div class="cashflow-highlight">🏧 ${escapeHtml(maxPayer)} 目前累計付出 $${paid[maxPayer].toLocaleString()}・淨額 ${atmSigned}</div>`
-  }
+
   el.innerHTML=html
   // 對帳異常只記錄 console，不干擾牌桌操作；正式測試時可快速定位資料問題。
   if((hands||[]).length && !cashflowReconciles()) console.warn('V58：本場金流與目前總輸贏不一致，請檢查該把 payments。')
