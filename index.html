@@ -1,3 +1,4 @@
+<!-- V119：以 V118 為母版；個人戰績圓角 + 歷史牌局折疊 -->
 <!-- V118：以 V117 為母版；新增結算 XP + 保守程式健檢清理 -->
 <!doctype html>
 <!-- V116: PWA auto-update + cache/update lifecycle optimization; V115 game logic preserved -->
@@ -10329,5 +10330,84 @@ showSeriesSettlement=function(){
   return r
 }
 </script>
+
+
+<!-- V119：以 V118 為母版；個人戰績卡圓角統一 + 歷史牌局折疊 -->
+<style>
+/* ===== V119：個人戰績視覺整理 ===== */
+#roomMemberStatsModal .member-stats-sticky{
+  border:1px solid #efd8c9!important;
+  border-radius:20px!important;
+  padding:14px!important;
+  margin:0 0 12px!important;
+  overflow:hidden;
+}
+#roomMemberStatsModal .member-history-row{
+  border:1px solid #dfe8ef!important;
+  border-radius:16px!important;
+  background:rgba(255,255,255,.78)!important;
+  padding:13px 14px!important;
+  margin:0 0 9px!important;
+  box-shadow:0 3px 10px rgba(75,86,99,.035);
+}
+#roomMemberStatsModal .member-history-row:last-child{margin-bottom:0!important}
+.v119-history-section{margin-top:14px}
+.v119-history-toggle{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border:1px solid #d9e3ed;background:#f8fbff;color:#5f5a66;border-radius:17px;
+  padding:13px 14px;font-size:14px;font-weight:900;text-align:left
+}
+.v119-history-toggle-left{display:flex;align-items:center;gap:8px;min-width:0}
+.v119-history-count{font-size:11px;font-weight:900;color:#756d78;background:#edf3f8;border-radius:999px;padding:4px 8px;white-space:nowrap}
+.v119-history-arrow{font-size:18px;color:#817985;transition:transform .18s ease}
+.v119-history-body{display:none;padding-top:10px}
+.v119-history-section.open .v119-history-body{display:block}
+.v119-history-section.open .v119-history-arrow{transform:rotate(180deg)}
+.v119-history-more{
+  width:100%;margin-top:4px;border:1px solid #e1e7ec;background:#fff;color:#746d76;
+  border-radius:14px;padding:11px;font-size:12px;font-weight:900
+}
+.v119-history-extra{display:none}
+.v119-history-section.show-all .v119-history-extra{display:block}
+@media(max-width:520px){
+  #roomMemberStatsModal .member-stats-sticky{border-radius:18px!important;padding:13px!important}
+  #roomMemberStatsModal .member-history-row{border-radius:15px!important;padding:12px!important}
+}
+</style>
+<script>
+/* ===== V119：個人戰績歷史牌局預設收合；展開先看最近 3 將 ===== */
+function v119ToggleMemberHistory(btn){
+  const section=btn?.closest('.v119-history-section');if(!section)return
+  section.classList.toggle('open')
+  btn.setAttribute('aria-expanded',section.classList.contains('open')?'true':'false')
+}
+function v119ToggleMoreHistory(btn){
+  const section=btn?.closest('.v119-history-section');if(!section)return
+  section.classList.toggle('show-all')
+  btn.textContent=section.classList.contains('show-all')?'收起較早紀錄':'顯示更多'
+}
+function v119EnhanceMemberStats(){
+  const box=document.querySelector('#roomMemberStatsModal .member-stats-box');if(!box||box.querySelector('.v119-history-section'))return
+  const headings=[...box.querySelectorAll('h3')]
+  const h=headings.find(el=>(el.textContent||'').includes('參與過的歷史牌局'));if(!h)return
+  const oldBody=h.nextElementSibling;if(!oldBody)return
+  const rows=[...oldBody.querySelectorAll('.member-history-row')]
+  rows.forEach((row,i)=>{if(i>=3)row.classList.add('v119-history-extra')})
+  const section=document.createElement('div');section.className='v119-history-section'
+  const toggle=document.createElement('button');toggle.type='button';toggle.className='v119-history-toggle';toggle.setAttribute('aria-expanded','false')
+  toggle.innerHTML=`<span class="v119-history-toggle-left"><span>🗂️ 參與過的歷史牌局</span><span class="v119-history-count">${rows.length} 將</span></span><span class="v119-history-arrow">⌄</span>`
+  toggle.onclick=function(){v119ToggleMemberHistory(this)}
+  const body=document.createElement('div');body.className='v119-history-body';body.appendChild(oldBody)
+  if(rows.length>3){const more=document.createElement('button');more.type='button';more.className='v119-history-more';more.textContent='顯示更多';more.onclick=function(){v119ToggleMoreHistory(this)};body.appendChild(more)}
+  section.appendChild(toggle);section.appendChild(body);h.replaceWith(section)
+}
+const v119OldOpenRoomMemberStats=openRoomMemberStats
+openRoomMemberStats=async function(){
+  const r=await v119OldOpenRoomMemberStats.apply(this,arguments)
+  v119EnhanceMemberStats()
+  return r
+}
+</script>
+
 </body>
 </html>
