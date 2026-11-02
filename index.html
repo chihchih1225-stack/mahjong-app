@@ -1,3 +1,4 @@
+<!-- V118：以 V117 為母版；新增結算 XP + 保守程式健檢清理 -->
 <!doctype html>
 <!-- V116: PWA auto-update + cache/update lifecycle optimization; V115 game logic preserved -->
 <!-- V117: 雀士等級/XP + 房間等級標籤 + 等級排行；V116: PWA 自動更新；V114: V113 實測修正（返回間距／直播重複／特殊牌型空白膠囊）；V113: 固定身分ID + 將/把語意 + 今日完整戰績 + 計分規則/除錯 + 月份排行榜 + 新配色；V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
@@ -3856,70 +3857,6 @@ async function applyCurrentRoomAccess(){
   return allowed
 }
 
-async function syncCurrentRoomLiveSession(){
-  const box=document.getElementById('roomLiveSession')
-  if(!box || !currentRoomId || !pbAuth?.token) return
-  box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
-  if(!await getCurrentRoomPlayerAccess(currentRoomId)){ box.innerHTML='<div class="muted">只有這個房間的註冊會員可以觀看直播。</div>'; return }
-  try{
-    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
-    const data=await pbRequest(`/api/collections/game_sessions/records?perPage=20&sort=-created&filter=${filter}`)
-    const activeItems=data.items||[]
-    const ss=activeItems.find(x=>Array.isArray(x.players)&&x.players.length===4) || activeItems[0]
-    if(!ss){ box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>'; return }
-    box.innerHTML=`<div class="notice ok"><b>🟢 牌局進行中</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把<br><span class="muted">已確認的紀錄會從 NAS 同步，不會改動紀錄者手機。</span></div><button class="primary" style="margin-top:10px" onclick="openLiveSession('${ss.id}')">👀 觀看直播</button>`
-  }catch(e){
-    box.innerHTML='<div class="muted">目前無法讀取即時牌局。若剛設定 API Rules，請重新整理後再試。</div>'
-  }
-}
-
-async function openLiveSession(sessionId){
-  try{
-    if(!await getCurrentRoomPlayerAccess(currentRoomId)) throw new Error('只有這個房間的註冊會員可以觀看直播')
-    const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
-    // V31：直接用 room_player ID 解析，避免同名重複資料被名稱 map 覆蓋。
-    const roomPlayers=await loadRoomPlayersList(ss.room)
-    const byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
-    const names=(ss.players||[]).map(id=>byId[id]?.display_name).filter(Boolean)
-    // V30：觀看資格只看「目前登入者是不是房間正式成員」，不要求觀看者本人在這四位玩家內。
-    // ss.players 僅代表本局實際上桌四人。
-    if(names.length!==4) throw new Error('本局四位玩家尚未同步完成，請由記錄者重新開一場測試牌局')
-    const hf=encodeURIComponent(`session="${pbFilterValue(sessionId)}"`)
-    const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
-    P=[...names]; seats=[...names]
-    dealer=byId[ss.dealer]?.display_name||names[0]
-    dealerSeatIndex=Math.max(0,seats.indexOf(dealer))
-    recorderPlayer=names[0]
-    roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round))
-    repeats=Number(ss.dealer_repeats||0)
-    hands=(hd.items||[]).map(h=>({
-      round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,
-      winner:byId[h.winner]?.display_name||'',discarder:byId[h.discarder]?.display_name||'',
-      tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:byId[h.dealer]?.display_name||dealer,
-      repeats:Number(h.dealer_repeats||0)
-    }))
-    const last=(hd.items||[]).slice(-1)[0]
-    balances=Object.fromEntries(P.map(n=>[n,0]))
-    if(last?.balances_after && typeof last.balances_after==='object'){
-      Object.entries(last.balances_after).forEach(([name,value])=>{
-        const key=canonicalPlayerName(name)
-        if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
-      })
-    }else if(ss.status==='active' && ss.final_balances && typeof ss.final_balances==='object'){
-      Object.entries(ss.final_balances).forEach(([playerId,value])=>{
-        const key=canonicalPlayerName(byId[playerId]?.display_name||'')
-        if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
-      })
-    }
-    currentRule=stakeRules[selectedStake]||stakeRules['100/20']
-    liveViewerMode=true
-    renderGame(); show('game')
-    const game=document.getElementById('game')
-    game.classList.add('projection-mode')
-    document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn').forEach(el=>el.style.display='none')
-  }catch(e){ alert('目前無法開啟直播：'+(e.message||'請稍後再試')) }
-}
-
 async function getCurrentRoomMembership(){
   if(!currentRoomId || !pbAuth?.record?.id) return null
   try{
@@ -4813,109 +4750,6 @@ function calculateHandPayments(){
 /* =========================
    金額預覽
 ========================= */
-
-function renderPaymentPreview(){
-
-  const box=
-    document.getElementById(
-      'calculationPreview'
-    )
-
-
-  if(result==='流局'){
-
-    box.innerHTML=
-      '流局不產生金額變動，原莊連莊。'
-
-    return
-
-  }
-
-
-  if(!winner){
-
-    box.innerHTML=
-
-      result==='詐胡'
-      ?'請先選擇誰詐胡。'
-      :'請先選擇胡牌的人。'
-
-    return
-
-  }
-
-
-  if(
-    result==='胡牌'
-    &&
-    !discarder
-  ){
-
-    box.innerHTML=
-      '請選擇放槍的人。'
-
-    return
-
-  }
-
-
-  const changes=
-    calculateHandPayments()
-
-
-  const lines=
-
-    P
-    .filter(player=>
-      changes[player]!==0
-    )
-    .map(player=>{
-
-      const amount=
-        changes[player]
-
-      return `
-
-        <div
-          style="
-            display:flex;
-            justify-content:space-between;
-            margin:6px 0
-          "
-        >
-
-          <span>
-            ${player}
-          </span>
-
-          <b
-            style="
-              color:
-              ${amount>0
-                ?'#6caa8b'
-                :'#cf7f91'}
-            "
-          >
-
-            ${amount>0?'+':''}
-
-            $${amount.toLocaleString()}
-
-          </b>
-
-        </div>
-
-      `
-
-    }).join('')
-
-
-  box.innerHTML=
-    lines
-    ||
-    '這一將目前沒有金額變動。'
-
-}
 
 
 /* =========================
@@ -6832,7 +6666,7 @@ function showSeriesSettlement(){
   const placeText=(document.getElementById('place')?.value||'').trim()
   const moneyAbs=n=>'$'+Math.abs(Number(n||0)).toLocaleString()
   content.innerHTML=`
-    <div class="career-note series-settlement-meta"><b>共 ${Math.max(1,Number(seriesGameCount||0))} 場</b>・${stakeText}${placeText?'・'+escapeHtml(placeText):''}<br><span class="muted">${escapeHtml(startText)} 起</span></div>
+    <div class="career-note series-settlement-meta"><b>共 ${Math.max(1,Number(seriesGameCount||0))} 將</b>・${stakeText}${placeText?'・'+escapeHtml(placeText):''}<br><span class="muted">${escapeHtml(startText)} 起</span></div>
     <div class="series-settlement-list">
       ${rows.map((x,i)=>{
         const action=x.amount>0?'收':x.amount<0?'付':'平'
@@ -6855,7 +6689,7 @@ async function finishSeriesSettlement(){
     alert('目前四人的累積金額加總不是 0，請先檢查，不能完成收付。')
     return
   }
-  if(!await uiConfirm('確認後會結束這一輪連打並返回房間；每一場歷史戰績都會保留。','已經完成收付了嗎？',{okText:'完成收付'})) return
+  if(!await uiConfirm('確認後會結束這一輪連打並返回房間；每一將歷史戰績都會保留。','已經完成收付了嗎？',{okText:'完成收付'})) return
   closeSeriesSettlement()
   seriesId=''
   seriesGameCount=0
@@ -10176,24 +10010,7 @@ function v114DedupLiveSessions(items){
   })
   return [...groups.values(),...passthrough]
 }
-syncCurrentRoomLiveSession=async function(){
-  const box=document.getElementById('roomLiveSession')
-  if(!box || !currentRoomId || !pbAuth?.token) return
-  box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
-  if(!await getCurrentRoomPlayerAccess(currentRoomId)){box.innerHTML='<div class="muted">只有這個房間的註冊會員可以觀看直播。</div>';return}
-  try{
-    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
-    const data=await pbRequest(`/api/collections/game_sessions/records?perPage=50&sort=-updated&filter=${filter}`)
-    const fresh=(data.items||[]).filter(x=>Array.isArray(x.players)&&x.players.length===4&&v32SessionIsFresh(x))
-    const active=v114DedupLiveSessions(fresh)
-    if(!active.length){box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>';return}
-    active.sort((a,b)=>String(a.created||'').localeCompare(String(b.created||'')))
-    box.innerHTML=`<div class="muted" style="margin-bottom:8px">目前 ${active.length} 桌進行中</div>`+active.map((ss,index)=>{
-      const table=index+1
-      return `<div class="notice ok" style="margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b>🟢 第 ${table} 桌</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把</div><button class="secondary" style="width:auto;padding:9px 13px;white-space:nowrap" onclick="openLiveSession('${ss.id}')">👀 觀看</button></div></div>`
-    }).join('')
-  }catch(e){box.innerHTML='<div class="muted">目前無法讀取即時牌局。</div>'}
-}
+/* V118 清理：V114 的舊直播 override 已移除；保留去重 helper，正式直播邏輯由 V115 版本負責。 */
 </script>
 
 
@@ -10451,5 +10268,66 @@ const v117OldRenderRoomDashboard=renderRoomDashboard
 renderRoomDashboard=function(loadShared=true){const r=v117OldRenderRoomDashboard.apply(this,arguments);setTimeout(v117RenderRanking,0);return r}
 </script>
 
+
+
+<style id="v118-xp-settlement-style">
+/* ===== V118：結算 XP 顯示 ===== */
+.v118-xp-wrap{margin-top:14px;padding:13px;border-radius:18px;background:linear-gradient(135deg,#f7f2ff,#eef8ff);border:1px solid #dcd5f1}
+.v118-xp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.v118-xp-head b{color:#545b91}.v118-xp-list{display:grid;gap:7px}.v118-xp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:13px;background:rgba(255,255,255,.78);border:1px solid rgba(214,211,235,.8)}
+.v118-xp-name{display:flex;align-items:center;gap:7px;min-width:0}.v118-xp-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.v118-xp-gain{font-size:16px;font-weight:950;color:#6658a0;white-space:nowrap}.v118-xp-sub{font-size:10px;color:#7d7587;font-weight:800;margin-top:2px}.v118-levelup{display:inline-flex;margin-left:5px;padding:2px 6px;border-radius:999px;background:#fff0b8;color:#8a6a16;font-size:9px;font-weight:950}
+</style>
+<script id="v118-xp-settlement-runtime">
+/* ===== V118：單將 / 連打結束顯示 XP；不改 V117 XP 規則 ===== */
+let v118LastSavedSessionId=''
+const v118OldSaveCurrentSession=saveCurrentSession
+saveCurrentSession=function(){
+  const ss=v118OldSaveCurrentSession.apply(this,arguments)
+  if(ss?.id){v118LastSavedSessionId=ss.id;setTimeout(v118RenderDoneXp,0)}
+  return ss
+}
+function v118MapWithout(ids=[]){
+  const skip=new Set(ids.filter(Boolean))
+  return v117BuildXpMap((appData?.sessions||[]).filter(s=>!skip.has(s.id)))
+}
+function v118XpRowsForIds(ids=[],players=[]){
+  const after=v117AllTimeXpMap(), before=v118MapWithout(ids)
+  return (players||[]).map(raw=>{
+    const name=canonicalPlayerName(raw), a=after[name]||Object.assign({xp:0},v117LevelInfo(0)), b=before[name]||Object.assign({xp:0},v117LevelInfo(0))
+    return {name,gain:Math.max(0,Number(a.xp||0)-Number(b.xp||0)),before:b,after:a}
+  })
+}
+function v118XpBlock(rows,title='本將 XP'){
+  if(!rows?.length)return ''
+  return `<div class="v118-xp-wrap"><div class="v118-xp-head"><b>✨ ${escapeHtml(title)}</b><span class="muted">V117 練等</span></div><div class="v118-xp-list">${rows.map(x=>{
+    const up=Number(x.after.level||1)>Number(x.before.level||1)
+    return `<div class="v118-xp-row"><div class="v118-xp-name">${v117LevelPill(x.name)}<div><b>${escapeHtml(x.name)}</b><div class="v118-xp-sub">Lv.${x.before.level||1} → Lv.${x.after.level||1}${up?'<span class="v118-levelup">LEVEL UP</span>':''}</div></div></div><div class="v118-xp-gain">+${Number(x.gain||0).toLocaleString()} XP</div></div>`
+  }).join('')}</div></div>`
+}
+function v118RenderDoneXp(){
+  const box=document.getElementById('doneSummary');if(!box||!v118LastSavedSessionId)return
+  box.querySelectorAll('.v118-xp-wrap').forEach(x=>x.remove())
+  const ss=(appData?.sessions||[]).find(x=>x.id===v118LastSavedSessionId);if(!ss)return
+  box.insertAdjacentHTML('beforeend',v118XpBlock(v118XpRowsForIds([ss.id],ss.players||[]),'本將獲得 XP'))
+}
+function v118SeriesSessions(){
+  const start=seriesStartedAt?new Date(seriesStartedAt).getTime():0
+  const wanted=new Set((P||[]).map(canonicalPlayerName))
+  return (appData?.sessions||[]).filter(ss=>{
+    if(ss.roomId!==currentRoomId)return false
+    const t=new Date(ss.createdAt||ss.endedAt||0).getTime();if(start&&(!t||t<start))return false
+    const ps=new Set((ss.players||[]).map(canonicalPlayerName))
+    return wanted.size===4&&[...wanted].every(n=>ps.has(n))
+  })
+}
+const v118OldShowSeriesSettlement=showSeriesSettlement
+showSeriesSettlement=function(){
+  const r=v118OldShowSeriesSettlement.apply(this,arguments)
+  const content=document.getElementById('seriesSettlementContent');if(!content||!Array.isArray(P)||P.length!==4)return r
+  content.querySelectorAll('.v118-xp-wrap').forEach(x=>x.remove())
+  const sessions=v118SeriesSessions(), ids=sessions.map(x=>x.id)
+  if(ids.length)content.insertAdjacentHTML('beforeend',v118XpBlock(v118XpRowsForIds(ids,P),`本輪 ${ids.length} 將 XP`))
+  return r
+}
+</script>
 </body>
 </html>
