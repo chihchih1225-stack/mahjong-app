@@ -10409,5 +10409,106 @@ openRoomMemberStats=async function(){
 }
 </script>
 
+
+
+<style>
+/* ===== V120：我的目標手機版操作列 ===== */
+#homeScreen .goal-item-head{align-items:flex-start;gap:10px}
+#homeScreen .goal-actions{display:flex;gap:6px;flex:0 0 auto;margin-left:auto}
+#homeScreen .goal-actions button{
+  width:auto!important;min-width:0!important;height:auto!important;min-height:34px!important;
+  padding:7px 10px!important;border-radius:12px!important;font-size:12px!important;line-height:1!important;
+}
+@media(max-width:520px){
+  #homeScreen .goal-item{border-radius:18px!important;padding:12px!important}
+  #homeScreen .goal-item-head{display:flex!important;flex-direction:row!important;align-items:center!important}
+  #homeScreen .goal-item-name{min-width:0;flex:1;overflow-wrap:anywhere}
+  #homeScreen .goal-actions{display:flex!important;flex-direction:row!important;width:auto!important;gap:5px!important}
+  #homeScreen .goal-actions button{flex:0 0 auto!important;padding:7px 9px!important;font-size:11px!important;border-radius:11px!important}
+}
+</style>
+<script>
+/* ===== V120：我的目標改由 PocketBase user_goals 保存，localStorage 僅作畫面快取 ===== */
+const V120_GOALS_COLLECTION='user_goals'
+let v120GoalsReady=false
+function v120GoalUserId(){return String(pbAuth?.record?.id||'').trim()}
+function v120GoalErrorMessage(e){
+  if(e?.status===404) return '目標雲端資料表尚未建立，請先完成 V120 的 PocketBase user_goals 設定。'
+  if(e?.status===403) return '目前沒有目標資料的存取權限，請檢查 user_goals 的 API Rules。'
+  if(e?.message==='Failed to fetch') return '目前連不到 NAS PocketBase，目標沒有變更。請確認連線後再試一次。'
+  return e?.message||'目標同步失敗，請稍後再試。'
+}
+async function v120SyncGoalsFromPocketBase({silent=false}={}){
+  ensureAppData()
+  const uid=v120GoalUserId()
+  if(!uid){appData.profile.goals=[];persistAppData();v120GoalsReady=false;return []}
+  try{
+    const filter=encodeURIComponent(`user="${pbFilterValue(uid)}"`)
+    const data=await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records?perPage=100&sort=created&filter=${filter}`)
+    appData.profile.goals=(data.items||[]).map(r=>({
+      id:r.id,name:String(r.name||''),amount:Number(r.amount||0),createdAt:r.created||new Date().toISOString()
+    })).filter(g=>g.name&&g.amount>0)
+    persistAppData();v120GoalsReady=true
+    return appData.profile.goals
+  }catch(e){
+    v120GoalsReady=false
+    console.warn('V120：目標雲端同步失敗',e)
+    if(!silent) await uiAlert(v120GoalErrorMessage(e),'目標同步失敗',{icon:'☁️'})
+    throw e
+  }
+}
+async function addMyGoal(){
+  ensureAppData()
+  if(!v120GoalUserId()){await uiAlert('請先登入帳號再新增目標。','尚未登入');return}
+  const nameRaw=await uiPrompt('目標名稱','我的新目標',{placeholder:'例如：今年贏 15,000',icon:'🎯',okText:'下一步'})
+  if(nameRaw===null)return
+  const name=nameRaw.trim();if(!name){await uiAlert('請輸入目標名稱');return}
+  const amountRaw=await uiPrompt('目標金額','15000',{message:'輸入你想達成的累積金額',placeholder:'15000',icon:'💰',okText:'建立目標'})
+  if(amountRaw===null)return
+  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''));if(!Number.isFinite(amount)||amount<=0){await uiAlert('請輸入大於 0 的金額');return}
+  try{
+    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records`,{method:'POST',body:JSON.stringify({user:v120GoalUserId(),name,amount:Math.round(amount)})})
+    await v120SyncGoalsFromPocketBase({silent:true});renderHomeDashboard()
+  }catch(e){console.error(e);await uiAlert(v120GoalErrorMessage(e),'目標沒有新增',{icon:'☁️'})}
+}
+async function editMyGoal(id){
+  ensureAppData();const g=appData.profile.goals.find(x=>x.id===id);if(!g)return
+  const nameRaw=await uiPrompt('修改目標名稱',g.name,{icon:'🎯',okText:'下一步'});if(nameRaw===null)return
+  const name=nameRaw.trim();if(!name){await uiAlert('目標名稱不能空白');return}
+  const amountRaw=await uiPrompt('修改目標金額',String(g.amount),{icon:'💰',okText:'儲存'});if(amountRaw===null)return
+  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''));if(!Number.isFinite(amount)||amount<=0){await uiAlert('請輸入大於 0 的金額');return}
+  try{
+    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({name,amount:Math.round(amount)})})
+    await v120SyncGoalsFromPocketBase({silent:true});renderHomeDashboard()
+  }catch(e){console.error(e);await uiAlert(v120GoalErrorMessage(e),'目標沒有修改',{icon:'☁️'})}
+}
+async function deleteMyGoal(id){
+  ensureAppData();const g=appData.profile.goals.find(x=>x.id===id);if(!g)return
+  if(!await uiConfirm('刪除後無法復原。',`刪除目標「${g.name}」？`,{danger:true,okText:'刪除'}))return
+  try{
+    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records/${encodeURIComponent(id)}`,{method:'DELETE'})
+    await v120SyncGoalsFromPocketBase({silent:true});renderHomeDashboard()
+  }catch(e){console.error(e);await uiAlert(v120GoalErrorMessage(e),'目標沒有刪除',{icon:'☁️'})}
+}
+function setMyGoal(){return addMyGoal()}
+
+/* 登入後先抓帳號自己的目標，再畫首頁；舊 localStorage 目標不搬移。 */
+enterAppAfterLogin=async function(){
+  syncLocalProfileFromAccount()
+  show('home');renderAccountHeader()
+  try{await v120SyncGoalsFromPocketBase({silent:false})}catch(e){}
+  await syncRoomsFromPocketBase()
+  renderHomeDashboard()
+  await handleInviteFromUrl()
+}
+const v120OldRefreshCurrentPage=refreshCurrentPage
+refreshCurrentPage=async function(){
+  if(currentVisibleSectionId()==='home'&&pbAuth?.token){
+    try{await v120SyncGoalsFromPocketBase({silent:false})}catch(e){}
+  }
+  return v120OldRefreshCurrentPage.apply(this,arguments)
+}
+</script>
+
 </body>
 </html>
