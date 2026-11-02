@@ -9709,7 +9709,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V116'
+  const APP_VERSION='V121'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10428,7 +10428,7 @@ openRoomMemberStats=async function(){
 }
 </style>
 <script>
-/* ===== V120：我的目標改由 PocketBase user_goals 保存，localStorage 僅作畫面快取 ===== */
+/* ===== V121：修正 user_goals 欄位對應；目標由 PocketBase 保存 ===== */
 const V120_GOALS_COLLECTION='user_goals'
 let v120GoalsReady=false
 function v120GoalUserId(){return String(pbAuth?.record?.id||'').trim()}
@@ -10446,7 +10446,7 @@ async function v120SyncGoalsFromPocketBase({silent=false}={}){
     const filter=encodeURIComponent(`user="${pbFilterValue(uid)}"`)
     const data=await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records?perPage=100&sort=created&filter=${filter}`)
     appData.profile.goals=(data.items||[]).map(r=>({
-      id:r.id,name:String(r.name||''),amount:Number(r.amount||0),createdAt:r.created||new Date().toISOString()
+      id:r.id,name:String(r.title||''),amount:Number(r.target||0),createdAt:r.created||new Date().toISOString()
     })).filter(g=>g.name&&g.amount>0)
     persistAppData();v120GoalsReady=true
     return appData.profile.goals
@@ -10467,7 +10467,7 @@ async function addMyGoal(){
   if(amountRaw===null)return
   const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''));if(!Number.isFinite(amount)||amount<=0){await uiAlert('請輸入大於 0 的金額');return}
   try{
-    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records`,{method:'POST',body:JSON.stringify({user:v120GoalUserId(),name,amount:Math.round(amount)})})
+    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records`,{method:'POST',body:JSON.stringify({user:v120GoalUserId(),title:name,target:Math.round(amount),current:0,unit:'$',status:'active'})})
     await v120SyncGoalsFromPocketBase({silent:true});renderHomeDashboard()
   }catch(e){console.error(e);await uiAlert(v120GoalErrorMessage(e),'目標沒有新增',{icon:'☁️'})}
 }
@@ -10478,7 +10478,7 @@ async function editMyGoal(id){
   const amountRaw=await uiPrompt('修改目標金額',String(g.amount),{icon:'💰',okText:'儲存'});if(amountRaw===null)return
   const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''));if(!Number.isFinite(amount)||amount<=0){await uiAlert('請輸入大於 0 的金額');return}
   try{
-    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({name,amount:Math.round(amount)})})
+    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({title:name,target:Math.round(amount)})})
     await v120SyncGoalsFromPocketBase({silent:true});renderHomeDashboard()
   }catch(e){console.error(e);await uiAlert(v120GoalErrorMessage(e),'目標沒有修改',{icon:'☁️'})}
 }
