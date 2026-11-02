@@ -1,14 +1,59 @@
-const CACHE_NAME = 'mahjong-v46-shell-v1';
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-180.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png'];
-self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))); self.skipWaiting(); });
-self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))); self.clients.claim(); });
-self.addEventListener('fetch', event => {
-  const req = event.request;
-  const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (req.mode === 'navigate') {
-    event.respondWith(fetch(req).then(res => { const copy=res.clone(); caches.open(CACHE_NAME).then(c=>c.put('/index.html',copy)); return res; }).catch(()=>caches.match('/index.html')));
+/* 誰與爭鋒 V116 Service Worker */
+const CACHE_NAME='mahjong-pwa-v116';
+const APP_SHELL=['/','/manifest.webmanifest'];
+
+self.addEventListener('install',event=>{
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).catch(()=>{})
+  );
+});
+
+self.addEventListener('activate',event=>{
+  event.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(k=>k!==CACHE_NAME && k.startsWith('mahjong-pwa-')).map(k=>caches.delete(k)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('message',event=>{
+  if(event.data && event.data.type==='SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('fetch',event=>{
+  const req=event.request;
+  if(req.method!=='GET') return;
+  const url=new URL(req.url);
+  if(url.origin!==self.location.origin) return;
+
+  // HTML / navigation：永遠先拿 Vercel 最新版，離線時才用快取。
+  if(req.mode==='navigate'){
+    event.respondWith((async()=>{
+      try{
+        const fresh=await fetch(req,{cache:'no-store'});
+        if(fresh && fresh.ok){
+          const cache=await caches.open(CACHE_NAME);
+          cache.put('/',fresh.clone()).catch(()=>{});
+        }
+        return fresh;
+      }catch(e){
+        return (await caches.match(req)) || (await caches.match('/')) || Response.error();
+      }
+    })());
     return;
   }
-  event.respondWith(caches.match(req).then(cached => cached || fetch(req).then(res => { const copy=res.clone(); caches.open(CACHE_NAME).then(c=>c.put(req,copy)); return res; })));
+
+  // manifest / icons 等靜態檔：先回快取，同時背景更新。sw.js 本身不攔截。
+  if(url.pathname==='/sw.js') return;
+  event.respondWith((async()=>{
+    const cached=await caches.match(req);
+    const network=fetch(req).then(async res=>{
+      if(res && res.ok){
+        const cache=await caches.open(CACHE_NAME);
+        cache.put(req,res.clone()).catch(()=>{});
+      }
+      return res;
+    }).catch(()=>null);
+    return cached || (await network) || Response.error();
+  })());
 });
