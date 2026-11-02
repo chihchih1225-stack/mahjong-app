@@ -7351,17 +7351,23 @@ function renderHomeDashboard(){
   const vals=mySessions.map(s=>sessionNets(s)[me]||0)
   const best=vals.length?Math.max(...vals):0, worst=vals.length?Math.min(...vals):0
   const rate=mine.handAppearances?`${(mine.discards/mine.handAppearances*100).toFixed(1)}%`:'—'
-  const myDetailedHands=myDetailedSessions.reduce((n,s)=>n+(Array.isArray(s.hands)?s.hands.length:0),0)
-  const myDetailedNet=myDetailedSessions.reduce((n,s)=>n+Number(sessionNets(s)[me]||0),0)
+  const firstPlaceCount=mySessions.reduce((count,s)=>{
+    const nets=sessionNets(s)
+    const scores=Object.values(nets).map(Number).filter(Number.isFinite)
+    if(!scores.length || !Object.prototype.hasOwnProperty.call(nets,me)) return count
+    const top=Math.max(...scores)
+    return count+(Number(nets[me])===top?1:0)
+  },0)
+  const firstPlaceRate=mySessions.length?`${(firstPlaceCount/mySessions.length*100).toFixed(1)}%`:'—'
   document.getElementById('myCareerStats').innerHTML=`
     <div class="career-stat"><div class="k">累積輸贏</div><div class="v">${money(mine.net)}</div></div>
     <div class="career-stat"><div class="k">累積將數</div><div class="v">${mine.sessions} 將</div></div>
     <div class="career-stat"><div class="k">本月輸贏</div><div class="v">${money(monthNet)}</div></div>
     <div class="career-stat"><div class="k">胡牌 / 自摸</div><div class="v">${mine.wins} / ${mine.selfdraws}</div></div>
     <div class="career-stat"><div class="k">放槍 / 放槍率</div><div class="v">${mine.discards||0} / ${rate}</div></div>
-    <div class="career-stat"><div class="k">最佳單將</div><div class="v">${money(best)}</div></div>
+    <div class="career-stat"><div class="k">勝率</div><div class="v">${firstPlaceRate}</div><div class="muted">${firstPlaceCount} 冠 / ${mySessions.length} 將</div></div>
     <div class="career-stat"><div class="k">最慘單將</div><div class="v">${money(worst)}</div></div>
-    <div class="career-stat"><div class="k">平均每把輸贏</div><div class="v">${myDetailedHands?money(myDetailedNet/myDetailedHands):'—'}</div></div>`
+    <div class="career-stat"><div class="k">最佳單將</div><div class="v">${money(best)}</div></div>`
   document.getElementById('roomList').innerHTML=appData.rooms.map(r=>{
     const ss=roomSessions(r.id), a=aggregateSessions(ss), meRow=a.find(x=>x.name===me)
     return `<div class="room-row" onclick="openRoom('${r.id}')"><div><div class="room-name">🀄 ${r.name}</div><div class="room-meta">${ss.length} 將・我的戰績 ${money(meRow?meRow.net:0)}</div></div><div class="room-arrow">›</div></div>`
@@ -9709,7 +9715,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V121'
+  const APP_VERSION='V122'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10428,7 +10434,7 @@ openRoomMemberStats=async function(){
 }
 </style>
 <script>
-/* ===== V121：修正 user_goals 欄位對應；目標由 PocketBase 保存 ===== */
+/* ===== V122：user_goals 正式 schema（user/name/amount/current/sort_order）+ 首頁勝率 ===== */
 const V120_GOALS_COLLECTION='user_goals'
 let v120GoalsReady=false
 function v120GoalUserId(){return String(pbAuth?.record?.id||'').trim()}
@@ -10446,7 +10452,7 @@ async function v120SyncGoalsFromPocketBase({silent=false}={}){
     const filter=encodeURIComponent(`user="${pbFilterValue(uid)}"`)
     const data=await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records?perPage=100&sort=created&filter=${filter}`)
     appData.profile.goals=(data.items||[]).map(r=>({
-      id:r.id,name:String(r.title||''),amount:Number(r.target||0),createdAt:r.created||new Date().toISOString()
+      id:r.id,name:String(r.name||''),amount:Number(r.amount||0),current:Number(r.current||0),sortOrder:Number(r.sort_order||0),createdAt:r.created||new Date().toISOString()
     })).filter(g=>g.name&&g.amount>0)
     persistAppData();v120GoalsReady=true
     return appData.profile.goals
@@ -10467,7 +10473,7 @@ async function addMyGoal(){
   if(amountRaw===null)return
   const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''));if(!Number.isFinite(amount)||amount<=0){await uiAlert('請輸入大於 0 的金額');return}
   try{
-    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records`,{method:'POST',body:JSON.stringify({user:v120GoalUserId(),title:name,target:Math.round(amount),current:0,unit:'$',status:'active'})})
+    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records`,{method:'POST',body:JSON.stringify({user:v120GoalUserId(),name,amount:Math.round(amount)})})
     await v120SyncGoalsFromPocketBase({silent:true});renderHomeDashboard()
   }catch(e){console.error(e);await uiAlert(v120GoalErrorMessage(e),'目標沒有新增',{icon:'☁️'})}
 }
@@ -10478,7 +10484,7 @@ async function editMyGoal(id){
   const amountRaw=await uiPrompt('修改目標金額',String(g.amount),{icon:'💰',okText:'儲存'});if(amountRaw===null)return
   const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''));if(!Number.isFinite(amount)||amount<=0){await uiAlert('請輸入大於 0 的金額');return}
   try{
-    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({title:name,target:Math.round(amount)})})
+    await pbRequest(`/api/collections/${V120_GOALS_COLLECTION}/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({name,amount:Math.round(amount)})})
     await v120SyncGoalsFromPocketBase({silent:true});renderHomeDashboard()
   }catch(e){console.error(e);await uiAlert(v120GoalErrorMessage(e),'目標沒有修改',{icon:'☁️'})}
 }
