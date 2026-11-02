@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
+<!-- V113: 固定身分ID + 將/把語意 + 今日完整戰績 + 計分規則/除錯 + 月份排行榜 + 新配色；V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -2097,6 +2097,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
       <button class="rule-btn" data-room-filter="month" onclick="setRoomFilter('month')">本月</button>
       <button class="rule-btn" data-room-filter="week" onclick="setRoomFilter('week')">本週</button>
       <button class="rule-btn" data-room-filter="today" onclick="setRoomFilter('today')">今天</button>
+      <input id="v113MonthPicker" class="v113-month-picker" type="month" aria-label="選擇歷史月份" onchange="v113SetHistoryMonth(this.value)">
     </div>
     <div id="roomRanking"></div>
   </div>
@@ -2415,6 +2416,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
   <div id="gameTimeBar" class="game-timebar">
     <span id="gameStartTime" class="game-time-chip">開始 --:--</span>
     <span id="gameElapsedTime" class="game-time-chip">已進行 00:00:00</span>
+    <span id="v113CurrentTime" class="game-time-chip">現在 --:--:--</span>
   </div>
 
   <div id="liveTickerWrap" class="live-ticker-wrap" aria-live="polite">
@@ -2775,7 +2777,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
       style="margin-top:13px"
       onclick="saveHand()"
     >
-      記錄這一場
+      記錄這一將
     </button>
 
   </div>
@@ -2864,7 +2866,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
     class="primary"
     onclick="saveFinal()"
   >
-    儲存這場戰績
+    儲存這將戰績
   </button>
 
 
@@ -2881,7 +2883,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
   <div class="card">
 
     <h2 style="text-align:center">
-      本場結束
+      本將結束
     </h2>
 
     <div id="doneSummary"></div>
@@ -2889,7 +2891,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
   </div>
 
 
-  <button class="primary" onclick="continueNextMatch()">🀄 繼續下一場</button>
+  <button class="primary" onclick="continueNextMatch()">🀄 繼續下一將</button>
   <button class="finish" style="margin-top:10px" onclick="showSeriesSettlement()">💰 結束連打・總結算</button>
   <button class="secondary" style="margin-top:8px" onclick="showTodaySummary()">🏁 查看今日總結</button>
   <button class="secondary" style="margin-top:8px" onclick="returnToCurrentRoom()">← 返回房間</button>
@@ -2918,7 +2920,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
 <div id="todaySummaryModal" class="modal hidden">
   <div class="modal-box" style="max-width:560px;max-height:88dvh;overflow:auto">
     <div class="toprow">
-      <div><div class="muted">今天的牌局</div><h2 style="margin:3px 0">🏁 今日總結</h2></div>
+      <div><div class="muted">今天的戰績</div><h2 style="margin:3px 0">🏁 今日總結</h2></div>
       <button class="modal-close-round" onclick="closeTodaySummary()" aria-label="關閉">×</button>
     </div>
     <div id="todaySummaryContent"></div>
@@ -2937,7 +2939,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
   <div class="modal-box">
 
     <h2 style="text-align:center">
-      確定結束這場？
+      確定結束這一將？
     </h2>
 
     <div
@@ -2966,6 +2968,8 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
       >
         確定結束
       </button>
+
+      <button type="button" class="secondary v113-debug-btn" style="grid-column:1/-1" onclick="v113OpenDebugAdjust()">🧮 除錯補差額</button>
 
     </div>
 
@@ -3727,7 +3731,7 @@ async function createRemoteGameSession(){
     const map=await ensureRemoteRoomPlayers(currentRoomId)
     let tableNumber=Number(preferredNextTableNumber||0)
     if(tableNumber>0){
-      // V53：上一場已完成後，下一場優先沿用同一張實體桌的桌號。
+      // V53：上一場已完成後，下一將優先沿用同一張實體桌的桌號。
       // 若該桌號此刻已被其他 active session 佔用，才重新找空桌號。
       try{
         const tf=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active" && table_number=${tableNumber}`)
@@ -3758,9 +3762,9 @@ async function createRemoteGameSession(){
       place:(document.getElementById('place')?.value||'').trim(),
       stake:selectedStake||''
     }
-    // V99：active session 的 final_balances 暫存「這一場的起始水位」。
+    // V99：active session 的 final_balances 暫存「這一將的起始水位」。
     // 連打新場尚未產生第一把 game_hands 時，直播/投影就能接續上一場水位；
-    // 本場結束時 completeRemoteSession() 仍會覆寫成「本場淨輸贏」，歷史統計語意不變。
+    // 本將結束時 completeRemoteSession() 仍會覆寫成「本場淨輸贏」，歷史統計語意不變。
     const openingBalancesById={}
     P.forEach(name=>{
       const pid=map[name]?.id
@@ -4678,34 +4682,14 @@ function calculateHandPayments(){
   }
 
 
-  /* 胡牌 */
+  /* 胡牌：V113 起連莊只顯示，不再自動加台；台數由現場直接按入。 */
 
   if(result==='胡牌'){
 
-    let amount=
-      normalAmount()
+    const amount=normalAmount()
 
-    /*
-      金流其中一方是莊家
-      才加莊家台
-    */
-
-    if(
-      winner===dealer
-      ||
-      discarder===dealer
-    ){
-
-      amount=
-        dealerAmount()
-
-    }
-
-    changes[winner]+=
-      amount
-
-    changes[discarder]-=
-      amount
+    changes[winner]+=amount
+    changes[discarder]-=amount
 
     return changes
 
@@ -4928,7 +4912,7 @@ function renderPaymentPreview(){
   box.innerHTML=
     lines
     ||
-    '這一場目前沒有金額變動。'
+    '這一將目前沒有金額變動。'
 
 }
 
@@ -5134,7 +5118,7 @@ function renderCashflowMatrix(){
   })
 
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">提款機由計分端依每一把實際付款累積完整「誰付誰」矩陣，並同步給直播／投影；最右側合計＝收到－付出，與計分水位對帳。按「繼續下一場」不歸零，完成「連打總結算」才重新開始。</div>'
+  html+='<div class="cashflow-note">提款機由計分端依每一把實際付款累積完整「誰付誰」矩陣，並同步給直播／投影；最右側合計＝收到－付出，與計分水位對帳。按「繼續下一將」不歸零，完成「連打總結算」才重新開始。</div>'
 
   const mismatch=order.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
   if(mismatch.length){
@@ -6260,7 +6244,7 @@ function saveHand(){
     return
   }
 
-  /* 下一場 */
+  /* 下一將 */
 
   tai=0
 
@@ -6765,8 +6749,8 @@ async function finishDetailedGame(){
   saveCurrentSession('detailed')
   v33StopGameClock()
 
-  // V53：先確實把「這一場」標成 completed，再開放下一場。
-  // 這樣按「繼續下一場」時不會因上一場仍短暫 active 而跳到錯的桌號，
+  // V53：先確實把「這一將」標成 completed，再開放下一將。
+  // 這樣按「繼續下一將」時不會因上一場仍短暫 active 而跳到錯的桌號，
   // 也完全不會去結束同房間其他桌的 session。
   const finishedRemoteId=remoteSessionId
   if(finishedRemoteId){
@@ -6780,15 +6764,15 @@ async function finishDetailedGame(){
 
 }
 
-// V51：同一個房間打完一場後，可直接開始下一場；沿用房間與四位玩家，但座位一定重新抽。
+// V51：同一個房間打完一場後，可直接開始下一將；沿用房間與四位玩家，但座位一定重新抽。
 function continueNextMatch(){
   if(P.length!==4){ returnToCurrentRoom(); return }
   sessionSaved=false
-  // V53：同一桌接著打下一場，保留桌號；牌局本身仍建立全新的 game_session。
+  // V53：同一桌接著打下一將，保留桌號；牌局本身仍建立全新的 game_session。
   preferredNextTableNumber=Number(currentTableNumber||0)
   remoteSessionId=''
-  // V81：連打時不把桌上水位歸零；下一場以目前水位作為起點。
-  // sessionOpeningBalances 只用來算「這一場」的輸贏，避免長期戰績重複累加。
+  // V81：連打時不把桌上水位歸零；下一將以目前水位作為起點。
+  // sessionOpeningBalances 只用來算「這一將」的輸贏，避免長期戰績重複累加。
   sessionOpeningBalances={}
   P.forEach(player=>sessionOpeningBalances[player]=Number(balances[player]||0))
   // V108：提款機帳本已在每一把確認時即時累積；跨場只原封不動帶過去，不再重算。
@@ -6961,7 +6945,7 @@ async function showTodaySummary(){
       ${award('🎯','今日自摸王',self,'selfdraws')}
       ${award('💣','今日放槍王',bomb,'discards')}
     </div>
-    <div style="margin-top:14px">${rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 場・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join('')}</div>`
+    <div style="margin-top:14px">${rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join('')}</div>`
   modal.classList.remove('hidden')
 }
 function closeTodaySummary(){ document.getElementById('todaySummaryModal')?.classList.add('hidden') }
@@ -7404,7 +7388,7 @@ function aggregateSessions(sessions){
   const players={}
   const touch=name=>players[name]||(players[name]={
     name,net:0,sessions:0,wins:0,selfdraws:0,discardWins:0,discards:0,frauds:0,maxWin:-Infinity,minWin:Infinity,maxLoss:0,
-    sessionWins:0,winRate:0,maxStreak:0,currentStreak:0,cleanSuit:0,mixedSuit:0,pongPong:0,migi:0,handAppearances:0
+    sessionWins:0,winRate:0,maxStreak:0,currentStreak:0,cleanSuit:0,mixedSuit:0,pongPong:0,smallThree:0,bigThree:0,migi:0,handAppearances:0,detailedHands:0
   })
 
   // 連勝一定要按實際牌局時間計算，不能受資料載入順序影響。
@@ -7435,7 +7419,7 @@ function aggregateSessions(sessions){
     // 放槍率只使用真的有逐把明細的場次作分母；舊式只存最終結算的場次不混進去。
     if(detailedHands.length){
       const participants=(ss.players&&ss.players.length)?ss.players:Object.keys(nets)
-      participants.forEach(name=>touch(name).handAppearances+=detailedHands.length)
+      participants.forEach(name=>{const x=touch(name);x.handAppearances+=detailedHands.length;x.detailedHands+=detailedHands.length})
     }
 
     detailedHands.forEach(h=>{
@@ -7450,6 +7434,8 @@ function aggregateSessions(sessions){
         if(patterns.includes('清一色')) touch(h.winner).cleanSuit++
         if(patterns.includes('混一色')) touch(h.winner).mixedSuit++
         if(patterns.includes('碰碰胡')) touch(h.winner).pongPong++
+        if(patterns.includes('小三元')) touch(h.winner).smallThree++
+        if(patterns.includes('大三元')) touch(h.winner).bigThree++
         if(patterns.includes('MIGI')) touch(h.winner).migi++
       }
     })
@@ -7529,18 +7515,20 @@ function renderHomeDashboard(){
   const vals=mySessions.map(s=>sessionNets(s)[me]||0)
   const best=vals.length?Math.max(...vals):0, worst=vals.length?Math.min(...vals):0
   const rate=mine.handAppearances?`${(mine.discards/mine.handAppearances*100).toFixed(1)}%`:'—'
+  const myDetailedHands=myDetailedSessions.reduce((n,s)=>n+(Array.isArray(s.hands)?s.hands.length:0),0)
+  const myDetailedNet=myDetailedSessions.reduce((n,s)=>n+Number(sessionNets(s)[me]||0),0)
   document.getElementById('myCareerStats').innerHTML=`
     <div class="career-stat"><div class="k">累積輸贏</div><div class="v">${money(mine.net)}</div></div>
-    <div class="career-stat"><div class="k">累積場次</div><div class="v">${mine.sessions} 場</div></div>
+    <div class="career-stat"><div class="k">累積將數</div><div class="v">${mine.sessions} 將</div></div>
     <div class="career-stat"><div class="k">本月輸贏</div><div class="v">${money(monthNet)}</div></div>
     <div class="career-stat"><div class="k">胡牌 / 自摸</div><div class="v">${mine.wins} / ${mine.selfdraws}</div></div>
     <div class="career-stat"><div class="k">放槍 / 放槍率</div><div class="v">${mine.discards||0} / ${rate}</div></div>
-    <div class="career-stat"><div class="k">最佳單場</div><div class="v">${money(best)}</div></div>
-    <div class="career-stat"><div class="k">最慘單場</div><div class="v">${money(worst)}</div></div>
-    <div class="career-stat"><div class="k">詳細紀錄場數</div><div class="v">${myDetailedSessions.length} 場</div></div>`
+    <div class="career-stat"><div class="k">最佳單將</div><div class="v">${money(best)}</div></div>
+    <div class="career-stat"><div class="k">最慘單將</div><div class="v">${money(worst)}</div></div>
+    <div class="career-stat"><div class="k">平均每把輸贏</div><div class="v">${myDetailedHands?money(myDetailedNet/myDetailedHands):'—'}</div></div>`
   document.getElementById('roomList').innerHTML=appData.rooms.map(r=>{
     const ss=roomSessions(r.id), a=aggregateSessions(ss), meRow=a.find(x=>x.name===me)
-    return `<div class="room-row" onclick="openRoom('${r.id}')"><div><div class="room-name">🀄 ${r.name}</div><div class="room-meta">${ss.length} 場・我的戰績 ${money(meRow?meRow.net:0)}</div></div><div class="room-arrow">›</div></div>`
+    return `<div class="room-row" onclick="openRoom('${r.id}')"><div><div class="room-name">🀄 ${r.name}</div><div class="room-meta">${ss.length} 將・我的戰績 ${money(meRow?meRow.net:0)}</div></div><div class="room-arrow">›</div></div>`
   }).join('')
 }
 let roomTimeFilter='all'
@@ -7596,9 +7584,9 @@ async function deleteSessionById(id){
   const date=new Date(ss.startedAt||ss.createdAt).toLocaleDateString('zh-TW')
   const remote=!!ss.remote
   const msg=remote
-    ? '這會從共同房間永久刪除這一場，所有人的長期戰績、排行榜、名人堂與同桌勝負都會重新計算。'
+    ? '這會從共同房間永久刪除這一將，所有人的長期戰績、排行榜、名人堂與同桌勝負都會重新計算。'
     : '刪除後，長期戰績、排行榜、名人堂都會重新計算。'
-  if(!await uiConfirm(msg,`刪除 ${date} 這一場？`,{danger:true,okText:'刪除牌局'})) return
+  if(!await uiConfirm(msg,`刪除 ${date} 這一將？`,{danger:true,okText:'刪除牌局'})) return
   try{
     if(remote){
       if(!pbAuth?.token) throw new Error('請先登入')
@@ -7777,12 +7765,12 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
       let hd={items:[]}
       try{ hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`) }catch(e){ console.warn('V37：讀取歷史逐把資料失敗',rs.id,e) }
       const remoteHands=hd.items||[]
-      const players=(rs.players||[]).map(id=>canonicalPlayerName(byId[id]?.display_name)).filter(Boolean)
+      const players=(rs.players||[]).map(id=>canonicalRoomPlayerName(byId[id],roomPlayers)).filter(Boolean)
       const hands=remoteHands.map(h=>({
         round:h.round||'',result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,
-        winner:canonicalPlayerName(byId[h.winner]?.display_name||''),discarder:canonicalPlayerName(byId[h.discarder]?.display_name||''),tai:Number(h.tai||0),
+        winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),
         patterns:h.patterns||[],changes:h.payments||{},balancesAfter:h.balances_after||{},
-        dealer:canonicalPlayerName(byId[h.dealer]?.display_name||''),repeats:Number(h.dealer_repeats||0)
+        dealer:canonicalRoomPlayerName(byId[h.dealer],roomPlayers),repeats:Number(h.dealer_repeats||0)
       }))
       const last=remoteHands[remoteHands.length-1]
       // V70：完整牌局以最後一手 balances_after 為準；沒有逐手資料的歷史牌局改讀 game_sessions.final_balances。
@@ -7795,7 +7783,7 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
       const nets={}
       ;(rs.players||[]).forEach(pid=>{
         const rawName=byId[pid]?.display_name
-        const name=canonicalPlayerName(rawName)
+        const name=canonicalRoomPlayerName(byId[pid],roomPlayers)
         if(!name) return
         // V70：只有原始 final_balances 真的存在這位玩家的 key 才建立戰績。
         // 這可保留「有參與但舊系統沒有 score」的歷史狀態，不把缺資料捏造成 0 元。
@@ -7948,7 +7936,7 @@ function renderRoomDashboard(loadShared=true){
   }
   const allSs=roomSessions(room.id), ss=filterSessionsByTime(allSs,roomTimeFilter), rows=aggregateSessions(ss).sort((a,b)=>b.net-a.net)
   const totalHands=ss.reduce((n,x)=>n+(x.hands||[]).length,0)
-  const labels={all:'全部',year:'今年',month:'本月',week:'本週',today:'今天'}
+  const labels={all:'全部',year:'今年',month:'本月',week:'本週',today:'今天',historyMonth:v113HistoryMonth||'歷史月份'}
   document.getElementById('roomFilterLabel').textContent=labels[roomTimeFilter]||'全部'
   document.querySelectorAll('[data-room-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.roomFilter===roomTimeFilter))
   document.getElementById('roomDashboardTitle').textContent=room.name
@@ -7965,17 +7953,17 @@ function renderRoomDashboard(loadShared=true){
     }
   })
   document.getElementById('roomSummary').innerHTML=`
-    <div class="career-stat"><div class="k">累積場次</div><div class="v">${ss.length}</div></div>
+    <div class="career-stat"><div class="k">累積將數</div><div class="v">${ss.length}</div></div>
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
     <div class="career-stat"><div class="k">參與玩家</div><div class="v">${rows.length}</div></div>
     <div class="career-stat champion-stat"><div class="champion-crown">👑</div><div><div class="k">目前冠軍</div><div class="v">${escapeHtml(rows[0]?.name||'—')}</div>${rows[0]?`<div class="champion-money">${money(rows[0].net)}</div>`:''}</div></div>`
-  document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 場・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
+  document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 將・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
   const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
   renderRoomPlayerVsPlayer(ss)
   renderRoomNemesis(ss)
   const kingHistory=document.getElementById('roomKingHistory'); if(kingHistory) kingHistory.innerHTML=roomKingHistoryHtml(allSs)
-  document.getElementById('roomSessionCount').textContent=`${ss.length} 場`
+  document.getElementById('roomSessionCount').textContent=`${ss.length} 將`
   document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(sessionRowHtml).join(''):'還沒有歷史牌局'
 }
 
@@ -8014,7 +8002,7 @@ function v48PairDetailHtml(a,b,sessions){
     <div class="pvp-score-note">每一場只比較這兩位玩家該場的最終輸贏；金額相同就算平手。</div>
   </div>
   <div class="career-grid pvp-summary-grid" style="margin-top:10px">
-    <div class="career-stat"><div class="k">共同場次</div><div class="v">${st.shared.length}</div></div>
+    <div class="career-stat"><div class="k">共同將數</div><div class="v">${st.shared.length}</div></div>
     <div class="career-stat"><div class="k">${escapeHtml(a)} 累積</div><div class="v">${money(st.aNet)}</div></div>
     <div class="career-stat"><div class="k">${escapeHtml(b)} 累積</div><div class="v">${money(st.bNet)}</div></div>
   </div>
@@ -8050,7 +8038,7 @@ function v48RefreshNemesis(){
   const me=document.getElementById('v48NemesisPlayer')?.value
   const box=document.getElementById('v48NemesisResult'); if(!box||!me) return
   // sessions 已由 renderRoomDashboard 先套用「全部 / 今年 / 本月 / 本週 / 今天」，
-  // 所以共同場次門檻與累積輸贏都只計算目前選定期間。
+  // 所以共同將數門檻與累積輸贏都只計算目前選定期間。
   const sessions=window.v48NemesisSessions||[]
   const others=[...new Set(sessions.flatMap(ss=>ss.players||Object.keys(sessionNets(ss))))].filter(n=>n!==me)
   const rows=others.map(other=>{
@@ -8092,7 +8080,7 @@ function badgeHtml(rows,sessions){
     return pool.filter(r=>(Number(r[key])||0)===target)
   }
   const specs=[
-    ['👑','冠軍','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單場贏分最高',true],['📅','出席王','sessions',false,'出席場次最多',true],
+    ['👑','冠軍','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單將贏分最高',true],['📅','出席王','sessions',false,'出席將數最多',true],
     ['📈','最高勝率','winRate',false,'獲利場次 ÷ 總場次',true],['🔥','連勝王','maxStreak',false,'依牌局時間連續獲利最多',true],['🎁','最大貢獻獎','maxLoss',false,'單場貢獻最高',true],
     ['🌸','自摸王','selfdraws',false,'自摸次數最多',true],['🎯','神槍手','discardWins',false,'胡別人放槍最多',true],['💣','煙火大師','discards',false,'放槍次數最多',true],
     ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true],['✨','MIGI 專家','migi',false,'MIGI 次數最多',true]
@@ -8215,7 +8203,7 @@ function showSessionDetail(id){
   const statsHtml=sessionDetailStatsHtml(ss)
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary danger-soft session-delete-btn" onclick="deleteSessionById('${ss.id}')">刪除這一場</button></div>`
+  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary danger-soft session-delete-btn" onclick="deleteSessionById('${ss.id}')">刪除這一將</button></div>`
   document.body.appendChild(div)
 }
 
@@ -8473,7 +8461,7 @@ async function v32LoadLiveSession(sessionId,first=false){
   const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
   P=[...names];seats=[...names];dealer=byId[ss.dealer]?.display_name||names[0];dealerSeatIndex=Math.max(0,seats.indexOf(dealer));recorderPlayer=names[0]
   roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round));repeats=Number(ss.dealer_repeats||0)
-  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalPlayerName(byId[h.winner]?.display_name||''),discarder:canonicalPlayerName(byId[h.discarder]?.display_name||''),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
+  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
   // V100：直播/投影也讀到這一輪前幾場的提款機累積基底。
   seriesCashflowBase=(ss.seat_map && typeof ss.seat_map._series_cashflow_base==='object')
     ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_base))
@@ -8483,7 +8471,7 @@ async function v32LoadLiveSession(sessionId,first=false){
     :null
 
   // V104：直播端以前漏掉「本場開始水位」。
-  // game_sessions.final_balances 在 active 狀態就是建立這一場時同步的連打起始水位（key 為 room_player id）。
+  // game_sessions.final_balances 在 active 狀態就是建立這一將時同步的連打起始水位（key 為 room_player id）。
   // 先轉回玩家名稱，提款機才能把上一場累積接回來。
   sessionOpeningBalances=Object.fromEntries(P.map(n=>[n,0]))
   const openingById=(ss.final_balances && typeof ss.final_balances==='object')?ss.final_balances:{}
@@ -8525,7 +8513,7 @@ function renderPaymentPreview(){
   const dealerTai=getDealerBonusTai();const dealerText=repeats>0?`連${repeats}拉${repeats}・莊家 ${dealerTai} 台`:`莊家 ${dealerTai} 台`
   const baseTaiText=result==='詐胡'?'詐胡各家依設定台數':`本場 ${tai} 台`
   const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;const dealerBadge=p===dealer?`<span class="v38-dealer-tai">${dealerText}</span>`:'';return `<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:16px"><span style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><b>${escapeHtml(p)}</b>${t?`<span class="v32-preview-sub">${t}</span>`:''}${dealerBadge}</span><b style="font-size:17px;color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}$${a.toLocaleString()}</b></div>`}).join('')
-  box.innerHTML=`<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一場目前沒有金額變動。'}`
+  box.innerHTML=`<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一將目前沒有金額變動。'}`
 }
 
 
@@ -8582,15 +8570,15 @@ async function openRoomMemberStats(userId,nickname){
   modal.innerHTML=`<div class="modal-box member-stats-box"><div class="member-stats-sticky"><div class="toprow"><div><div class="muted">${escapeHtml(room?.name||'房間')}・個人戰績</div><div class="member-stats-title">${escapeHtml(name)}</div>${rank?`<span class="member-stats-rank">房間第 ${rank} 名</span>`:''}</div><button class="modal-close-round" onclick="closeRoomMemberStats()" aria-label="關閉">×</button></div></div>
     <div class="career-grid">
       <div class="career-stat"><div class="k">累積輸贏</div><div class="v">${money(stat.net||0)}</div></div>
-      <div class="career-stat"><div class="k">參與場次</div><div class="v">${stat.sessions||0} 場</div></div>
+      <div class="career-stat"><div class="k">參與將數</div><div class="v">${stat.sessions||0} 場</div></div>
       <div class="career-stat"><div class="k">胡牌 / 自摸</div><div class="v">${stat.wins||0} / ${stat.selfdraws||0}</div></div>
       <div class="career-stat"><div class="k">放槍</div><div class="v">${stat.discards||0}</div></div>
       <div class="career-stat"><div class="k">胡牌率</div><div class="v">${(winRate*100).toFixed(1)}%</div></div>
       <div class="career-stat"><div class="k">自摸率</div><div class="v">${(selfRate*100).toFixed(1)}%</div></div>
       <div class="career-stat"><div class="k">放槍率</div><div class="v">${(discardRate*100).toFixed(1)}%</div></div>
-      <div class="career-stat"><div class="k">最高 / 最低單場</div><div class="v" style="font-size:16px">${money(best)} / ${money(worst)}</div></div>
+      <div class="career-stat"><div class="k">最高 / 最低單將</div><div class="v" style="font-size:16px">${money(best)} / ${money(worst)}</div></div>
     </div>
-    <h3>🀄 特殊牌型</h3><div class="member-pattern-grid"><div class="member-pattern-stat">清一色<b>${stat.cleanSuit||0}</b></div><div class="member-pattern-stat">混一色<b>${stat.mixedSuit||0}</b></div><div class="member-pattern-stat">碰碰胡<b>${stat.pongPong||0}</b></div></div>
+    <h3>🀄 特殊牌型</h3><div class="member-pattern-grid"><div class="member-pattern-stat">清一色<b>${stat.cleanSuit||0}</b></div><div class="member-pattern-stat">混一色<b>${stat.mixedSuit||0}</b></div><div class="member-pattern-stat">碰碰胡<b>${stat.pongPong||0}</b></div><div class="member-pattern-stat">小三元<b>${stat.smallThree||0}</b></div><div class="member-pattern-stat">大三元<b>${stat.bigThree||0}</b></div><div class="member-pattern-stat">MIGI<b>${stat.migi||0}</b></div></div>
     <h3>📈 在這個房間的戰績走勢</h3><div class="trend-chart">${v40SinglePlayerTrendHtml(playerSs,name)}</div>
     <h3>🗂️ 參與過的歷史牌局</h3><div>${history}</div></div>`
   document.body.appendChild(modal)
@@ -8716,7 +8704,7 @@ v32LoadLiveSession=async function(sessionId,first=false){
   const roomPlayers=await loadRoomPlayersList(ss.room),byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
   remoteRoomPlayerMap=Object.fromEntries(roomPlayers.filter(x=>x.display_name).map(x=>[x.display_name,x]))
   if(first){try{await v57ResolveCheerForRoomPlayers(roomPlayers)}catch(e){}}
-  const relationNames=(ss.players||[]).map(id=>canonicalPlayerName(byId[id]?.display_name||'')).filter(Boolean)
+  const relationNames=(ss.players||[]).map(id=>canonicalRoomPlayerName(byId[id],roomPlayers)).filter(Boolean)
   if(relationNames.length!==4) throw new Error('本局四位玩家尚未同步完成')
   const officialSeats=v52SeatNamesFromSession(ss,byId,relationNames).map(canonicalPlayerName)
   const hf=encodeURIComponent(`session="${pbFilterValue(sessionId)}"`)
@@ -8728,7 +8716,7 @@ v32LoadLiveSession=async function(sessionId,first=false){
   recorderPlayer=relationNames[0]
   roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round))
   repeats=Number(ss.dealer_repeats||0)
-  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalPlayerName(byId[h.winner]?.display_name||''),discarder:canonicalPlayerName(byId[h.discarder]?.display_name||''),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
+  hands=(hd.items||[]).map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
 
   // V106：真正執行中的 V52 直播載入器也必須讀提款機資料。
   // 之前 V103~V105 修改的是前一版 loader，後面這個 override 又把它蓋掉，所以畫面才一直沒變。
@@ -9980,6 +9968,117 @@ if ('serviceWorker' in navigator) {
     return result
   }
 })()
+</script>
+
+
+<style id="v113-theme">
+/* ===== V113 色彩：深藍/藍紫舞台 + 馬卡龍亮卡，保留柔和少女感 ===== */
+:root{--v113-navy:#172a55;--v113-indigo:#343a78;--v113-sky:#dcecff;--v113-skyline:#a9c9ee;--v113-mint:#ccefdc;--v113-berry:#f3b8cf;--v113-lav:#dcd2f5;--v113-butter:#f7e6a8;--v113-deep:#20365f}
+body{background:radial-gradient(circle at 8% 0,rgba(244,190,216,.36),transparent 28%),radial-gradient(circle at 96% 4%,rgba(171,222,239,.38),transparent 28%),linear-gradient(155deg,#f7f3ff 0%,#edf6ff 48%,#fff6fa 100%)}
+#game:not(.projection-mode){background:linear-gradient(160deg,rgba(23,42,85,.055),rgba(52,58,120,.08));border-radius:28px;padding-top:12px}
+.card{border:1px solid rgba(91,112,166,.12);box-shadow:0 14px 34px rgba(35,54,104,.10)}
+.primary{background:linear-gradient(135deg,var(--v113-mint),#bfe6ef);color:#245c5f}
+.finish{background:linear-gradient(135deg,var(--v113-berry),#f7c9d7);color:#823e5d}
+.secondary{background:linear-gradient(135deg,#f1effa,#e8f1fb);color:#455378}
+.member-stats-box{background:#eaf4ff!important;border:1.5px solid var(--v113-skyline)!important;box-shadow:0 22px 60px rgba(32,54,95,.22)!important}
+.member-stats-box .career-stat,.member-stats-box .member-pattern-stat,.member-stats-box .member-history-row{background:rgba(255,255,255,.88)!important;border:1px solid rgba(139,177,220,.34)!important}
+.v113-month-picker{border:1px solid #c8d8ef;border-radius:13px;padding:8px 10px;background:#fff;color:#31466e;font:inherit;font-size:12px;font-weight:800;min-height:36px}
+.v113-debug-btn{background:linear-gradient(135deg,var(--v113-butter),#fff3c9)!important;color:#735b18!important}
+#v113DebugModal .v113-debug-row{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center;margin:9px 0}
+#v113DebugModal input{background:#fff;text-align:right;font-weight:900}
+#v113DebugSum.ok{color:#477d68} #v113DebugSum.bad{color:#b54d66}
+html body #game.projection-mode:not(.hidden){background:linear-gradient(135deg,#16284f,#34366f)!important}
+html body #game.projection-mode .card{background:rgba(255,255,255,.96)!important;border:1px solid rgba(205,220,255,.5)!important}
+html body #game.projection-mode .live-ticker-wrap{background:linear-gradient(90deg,#f4c2d7,#d9d2f4,#c7e9e0)!important;color:#273a63!important;border-radius:15px!important}
+.game-time-chip{background:#eef5ff;border-color:#c9d9ef;color:#314a75}
+@media(max-width:560px){.v113-month-picker{width:100%;margin-top:6px}}
+</style>
+<script id="v113-runtime">
+/* ===== V113 runtime ===== */
+function canonicalRoomPlayerName(rp, roomPlayers=[]){
+  if(!rp) return ''
+  if(rp.user){
+    const same=(roomPlayers||[]).filter(x=>x.user===rp.user && x.status!=='removed')
+    const preferred=[...same].reverse().find(x=>x.player_type==='member'&&x.display_name)||[...same].reverse().find(x=>x.display_name)
+    if(preferred?.display_name) return canonicalPlayerName(preferred.display_name)
+  }
+  return canonicalPlayerName(rp.display_name||'')
+}
+
+/* 會員固定身分：同 users.id 的多筆 room_players 在畫面與統計上視為同一人。 */
+const v113OriginalLoadRoomPlayersList=loadRoomPlayersList
+loadRoomPlayersList=async function(roomId){
+  const rows=await v113OriginalLoadRoomPlayersList(roomId)
+  const preferredByUser={}
+  ;(rows||[]).forEach(r=>{if(r.user&&r.status!=='removed'&&r.display_name) preferredByUser[r.user]=r.display_name})
+  ;(rows||[]).forEach(r=>{if(r.user&&preferredByUser[r.user]) r.v113_canonical_name=canonicalPlayerName(preferredByUser[r.user]);else r.v113_canonical_name=canonicalPlayerName(r.display_name||'')})
+  return rows
+}
+
+/* 現在時間：計分、直播、投影共用同一顆每秒更新時鐘。 */
+const v113OldRenderClock=v33RenderGameClock
+v33RenderGameClock=function(){
+  v113OldRenderClock.apply(this,arguments)
+  const el=document.getElementById('v113CurrentTime')
+  if(el){const d=new Date();el.textContent=`現在 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
+}
+
+/* 指定歷史月份排行榜 */
+let v113HistoryMonth=''
+function v113SetHistoryMonth(value){
+  v113HistoryMonth=String(value||'')
+  if(v113HistoryMonth){roomTimeFilter='historyMonth'}
+  else roomTimeFilter='all'
+  renderRoomDashboard()
+}
+const v113OldFilterSessionsByTime=filterSessionsByTime
+filterSessionsByTime=function(sessions,filter){
+  if(filter==='historyMonth'&&v113HistoryMonth){
+    return (sessions||[]).filter(s=>{const d=new Date(s.createdAt);return !isNaN(d)&&`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===v113HistoryMonth})
+  }
+  return v113OldFilterSessionsByTime(sessions,filter)
+}
+const v113OldRenderRoomDashboard=renderRoomDashboard
+renderRoomDashboard=function(loadShared=true){
+  const r=v113OldRenderRoomDashboard(loadShared)
+  const label=document.getElementById('roomFilterLabel')
+  if(label&&roomTimeFilter==='historyMonth'&&v113HistoryMonth) label.textContent=v113HistoryMonth.replace('-', ' / ')
+  const picker=document.getElementById('v113MonthPicker');if(picker&&picker.value!==v113HistoryMonth)picker.value=v113HistoryMonth
+  return r
+}
+
+/* 每將結束前人工除錯：只補水位，四家調整合計必須為 0。 */
+let v113DebugAdjustments={}
+function v113OpenDebugAdjust(){
+  if(!Array.isArray(P)||P.length!==4){uiAlert('目前沒有完整四家資料。','無法除錯',{icon:'⚠️'});return}
+  document.getElementById('v113DebugModal')?.remove()
+  const modal=document.createElement('div');modal.id='v113DebugModal';modal.className='modal'
+  modal.innerHTML=`<div class="modal-box" style="max-width:520px"><div class="toprow"><div><div class="muted">本將結束前補差額</div><h2 style="margin:3px 0">🧮 除錯</h2></div><button class="modal-close-round" onclick="document.getElementById('v113DebugModal')?.remove()">×</button></div><div class="career-note">輸入每家的「調整額」，加錢填正數、扣錢填負數。四家調整合計必須為 0。</div><div id="v113DebugRows">${P.map(p=>`<label class="v113-debug-row"><b>${escapeHtml(p)}</b><input type="number" inputmode="numeric" step="1" data-v113-player="${escapeHtml(p)}" value="0" oninput="v113UpdateDebugSum()"></label>`).join('')}</div><div id="v113DebugSum" class="career-note">調整合計：$0</div><button class="primary" onclick="v113ApplyDebugAdjust()">套用除錯</button><button class="secondary" style="margin-top:8px" onclick="document.getElementById('v113DebugModal')?.remove()">取消</button></div>`
+  document.body.appendChild(modal);v113UpdateDebugSum()
+}
+function v113DebugValues(){const vals={};document.querySelectorAll('#v113DebugModal [data-v113-player]').forEach(i=>vals[i.dataset.v113Player]=Number(i.value||0));return vals}
+function v113UpdateDebugSum(){const vals=v113DebugValues(),sum=Object.values(vals).reduce((a,b)=>a+b,0),el=document.getElementById('v113DebugSum');if(el){el.textContent=`調整合計：${sum>=0?'+':''}$${sum.toLocaleString()}${sum===0?' ✓':'（必須為 0）'}`;el.className='career-note '+(sum===0?'ok':'bad')}return sum}
+async function v113ApplyDebugAdjust(){
+  const vals=v113DebugValues(),sum=Object.values(vals).reduce((a,b)=>a+b,0)
+  if(sum!==0){await uiAlert('四家的調整金額加總必須等於 0。','還不能套用',{icon:'⚠️'});return}
+  if(!Object.values(vals).some(v=>v!==0)){document.getElementById('v113DebugModal')?.remove();return}
+  Object.entries(vals).forEach(([p,v])=>{balances[p]=Number(balances[p]||0)+Number(v||0);v113DebugAdjustments[p]=Number(v113DebugAdjustments[p]||0)+Number(v||0)})
+  persistActiveGame();renderGame();document.getElementById('v113DebugModal')?.remove();closeFinishModal();
+  await uiAlert('除錯差額已補入本將水位；四家總和仍為 0。','已套用',{icon:'✓'})
+}
+const v113OldContinueNextMatch=continueNextMatch
+continueNextMatch=function(){v113DebugAdjustments={};return v113OldContinueNextMatch.apply(this,arguments)}
+
+/* 今日總結：金額 + 完整逐把戰績 + 六種特殊牌型。 */
+showTodaySummary=async function(){
+  const content=document.getElementById('todaySummaryContent'),modal=document.getElementById('todaySummaryModal');if(!content||!modal)return
+  modal.classList.remove('hidden');content.innerHTML='<div class="muted">正在整理今天全部金額與戰績…</div>'
+  if(currentRoomId&&pbAuth?.token){try{await v37LoadSharedRoomHistory(currentRoomId,true)}catch(e){}}
+  const sessions=getTodayRoomSessions();if(!sessions.length){content.innerHTML='<div class="notice">今天這個房間還沒有已完成的牌局。</div>';return}
+  const rows=aggregateSessions(sessions).sort((a,b)=>b.net-a.net), totalHands=sessions.reduce((n,s)=>n+(Array.isArray(s.hands)?s.hands.length:0),0)
+  let totalMs=0; sessions.forEach(s=>{if(s.startedAt&&s.endedAt){const ms=new Date(s.endedAt)-new Date(s.startedAt);if(Number.isFinite(ms)&&ms>=0)totalMs+=ms}})
+  content.innerHTML=`<div class="career-note"><b>今日共 ${sessions.length} 將・${totalHands} 把</b>・${new Set(sessions.map(x=>Number(x.tableNumber||1))).size} 桌・⏱️ ${totalMs?formatDurationMs(totalMs):'尚無完整耗時'}</div><div style="margin-top:14px">${rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・${x.handAppearances||0} 把・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div><div class="muted">清一色 ${x.cleanSuit||0}・混一色 ${x.mixedSuit||0}・碰碰胡 ${x.pongPong||0}・小三元 ${x.smallThree||0}・大三元 ${x.bigThree||0}・MIGI ${x.migi||0}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join('')}</div>`
+}
 </script>
 
 </body>
