@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- V116: PWA auto-update + cache/update lifecycle optimization; V115 game logic preserved -->
 <!-- V114: V113 實測修正（返回間距／直播重複／特殊牌型空白膠囊）；V113: 固定身分ID + 將/把語意 + 今日完整戰績 + 計分規則/除錯 + 月份排行榜 + 新配色；V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
 <html lang="zh-Hant">
 <head>
@@ -9871,11 +9872,77 @@ html body #game.projection-mode .cashflow-table td{
 </style>
 
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Service Worker registration failed:', err));
-  });
-}
+/* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
+(function(){
+  const APP_VERSION='V116'
+  let refreshing=false
+  let updatePromptOpen=false
+
+  function ensureUpdateStyles(){
+    if(document.getElementById('v116UpdateStyle')) return
+    const style=document.createElement('style')
+    style.id='v116UpdateStyle'
+    style.textContent=`
+      .v116-update-toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:99999;width:min(92vw,430px);background:rgba(255,255,255,.98);border:1px solid #cbd7ff;border-radius:20px;padding:14px 15px;box-shadow:0 16px 42px rgba(39,55,110,.22);display:flex;align-items:center;gap:12px;color:#27345f}
+      .v116-update-copy{min-width:0;flex:1}.v116-update-title{font-weight:950;font-size:15px}.v116-update-sub{font-size:11px;color:#6f7898;margin-top:3px;line-height:1.45}
+      .v116-update-btn{border:0;border-radius:14px;padding:10px 14px;background:linear-gradient(135deg,#7897ff,#9c7ce8);color:white;font-weight:950;white-space:nowrap;min-height:42px}
+      .v116-update-btn:disabled{opacity:.65}
+    `
+    document.head.appendChild(style)
+  }
+
+  function showUpdatePrompt(reg){
+    if(updatePromptOpen || !reg || !reg.waiting) return
+    updatePromptOpen=true
+    ensureUpdateStyles()
+    const box=document.createElement('div')
+    box.className='v116-update-toast'
+    box.id='v116UpdateToast'
+    box.innerHTML=`<div class="v116-update-copy"><div class="v116-update-title">誰與爭鋒有新版本</div><div class="v116-update-sub">按一下就更新，不用刪除主畫面圖示再重新加入。</div></div><button class="v116-update-btn" type="button">立即更新</button>`
+    const btn=box.querySelector('button')
+    btn.addEventListener('click',()=>{
+      if(!reg.waiting) return location.reload()
+      btn.disabled=true
+      btn.textContent='更新中…'
+      reg.waiting.postMessage({type:'SKIP_WAITING'})
+    })
+    document.body.appendChild(box)
+  }
+
+  function watchRegistration(reg){
+    if(reg.waiting && navigator.serviceWorker.controller) showUpdatePrompt(reg)
+    reg.addEventListener('updatefound',()=>{
+      const worker=reg.installing
+      if(!worker) return
+      worker.addEventListener('statechange',()=>{
+        if(worker.state==='installed' && navigator.serviceWorker.controller) showUpdatePrompt(reg)
+      })
+    })
+    // iPhone PWA 長時間沒關閉時也主動檢查新版；不重載、不打斷正在計分。
+    const check=()=>reg.update().catch(()=>{})
+    window.addEventListener('focus',check)
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') check()})
+    setInterval(check,15*60*1000)
+  }
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(refreshing) return
+      refreshing=true
+      location.reload()
+    })
+    window.addEventListener('load',async()=>{
+      try{
+        const reg=await navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'})
+        watchRegistration(reg)
+        reg.update().catch(()=>{})
+      }catch(err){
+        console.warn('Service Worker registration failed:',err)
+      }
+    })
+  }
+  window.MAHJONG_APP_VERSION=APP_VERSION
+})()
 </script>
 
 
