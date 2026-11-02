@@ -3021,7 +3021,7 @@ let liveViewerMode=false
 
 /* V59：指定帳號固定暱稱。前端立即鎖定；PB 關聯資料同步為「麻俠」。
    真正防 API 直接 PATCH 的後端強制規則，留到 PB 安全規則階段處理。 */
-const LOCKED_NICKNAME_USER_ID='6bd4yixda2auia0'
+const LOCKED_NICKNAME_USER_ID='v66s5kn9px4fvv7'
 const LOCKED_NICKNAME='麻俠'
 function isLockedNicknameAccount(record=pbAuth?.record){
   // V76：只用 PocketBase users.id 鎖定麻俠，避免其他帳號被 email/舊資料誤判。
@@ -7599,7 +7599,12 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
     const sf=encodeURIComponent(`room="${pbFilterValue(roomId)}" && status="completed"`)
     const sd=await pbRequest(`/api/collections/game_sessions/records?perPage=500&sort=created&filter=${sf}`)
     const remoteSessions=sd.items||[]
-    const roomPlayers=await loadRoomPlayersList(roomId)
+    // V123：歷史牌局必須讀取此房間「全部」room_players。
+    // 舊的逐把牌局可能仍引用較早的 room_player ID；若只讀 active 玩家，
+    // final_balances 雖然還在，畫面卻會因找不到舊 ID 而漏掉該玩家。
+    const rpf=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
+    const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&sort=created&filter=${rpf}`)
+    const roomPlayers=rpd.items||[]
     const byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
     const room=appData?.rooms?.find(r=>r.id===roomId)
     const shared=await Promise.all(remoteSessions.map(async rs=>{
@@ -9715,7 +9720,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V122'
+  const APP_VERSION='V123'
   let refreshing=false
   let updatePromptOpen=false
 
