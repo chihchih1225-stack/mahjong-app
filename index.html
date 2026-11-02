@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- V116: PWA auto-update + cache/update lifecycle optimization; V115 game logic preserved -->
-<!-- V114: V113 實測修正（返回間距／直播重複／特殊牌型空白膠囊）；V113: 固定身分ID + 將/把語意 + 今日完整戰績 + 計分規則/除錯 + 月份排行榜 + 新配色；V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
+<!-- V117: 雀士等級/XP + 房間等級標籤 + 等級排行；V116: PWA 自動更新；V114: V113 實測修正（返回間距／直播重複／特殊牌型空白膠囊）；V113: 固定身分ID + 將/把語意 + 今日完整戰績 + 計分規則/除錯 + 月份排行榜 + 新配色；V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -10319,6 +10319,136 @@ function v115Init(){
   const btn=document.querySelector('#dealerSetup .primary[onclick="confirmDealer()"]');if(btn)btn.setAttribute('aria-label','確認莊家並開打')
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',v115Init);else v115Init()
+</script>
+
+
+<style id="v117-level-system-style">
+/* ===== V117：雀士等級 / XP ===== */
+.v117-level-pill{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:4px 7px;border-radius:9px;background:linear-gradient(135deg,#e9e1ff,#d8ebff);border:1px solid #c8c2ef;color:#584f88;font-size:10px;font-weight:950;line-height:1;white-space:nowrap;box-shadow:0 2px 7px rgba(80,72,135,.10)}
+.v117-member-name-line{display:flex;align-items:center;gap:7px;min-width:0}.v117-member-name-line .room-member-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v117-level-card{margin:12px 0;padding:14px;border-radius:18px;background:linear-gradient(135deg,#f3efff,#edf7ff);border:1px solid #d7d2f2}.v117-level-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}.v117-level-big{font-size:25px;font-weight:950;color:#4f568d}.v117-level-title{font-size:12px;font-weight:900;color:#7b7192}.v117-xpbar{height:10px;border-radius:999px;background:#fff;overflow:hidden;margin:10px 0 6px;border:1px solid #ddd8ee}.v117-xpbar>span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#b9a9ed,#93c8ee)}.v117-xptext{font-size:11px;color:#766f84;font-weight:800}
+.v117-rule-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding:10px 12px;border:1px solid #ded8ed;border-radius:14px;background:rgba(255,255,255,.72);font:inherit;font-size:12px;font-weight:900;color:#675f7a;cursor:pointer}.v117-rule-body{display:none;margin-top:8px;padding:11px 12px;border-radius:14px;background:rgba(255,255,255,.78);font-size:12px;line-height:1.65;color:#665f70}.v117-rule-body.open{display:block}.v117-rule-body b{color:#4f568d}.v117-rule-grid{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin:7px 0}.v117-rule-grid span:nth-child(even){font-weight:900;text-align:right}
+.v117-ranking-switch{display:flex;gap:6px;margin:9px 0 12px}.v117-ranking-switch button{flex:1;border:1px solid #d8d3e8;background:#fff;color:#756d82;border-radius:12px;padding:8px 10px;font:inherit;font-size:12px;font-weight:900}.v117-ranking-switch button.active{background:#ece8ff;border-color:#bbb0e8;color:#554b8b}
+.v117-rank-level{font-size:13px;font-weight:950;color:#5c5685;text-align:right}.v117-rank-xp{font-size:10px;color:#8b8495;text-align:right;margin-top:2px}
+</style>
+<script id="v117-level-system-runtime">
+/* ===== V117：雀士等級制度 =====
+   原則：完全由既有 completed game_sessions + game_hands 回算，不新增/修改 PB 欄位，
+   因此不碰計分、身分 ID、歷史資料、直播與提款機。
+*/
+const V117_XP_PER_LEVEL=500
+const V117_MAX_LEVEL=100
+let v117RankingMode='money'
+
+function v117TitleForLevel(lv){
+  if(lv>=100)return '誰與爭鋒'
+  if(lv>=81)return '傳說雀士'
+  if(lv>=71)return '雀神'
+  if(lv>=61)return '雀聖'
+  if(lv>=51)return '麻將宗師'
+  if(lv>=41)return '雀壇高手'
+  if(lv>=31)return '胡牌達人'
+  if(lv>=21)return '聽牌高手'
+  if(lv>=11)return '雀壇好手'
+  if(lv>=6)return '雀桌新秀'
+  return '麻將初心者'
+}
+function v117LevelFromXp(xp){return Math.max(1,Math.min(V117_MAX_LEVEL,Math.floor(Math.max(0,Number(xp)||0)/V117_XP_PER_LEVEL)+1))}
+function v117LevelInfo(xp){
+  xp=Math.max(0,Math.round(Number(xp)||0));const level=v117LevelFromXp(xp),title=v117TitleForLevel(level)
+  if(level>=V117_MAX_LEVEL)return {xp,level,title,current:V117_XP_PER_LEVEL,need:V117_XP_PER_LEVEL,pct:100,toNext:0}
+  const current=xp%V117_XP_PER_LEVEL,need=V117_XP_PER_LEVEL
+  return {xp,level,title,current,need,pct:Math.max(0,Math.min(100,current/need*100)),toNext:need-current}
+}
+function v117PatternBonus(patterns=[]){
+  const pts={'混一色':15,'碰碰胡':15,'清一色':20,'小三元':30,'大三元':50,'MIGI':50}
+  return (Array.isArray(patterns)?patterns:[]).reduce((sum,p)=>sum+(pts[p]||0),0)
+}
+function v117SessionWinnerNames(ss){
+  const nets=sessionNets(ss),entries=Object.entries(nets).filter(([,v])=>Number.isFinite(Number(v)))
+  if(!entries.length)return []
+  const max=Math.max(...entries.map(([,v])=>Number(v)))
+  return entries.filter(([,v])=>Number(v)===max).map(([n])=>canonicalPlayerName(n)).filter(Boolean)
+}
+function v117DateKey(ss){
+  const d=new Date(ss.startedAt||ss.createdAt||0);if(isNaN(d))return ''
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+function v117DailyTaskForDate(dateKey){
+  const tasks=[
+    {id:'selfdraw1',label:'自摸 1 次',xp:50},
+    {id:'win2',label:'胡牌 2 次',xp:50},
+    {id:'sessions2',label:'完成 2 將',xp:50},
+    {id:'pattern1',label:'完成任一特殊牌型',xp:80},
+    {id:'first1',label:'拿下 1 次第一名',xp:60}
+  ]
+  let h=0;for(const c of String(dateKey||''))h=(h*31+c.charCodeAt(0))>>>0
+  return tasks[h%tasks.length]
+}
+function v117BuildXpMap(sessions){
+  const out={},streak={},days={}
+  const touch=n=>out[n]||(out[n]={name:n,xp:0,baseXp:0,multiplierBonus:0,taskXp:0,sessions:0,firsts:0,wins:0,selfdraws:0,patterns:0,maxFirstStreak:0})
+  const ordered=[...(sessions||[])].sort((a,b)=>new Date(a.startedAt||a.createdAt||0)-new Date(b.startedAt||b.createdAt||0)||String(a.id||'').localeCompare(String(b.id||'')))
+  ordered.forEach(ss=>{
+    const participants=[...new Set((ss.players?.length?ss.players:Object.keys(sessionNets(ss))).map(canonicalPlayerName).filter(Boolean))]
+    const firsts=new Set(v117SessionWinnerNames(ss));const date=v117DateKey(ss)
+    const handStats={}
+    participants.forEach(n=>handStats[n]={wins:0,selfdraws:0,pattern:false,patternBonus:0})
+    ;(Array.isArray(ss.hands)?ss.hands:[]).forEach(h=>{
+      const w=canonicalPlayerName(h.winner||'');if(!w||!handStats[w]||!(h.result==='胡牌'||h.result==='自摸'))return
+      if(h.result==='自摸')handStats[w].selfdraws++;else handStats[w].wins++
+      const pb=v117PatternBonus(h.patterns||[]);if(pb){handStats[w].pattern=true;handStats[w].patternBonus+=pb}
+    })
+    participants.forEach(n=>{
+      const x=touch(n),hs=handStats[n]||{wins:0,selfdraws:0,pattern:false,patternBonus:0};x.sessions++
+      const isFirst=firsts.has(n);if(isFirst){streak[n]=(streak[n]||0)+1;x.firsts++;x.maxFirstStreak=Math.max(x.maxFirstStreak,streak[n])}else streak[n]=0
+      x.wins+=hs.wins;x.selfdraws+=hs.selfdraws;if(hs.pattern)x.patterns++
+      const base=50+hs.wins*10+hs.selfdraws*15+(isFirst?30:0)+hs.patternBonus
+      let mult=1;if(isFirst&&streak[n]>=4)mult=2;else if(isFirst&&streak[n]===3)mult=1.5;else if(isFirst&&streak[n]===2)mult=1.2
+      const gained=Math.round(base*mult);x.baseXp+=base;x.multiplierBonus+=gained-base;x.xp+=gained
+      if(date){const d=days[date]||(days[date]={});const q=d[n]||(d[n]={sessions:0,wins:0,selfdraws:0,pattern:false,firsts:0});q.sessions++;q.wins+=hs.wins;q.selfdraws+=hs.selfdraws;q.pattern=q.pattern||hs.pattern;if(isFirst)q.firsts++}
+    })
+  })
+  Object.entries(days).forEach(([date,players])=>{const task=v117DailyTaskForDate(date);Object.entries(players).forEach(([n,d])=>{let ok=false;if(task.id==='selfdraw1')ok=d.selfdraws>=1;else if(task.id==='win2')ok=d.wins>=2;else if(task.id==='sessions2')ok=d.sessions>=2;else if(task.id==='pattern1')ok=d.pattern;else if(task.id==='first1')ok=d.firsts>=1;if(ok){const x=touch(n);x.taskXp+=task.xp;x.xp+=task.xp}})})
+  Object.values(out).forEach(x=>Object.assign(x,v117LevelInfo(x.xp)))
+  return out
+}
+function v117AllTimeXpMap(){return v117BuildXpMap(appData?.sessions||[])}
+function v117LevelPill(name,map){const x=(map||v117AllTimeXpMap())[canonicalPlayerName(name)]||v117LevelInfo(0);return `<span class="v117-level-pill" title="${escapeHtml(x.title||'麻將初心者')}・${Number(x.xp||0).toLocaleString()} XP">Lv.${x.level||1}</span>`}
+function v117RulesHtml(){return `<button type="button" class="v117-rule-toggle" onclick="v117ToggleRules(this)"><span>等級說明</span><span>⌄</span></button><div class="v117-rule-body"><b>等級怎麼升？</b><div>每累積 500 XP 升 1 級，最高 Lv.100。輸錢不扣 XP。</div><div class="v117-rule-grid"><span>完成一將</span><span>+50 XP</span><span>胡牌</span><span>+10 XP／次</span><span>自摸</span><span>+15 XP／次</span><span>該將第一名</span><span>+30 XP</span><span>混一色／碰碰胡</span><span>+15 XP</span><span>清一色</span><span>+20 XP</span><span>小三元</span><span>+30 XP</span><span>大三元／MIGI</span><span>+50 XP</span></div><b>連勝加乘</b><div>連續 2 將第一名 ×1.2・3 將 ×1.5・4 將以上 ×2.0；沒拿第一就重新計算。</div><b>每日雀士任務</b><div>每天自動抽 1 個任務：自摸 1 次 +50、胡牌 2 次 +50、完成 2 將 +50、特殊牌型 +80、第一名 +60。每日任務 Bonus 不再套連勝倍率。</div></div>`}
+function v117ToggleRules(btn){const body=btn?.nextElementSibling;if(!body)return;body.classList.toggle('open');const s=btn.querySelector('span:last-child');if(s)s.textContent=body.classList.contains('open')?'⌃':'⌄'}
+function v117LevelCardHtml(name){const x=v117AllTimeXpMap()[canonicalPlayerName(name)]||Object.assign({xp:0,taskXp:0,maxFirstStreak:0},v117LevelInfo(0));return `<div class="v117-level-card"><div class="v117-level-head"><div><div class="v117-level-title">${escapeHtml(x.title)}</div><div class="v117-level-big">Lv.${x.level}</div></div><div class="v117-xptext">累積 ${Number(x.xp).toLocaleString()} XP</div></div><div class="v117-xpbar"><span style="width:${x.pct}%"></span></div><div class="v117-xptext">${x.level>=100?'已達最高等級':`再 ${Number(x.toNext).toLocaleString()} XP 升 Lv.${x.level+1}`}・最高連續第一 ${x.maxFirstStreak||0} 將</div>${v117RulesHtml()}</div>`}
+
+/* 房間成員：名字前顯示小型 Lv 框。 */
+const v117OldSyncCurrentRoomMembers=syncCurrentRoomMembers
+syncCurrentRoomMembers=async function(){
+  const rows=await v117OldSyncCurrentRoomMembers.apply(this,arguments);const wrap=document.getElementById('roomMembers');if(!wrap)return rows
+  const xp=v117AllTimeXpMap();wrap.querySelectorAll('.room-member-row').forEach(row=>{const nameEl=row.querySelector('.room-member-name');if(!nameEl||row.querySelector('.v117-level-pill'))return;const name=nameEl.textContent.trim();const line=document.createElement('div');line.className='v117-member-name-line';nameEl.parentNode.insertBefore(line,nameEl);line.appendChild(v117LevelPill(name,xp)?(()=>{const t=document.createElement('template');t.innerHTML=v117LevelPill(name,xp);return t.content.firstChild})():document.createTextNode(''));line.appendChild(nameEl)})
+  return rows
+}
+
+/* 個人戰績：等級卡放在姓名下方，規則預設收起。 */
+const v117OldOpenRoomMemberStats=openRoomMemberStats
+openRoomMemberStats=async function(){
+  const args=[...arguments],name=canonicalPlayerName(args[1]||'');await v117OldOpenRoomMemberStats.apply(this,args)
+  const box=document.querySelector('#roomMemberStatsModal .member-stats-box'),sticky=box?.querySelector('.member-stats-sticky');if(box&&sticky&&!box.querySelector('.v117-level-card'))sticky.insertAdjacentHTML('afterend',v117LevelCardHtml(name))
+}
+
+/* 長期排行榜：可以切換「輸贏排行 / 等級排行」。等級永遠採生涯 XP，不受月份篩選影響。 */
+function v117SetRankingMode(mode){v117RankingMode=mode==='level'?'level':'money';v117RenderRanking()}
+function v117RenderRanking(){
+  const box=document.getElementById('roomRanking');if(!box||!currentRoomId)return
+  const filtered=filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),moneyRows=aggregateSessions(filtered).sort((a,b)=>b.net-a.net),xp=v117AllTimeXpMap()
+  let body=''
+  if(v117RankingMode==='level'){
+    const names=[...new Set(roomSessions(currentRoomId).flatMap(ss=>ss.players||Object.keys(sessionNets(ss))).map(canonicalPlayerName).filter(Boolean))]
+    const rows=names.map(name=>xp[name]||Object.assign({name,xp:0},v117LevelInfo(0))).sort((a,b)=>(b.level-a.level)||(b.xp-a.xp)||String(a.name).localeCompare(String(b.name),'zh-Hant'))
+    body=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${escapeHtml(x.title)}・${Number(x.xp).toLocaleString()} XP</div></div><div><div class="v117-rank-level">Lv.${x.level}</div><div class="v117-rank-xp">再 ${x.level>=100?0:Number(x.toNext||0).toLocaleString()} XP</div></div></div>`).join(''):'這個房間還沒有牌局紀錄。'
+  }else body=moneyRows.length?moneyRows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
+  box.innerHTML=`<div class="v117-ranking-switch"><button class="${v117RankingMode==='money'?'active':''}" onclick="v117SetRankingMode('money')">輸贏排行</button><button class="${v117RankingMode==='level'?'active':''}" onclick="v117SetRankingMode('level')">等級排行</button></div>${body}`
+}
+const v117OldRenderRoomDashboard=renderRoomDashboard
+renderRoomDashboard=function(loadShared=true){const r=v117OldRenderRoomDashboard.apply(this,arguments);setTimeout(v117RenderRanking,0);return r}
 </script>
 
 </body>
