@@ -2777,7 +2777,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
       style="margin-top:13px"
       onclick="saveHand()"
     >
-      記錄這一將
+      記錄這一把
     </button>
 
   </div>
@@ -10127,6 +10127,131 @@ syncCurrentRoomLiveSession=async function(){
     }).join('')
   }catch(e){box.innerHTML='<div class="muted">目前無法讀取即時牌局。</div>'}
 }
+</script>
+
+
+<style id="v115-roomflow-fixes">
+/* ===== V115：房間流程與手機操作修正 ===== */
+.v115-history-toggle{margin-top:10px!important;width:100%;border-radius:14px!important;padding:11px 12px!important;background:#eef5ff!important;color:#405f91!important;font-weight:850!important;border:1px solid #cbdcf4!important}
+#dealerSetup.v115-continuing .v115-recorder-title,
+#dealerSetup.v115-continuing #recorderChoices{display:none!important}
+#dealerSetup .primary[onclick="confirmDealer()"]{min-height:58px!important;position:relative!important;z-index:5!important;touch-action:manipulation!important;-webkit-user-select:none!important;user-select:none!important;margin-top:14px!important;font-size:16px!important}
+#dealerSetup .primary[onclick="confirmDealer()"]:disabled{opacity:.62!important;cursor:wait!important}
+</style>
+<script id="v115-roomflow-runtime">
+/* ===== V115-1：歷史牌局預設只顯示最新 3 將，可展開／收起 ===== */
+let v115HistoryExpanded=false
+function v115ApplyHistoryFold(){
+  const box=document.getElementById('roomHistory'); if(!box) return
+  box.querySelectorAll('.v115-history-toggle').forEach(x=>x.remove())
+  const rows=[...box.children].filter(x=>x.classList?.contains('session-row'))
+  rows.forEach((row,i)=>row.style.display=(v115HistoryExpanded||i<3)?'':'none')
+  if(rows.length>3){
+    const btn=document.createElement('button');btn.type='button';btn.className='v115-history-toggle'
+    btn.textContent=v115HistoryExpanded?'收起歷史牌局':`展開全部（共 ${rows.length} 將）`
+    btn.onclick=()=>{v115HistoryExpanded=!v115HistoryExpanded;v115ApplyHistoryFold()}
+    box.appendChild(btn)
+  }
+}
+const v115OldRenderRoomDashboard=renderRoomDashboard
+renderRoomDashboard=function(loadShared=true){
+  const r=v115OldRenderRoomDashboard(loadShared)
+  setTimeout(v115ApplyHistoryFold,0)
+  return r
+}
+
+/* ===== V115-2：「開始新牌局」移到即時牌局正下方 ===== */
+function v115ArrangeRoomDashboard(){
+  const live=document.getElementById('roomLiveSession')?.closest('.card')
+  const btn=document.querySelector('#roomDashboard .room-new-game-btn')
+  if(live&&btn&&live.nextElementSibling!==btn) live.insertAdjacentElement('afterend',btn)
+}
+
+/* ===== V115-3：繼續下一將沿用記錄者，不再要求重選 ===== */
+let v115CarryRecorder=''
+const v115OldContinueNextMatch=continueNextMatch
+continueNextMatch=function(){
+  v115CarryRecorder=recorderPlayer||v115CarryRecorder||''
+  return v115OldContinueNextMatch.apply(this,arguments)
+}
+const v115OldGoDealer=goDealer
+goDealer=function(){
+  const carrying=!!(v115CarryRecorder&&P.includes(v115CarryRecorder))
+  const r=v115OldGoDealer.apply(this,arguments)
+  const page=document.getElementById('dealerSetup')
+  if(carrying){
+    recorderPlayer=v115CarryRecorder
+    page?.classList.add('v115-continuing')
+    const choices=document.getElementById('recorderChoices')
+    const title=choices?.previousElementSibling?.previousElementSibling
+    const note=choices?.previousElementSibling
+    title?.classList.add('v115-recorder-title');note?.classList.add('v115-recorder-title')
+  }else page?.classList.remove('v115-continuing')
+  return r
+}
+
+/* ===== V115-4：每一手完成按鈕用語固定為「記錄這一把」 ===== */
+function v115FixHandWording(){
+  document.querySelectorAll('#game button').forEach(btn=>{if(btn.textContent.trim()==='記錄這一將')btn.textContent='記錄這一把'})
+}
+
+/* ===== V115-5：確認莊家・開打手機點擊改善 + 防重複送出 ===== */
+let v115ConfirmDealerBusy=false
+const v115OldConfirmDealer=confirmDealer
+confirmDealer=async function(){
+  if(v115ConfirmDealerBusy) return
+  if(!dealer){alert('請先選擇第一位莊家');return}
+  if(!recorderPlayer){alert('請選擇今天拿手機記錄的人');return}
+  const btn=document.querySelector('#dealerSetup .primary[onclick="confirmDealer()"]')
+  v115ConfirmDealerBusy=true
+  if(btn){btn.disabled=true;btn.dataset.oldText=btn.textContent;btn.textContent='正在開打…'}
+  try{await v115OldConfirmDealer.apply(this,arguments);v115CarryRecorder=recorderPlayer||v115CarryRecorder}
+  finally{v115ConfirmDealerBusy=false;if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||'確認莊家・開打'}}
+}
+
+/* ===== V115-6：結束後即時牌局立刻移除；完成狀態同步做驗證與一次重試 ===== */
+const V115_COMPLETED_KEY='mahjong_v115_completed_remote_ids'
+function v115CompletedIds(){try{return new Set(JSON.parse(localStorage.getItem(V115_COMPLETED_KEY)||'[]'))}catch(e){return new Set()}}
+function v115RememberCompleted(id){if(!id)return;const s=v115CompletedIds();s.add(id);localStorage.setItem(V115_COMPLETED_KEY,JSON.stringify([...s].slice(-100)))}
+const v115OldCompleteRemoteSession=completeRemoteSession
+completeRemoteSession=async function(reason='normal'){
+  const id=remoteSessionId
+  const r=await v115OldCompleteRemoteSession.apply(this,arguments)
+  if(id){
+    v115RememberCompleted(id)
+    try{
+      const rec=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(id)}`)
+      if(rec?.status==='active'){
+        const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
+        const finalBalances={};P.forEach(name=>{const pid=map[name]?.id;if(pid)finalBalances[pid]=Number(balances[name]||0)-Number(sessionOpeningBalances[name]||0)})
+        await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({status:'completed',ended_reason:reason,ended_at:new Date().toISOString(),final_balances:finalBalances})})
+      }
+    }catch(e){console.warn('V115：完成牌局狀態驗證／重試失敗',e)}
+  }
+  return r
+}
+syncCurrentRoomLiveSession=async function(){
+  const box=document.getElementById('roomLiveSession')
+  if(!box||!currentRoomId||!pbAuth?.token)return
+  box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
+  if(!await getCurrentRoomPlayerAccess(currentRoomId)){box.innerHTML='<div class="muted">只有這個房間的註冊會員可以觀看直播。</div>';return}
+  try{
+    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
+    const data=await pbRequest(`/api/collections/game_sessions/records?perPage=50&sort=-updated&filter=${filter}`)
+    const completed=v115CompletedIds()
+    const fresh=(data.items||[]).filter(x=>Array.isArray(x.players)&&x.players.length===4&&v32SessionIsFresh(x)&&!x.ended_at&&!completed.has(x.id))
+    const active=v114DedupLiveSessions(fresh)
+    if(!active.length){box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>';return}
+    active.sort((a,b)=>String(a.created||'').localeCompare(String(b.created||'')))
+    box.innerHTML=`<div class="muted" style="margin-bottom:8px">目前 ${active.length} 桌進行中</div>`+active.map((ss,index)=>`<div class="notice ok" style="margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b>🟢 第 ${index+1} 桌</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把</div><button class="secondary" style="width:auto;padding:9px 13px;white-space:nowrap" onclick="openLiveSession('${ss.id}')">👀 觀看</button></div></div>`).join('')
+  }catch(e){box.innerHTML='<div class="muted">目前無法讀取即時牌局。</div>'}
+}
+
+function v115Init(){
+  v115ArrangeRoomDashboard();v115FixHandWording();v115ApplyHistoryFold()
+  const btn=document.querySelector('#dealerSetup .primary[onclick="confirmDealer()"]');if(btn)btn.setAttribute('aria-label','確認莊家並開打')
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',v115Init);else v115Init()
 </script>
 
 </body>
