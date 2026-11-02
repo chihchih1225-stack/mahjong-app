@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- V113: 固定身分ID + 將/把語意 + 今日完整戰績 + 計分規則/除錯 + 月份排行榜 + 新配色；V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
+<!-- V114: V113 實測修正（返回間距／直播重複／特殊牌型空白膠囊）；V113: 固定身分ID + 將/把語意 + 今日完整戰績 + 計分規則/除錯 + 月份排行榜 + 新配色；V112: 最終投影版（跑馬燈 + 左戰況/短計分 + 右提款機；投影移除金額分布）；V109: 跑馬燈豪華版；V108: V107 + 提款機改為逐把封存的連打累積帳本，與計分水位同生命週期 -->
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -10078,6 +10078,54 @@ showTodaySummary=async function(){
   const rows=aggregateSessions(sessions).sort((a,b)=>b.net-a.net), totalHands=sessions.reduce((n,s)=>n+(Array.isArray(s.hands)?s.hands.length:0),0)
   let totalMs=0; sessions.forEach(s=>{if(s.startedAt&&s.endedAt){const ms=new Date(s.endedAt)-new Date(s.startedAt);if(Number.isFinite(ms)&&ms>=0)totalMs+=ms}})
   content.innerHTML=`<div class="career-note"><b>今日共 ${sessions.length} 將・${totalHands} 把</b>・${new Set(sessions.map(x=>Number(x.tableNumber||1))).size} 桌・⏱️ ${totalMs?formatDurationMs(totalMs):'尚無完整耗時'}</div><div style="margin-top:14px">${rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・${x.handAppearances||0} 把・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div><div class="muted">清一色 ${x.cleanSuit||0}・混一色 ${x.mixedSuit||0}・碰碰胡 ${x.pongPong||0}・小三元 ${x.smallThree||0}・大三元 ${x.bigThree||0}・MIGI ${x.migi||0}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join('')}</div>`
+}
+</script>
+
+
+<style id="v114-test-fixes">
+/* ===== V114 測試修正 ①：返回按鈕與下方內容增加呼吸空間 ===== */
+#seat .toprow{margin-bottom:18px!important}
+#dealerSetup .toprow{margin-bottom:16px!important}
+
+/* ===== V114 測試修正 ③：未選特殊牌型時，不顯示空白計數膠囊 ===== */
+#patternSelectedCount:empty{display:none!important}
+</style>
+<script id="v114-test-fixes-runtime">
+/* ===== V114 測試修正 ②：直播列表依「實際四位玩家」去除重複 active session =====
+   同一組四位玩家不可能同時坐兩桌；若 PB 因重整/殘留產生多筆 fresh active，
+   只保留 updated 最新的一筆。不同四人組仍可正常顯示多桌。 */
+function v114LivePlayerKey(ss){
+  const ids=Array.isArray(ss?.players)?ss.players.filter(Boolean).map(String).sort():[]
+  return ids.length===4?ids.join('|'):''
+}
+function v114DedupLiveSessions(items){
+  const groups=new Map(), passthrough=[]
+  ;(items||[]).forEach(ss=>{
+    const key=v114LivePlayerKey(ss)
+    if(!key){passthrough.push(ss);return}
+    const old=groups.get(key)
+    const time=x=>new Date(x?.updated||x?.created||0).getTime()||0
+    if(!old||time(ss)>time(old)) groups.set(key,ss)
+  })
+  return [...groups.values(),...passthrough]
+}
+syncCurrentRoomLiveSession=async function(){
+  const box=document.getElementById('roomLiveSession')
+  if(!box || !currentRoomId || !pbAuth?.token) return
+  box.innerHTML='<div class="muted">讀取即時牌局中…</div>'
+  if(!await getCurrentRoomPlayerAccess(currentRoomId)){box.innerHTML='<div class="muted">只有這個房間的註冊會員可以觀看直播。</div>';return}
+  try{
+    const filter=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && status="active"`)
+    const data=await pbRequest(`/api/collections/game_sessions/records?perPage=50&sort=-updated&filter=${filter}`)
+    const fresh=(data.items||[]).filter(x=>Array.isArray(x.players)&&x.players.length===4&&v32SessionIsFresh(x))
+    const active=v114DedupLiveSessions(fresh)
+    if(!active.length){box.innerHTML='<div class="muted">目前沒有進行中的牌局。</div>';return}
+    active.sort((a,b)=>String(a.created||'').localeCompare(String(b.created||'')))
+    box.innerHTML=`<div class="muted" style="margin-bottom:8px">目前 ${active.length} 桌進行中</div>`+active.map((ss,index)=>{
+      const table=index+1
+      return `<div class="notice ok" style="margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b>🟢 第 ${table} 桌</b><br>${escapeHtml(ss.round||'牌局')}・第 ${Number(ss.hand_number||1)} 把</div><button class="secondary" style="width:auto;padding:9px 13px;white-space:nowrap" onclick="openLiveSession('${ss.id}')">👀 觀看</button></div></div>`
+    }).join('')
+  }catch(e){box.innerHTML='<div class="muted">目前無法讀取即時牌局。</div>'}
 }
 </script>
 
