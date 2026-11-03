@@ -7263,30 +7263,30 @@ function aggregateSessions(sessions){
     const detailedHands=Array.isArray(ss.hands)?ss.hands:[]
     // 放槍率只使用真的有逐把明細的場次作分母；舊式只存最終結算的場次不混進去。
     if(detailedHands.length){
-      const participants=[...new Set(((ss.players&&ss.players.length)?ss.players:Object.keys(nets)).map(canonicalPlayerName).filter(Boolean))]
-      participants.forEach(name=>{const x=touch(name);x.handAppearances+=detailedHands.length;x.detailedHands+=detailedHands.length})
+      const participants=(ss.players&&ss.players.length)?ss.players:Object.keys(nets)
+      participants.forEach(name=>{const key=canonicalPlayerName(name);if(!key)return;const x=touch(key);x.handAppearances+=detailedHands.length;x.detailedHands+=detailedHands.length})
     }
 
     detailedHands.forEach(h=>{
-      // V126：逐把統計也必須先走同一套 canonical identity，避免舊暱稱／同帳號多 room_player ID 把徽章拆成兩個人。
-      const winner=canonicalPlayerName(h.winner||'')
-      const discarder=canonicalPlayerName(h.discarder||'')
-      if(h.result==='胡牌'&&winner){
-        touch(winner).wins++; touch(winner).discardWins++
-        if(discarder) touch(discarder).discards++
+      // V127：逐把明細也必須走同一套 canonical 身分，否則舊暱稱會把徽章拆成兩個人。
+      const winnerName=canonicalPlayerName(h.winner)
+      const discarderName=canonicalPlayerName(h.discarder)
+      if(h.result==='胡牌'&&winnerName){
+        touch(winnerName).wins++; touch(winnerName).discardWins++
+        if(discarderName) touch(discarderName).discards++
       }
-      if(h.result==='自摸'&&winner){ touch(winner).wins++; touch(winner).selfdraws++ }
-      if(h.result==='詐胡'&&winner) touch(winner).frauds++
-      if(winner && (h.result==='胡牌'||h.result==='自摸')){
+      if(h.result==='自摸'&&winnerName){ touch(winnerName).wins++; touch(winnerName).selfdraws++ }
+      if(h.result==='詐胡'&&winnerName) touch(winnerName).frauds++
+      if(winnerName && (h.result==='胡牌'||h.result==='自摸')){
         const patterns=Array.isArray(h.patterns)?h.patterns:[]
-        if(patterns.includes('清一色')) touch(winner).cleanSuit++
-        if(patterns.includes('混一色')) touch(winner).mixedSuit++
-        if(patterns.includes('碰碰胡')) touch(winner).pongPong++
-        if(patterns.includes('小三元')) touch(winner).smallThree++
-        if(patterns.includes('大三元')) touch(winner).bigThree++
-        if(patterns.includes('MIGI')) touch(winner).migi++
-        if(patterns.includes('四暗刻')) touch(winner).fourConcealed++
-        if(patterns.includes('五暗刻')) touch(winner).fiveConcealed++
+        if(patterns.includes('清一色')) touch(winnerName).cleanSuit++
+        if(patterns.includes('混一色')) touch(winnerName).mixedSuit++
+        if(patterns.includes('碰碰胡')) touch(winnerName).pongPong++
+        if(patterns.includes('小三元')) touch(winnerName).smallThree++
+        if(patterns.includes('大三元')) touch(winnerName).bigThree++
+        if(patterns.includes('MIGI')) touch(winnerName).migi++
+        if(patterns.includes('四暗刻')) touch(winnerName).fourConcealed++
+        if(patterns.includes('五暗刻')) touch(winnerName).fiveConcealed++
       }
     })
   })
@@ -7954,7 +7954,9 @@ function badgeHtml(rows,sessions){
     const ws=winners(key,low,rows,requirePositive)
     if(!ws.length) return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">尚未產生</div><div class="badge-desc">${desc}</div></div>`
     const names=ws.map(x=>x.name).join('・'), v=Number(ws[0]?.[key])||0
-    const value=(key==='net'||key==='maxWin')?money(v):key==='maxLoss'?`$${v.toLocaleString()}`:key==='winRate'?`${(v*100).toFixed(1)}%`:key==='sessions'?`${v} 場`:`${v} 次`
+    // V127：勝率直接顯示分子／分母，連勝連敗顯示「將」，方便現場核對原始戰績。
+    const lead=ws[0]||{}
+    const value=(key==='net'||key==='maxWin')?money(v):key==='maxLoss'?`$${v.toLocaleString()}`:key==='winRate'?`${(v*100).toFixed(1)}%（${Number(lead.sessionWins)||0}/${Number(lead.sessions)||0} 將）`:(key==='maxStreak'||key==='maxLossStreak')?`${v} 將`:key==='sessions'?`${v} 場`:`${v} 次`
     return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">${names}</div><div class="badge-desc">${value}・${desc}</div></div>`
   })
   const eligible=rows.filter(r=>r.handAppearances>0)
@@ -9738,7 +9740,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V126'
+  const APP_VERSION='V128'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10582,7 +10584,8 @@ function v124OpenMemberSessionDetail(sessionId,userId,nickname){
 }
 </script>
 
-<!-- V126：徽章統計全面校正：所有徽章統一 canonical identity；最高勝率=獲利將數/有效參與將數；連敗王=依時間最長連續負分將數；不硬編玩家姓名 -->
+<!-- V128：玩家選擇與開打速度修正 -->
+<!-- V127：徽章實際修正：逐把 canonical 身分 + 勝率/連敗核對資訊 -->
 <!-- V125：完成清單 3～9 + 房間效能 + 個人戰績返回修正；投影與麻俠資料問題暫不處理 -->
 <style id="v125-style">
 .v125-final-money-row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center}.v125-sign-toggle{height:48px;border-radius:14px;background:#eef3ff;color:#536b98;font-weight:950;border:1px solid #d4def2}
@@ -10647,5 +10650,50 @@ v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
 }
 </script>
 
+
+<script>
+/* ===== V128：選擇玩家點擊修復 + 開打不再被 PocketBase 網路等待卡住 ===== */
+(function(){
+  function bindPlayerPicker(){
+    const btn=document.getElementById('roomPlayerOpen')
+    const menu=document.getElementById('roomPlayerMenu')
+    if(!btn||!menu||btn.dataset.v128Bound==='1') return
+    btn.dataset.v128Bound='1'
+    // 不再只依賴 inline onclick；iPhone/PWA 更新後也能穩定開啟。
+    btn.removeAttribute('onclick')
+    btn.addEventListener('click',function(ev){
+      ev.preventDefault(); ev.stopPropagation()
+      if(typeof v38ToggleRoomPlayerMenu==='function') v38ToggleRoomPlayerMenu()
+    },{passive:false})
+  }
+  document.addEventListener('click',function(ev){
+    const menu=document.getElementById('roomPlayerMenu')
+    const btn=document.getElementById('roomPlayerOpen')
+    if(menu?.classList.contains('open') && btn && !menu.contains(ev.target) && !btn.contains(ev.target)) menu.classList.remove('open')
+  })
+  const oldLoad=window.loadV35RoomPlayerPicker
+  if(typeof oldLoad==='function'){
+    window.loadV35RoomPlayerPicker=async function(){
+      const r=await oldLoad.apply(this,arguments)
+      bindPlayerPicker()
+      return r
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindPlayerPicker)
+  else bindPlayerPicker()
+  setInterval(bindPlayerPicker,1500)
+
+  // 開打畫面先進入計分頁；PocketBase 遠端 session 在背景建立。
+  // 本機計分不應因網路慢而一直停在「正在開打…」。
+  window.confirmDealer=async function(){
+    if(!dealer){ alert('請先選擇第一位莊家'); return }
+    if(!recorderPlayer){ alert('請選擇今天拿手機記錄的人'); return }
+    gameStartedAt=new Date().toISOString(); gameEndedAt=''
+    renderGame(); v33StartGameClock(); persistActiveGame(); show('game')
+    try{ await createRemoteGameSession() }
+    catch(e){ console.warn('V128：遠端牌局建立較慢／失敗，本機計分照常',e) }
+  }
+})()
+</script>
 </body>
 </html>
