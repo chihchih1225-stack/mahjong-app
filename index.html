@@ -1,3 +1,4 @@
+<!-- V153：自訂日期改為條件式產生；提款 TOP3 間距與金流卡自然高度修正；保留 V152/V151/V143/V146 穩定邏輯 -->
 <!-- V152：強制修正自訂日期顯示條件＋戰績排行真實只渲染前4名；保留 V151/V143/V146 穩定邏輯 -->
 <!-- V151：房間提款機最大提款紀錄改為 TOP 3；保留 V150/V149/V143/V146 穩定邏輯 -->
 <!-- V150：修正自訂日期常駐、戰績排行真正折疊、提款機明細移除重複「提款」；保留 V149 全部統計邏輯 -->
@@ -1763,10 +1764,19 @@ main{padding-bottom:74px}
 .room-ranking-card.collapsed .room-ranking-body{display:none}
 .room-ranking-card:not(.collapsed) .room-ranking-arrow{transform:rotate(180deg)}
 .room-ranking-body{margin-top:12px}
-.room-cashflow-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.room-cashflow-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;align-items:start}
 .room-cashflow-stat{padding:11px 10px;border-radius:14px;background:#fffaf3;border:1px solid var(--line)}
 .room-cashflow-stat .k{font-size:10px;color:var(--muted);font-weight:800}
 .room-cashflow-stat .v{font-size:18px;font-weight:950;margin-top:3px}
+.room-cashflow-top3-item{padding:7px 0 0}
+.room-cashflow-top3-item+.room-cashflow-top3-item{margin-top:7px;border-top:1px dashed var(--line)}
+.room-cashflow-top3-line{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:8px;align-items:start;font-size:12px;font-weight:800;line-height:1.35}
+.room-cashflow-top3-item:first-child .room-cashflow-top3-line{font-size:13px;font-weight:900}
+.room-cashflow-medal{display:block;text-align:center;line-height:1.35}
+.room-cashflow-top3-name{display:block;min-width:0}
+.room-cashflow-top3-amount{margin:3px 0 0 32px;font-size:11px}
+.room-cashflow-top3-item:first-child .room-cashflow-top3-amount{font-size:12px}
+
 .room-cashflow-picker{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
 .room-cashflow-picker label{margin:0 0 6px;font-size:11px;font-weight:900}
 .room-cashflow-picker select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:13px;background:#fffdfa;padding:9px 11px;font:inherit;font-size:14px;color:var(--ink)}
@@ -2150,7 +2160,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
       <button class="rule-btn" data-room-filter="last30" onclick="setRoomFilter('last30')">近30天</button>
       <button class="rule-btn" data-room-filter="custom" onclick="v149ToggleCustomRange()">自訂日期</button>
     </div>
-    <div id="v149CustomRange" class="v149-custom-range hidden" hidden style="display:none"><input id="v149DateFrom" type="date" aria-label="開始日期"><span>～</span><input id="v149DateTo" type="date" aria-label="結束日期"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>
+    <div id="v149CustomRangeHost"></div>
   </div>
 
   <div class="card room-protected room-ranking-card" id="roomRankingCard">
@@ -7481,7 +7491,7 @@ let v149CustomFrom=''
 let v149CustomTo=''
 let v149RankingExpanded=false
 let v152LastRankingRows=[]
-function v150SyncCustomRange(){ const el=document.getElementById('v149CustomRange'); if(!el)return; const show=roomTimeFilter==='custom'; el.hidden=!show; el.classList.toggle('hidden',!show); el.style.setProperty('display',show?'grid':'none','important') }
+function v150SyncCustomRange(){ const host=document.getElementById('v149CustomRangeHost'); if(!host)return; if(roomTimeFilter!=='custom'){host.innerHTML='';return} host.innerHTML=`<div id="v149CustomRange" class="v149-custom-range"><input id="v149DateFrom" type="date" aria-label="開始日期" value="${escapeHtml(v149CustomFrom||'')}"><span class="v149-date-sep">～</span><input id="v149DateTo" type="date" aria-label="結束日期" value="${escapeHtml(v149CustomTo||'')}"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>` }
 function setRoomFilter(v){ roomTimeFilter=v; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ToggleCustomRange(){ roomTimeFilter='custom'; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ApplyCustomRange(){ const a=document.getElementById('v149DateFrom')?.value||'',b=document.getElementById('v149DateTo')?.value||''; if(!a||!b){alert('請選擇開始與結束日期');return} if(a>b){alert('開始日期不能晚於結束日期');return} v149CustomFrom=a;v149CustomTo=b;roomTimeFilter='custom';v149RankingExpanded=false;renderRoomDashboard() }
@@ -8093,7 +8103,7 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
   }).join(''):'<div class="room-cashflow-note">目前沒有提款紀錄。</div>'
   el.innerHTML=`<div class="room-cashflow-summary">
     <div class="room-cashflow-stat"><div class="k">${roomTimeFilter==='all'?'歷史總金流':'期間總金流'}</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
-    <div class="room-cashflow-stat"><div class="k">🏧 最大提款紀錄 TOP 3</div>${topRels.length?topRels.map((r,i)=>`<div style="${i?'margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)':''}"><div style="display:flex;align-items:center;gap:5px;font-size:${i===0?'13px':'12px'};font-weight:${i===0?'900':'800'};line-height:1.25"><span>${['🥇','🥈','🥉'][i]}</span><span>${escapeHtml(r.to)}從${escapeHtml(r.from)}提款</span></div><div class="muted" style="margin-top:2px;font-size:${i===0?'12px':'11px'}">$${Math.round(r.amount).toLocaleString()}</div></div>`).join(''):'<div class="v" style="font-size:13px">—</div>'}</div>
+    <div class="room-cashflow-stat"><div class="k">🏧 最大提款紀錄 TOP 3</div>${topRels.length?topRels.map((r,i)=>`<div class="room-cashflow-top3-item"><div class="room-cashflow-top3-line"><span class="room-cashflow-medal">${['🥇','🥈','🥉'][i]}</span><span class="room-cashflow-top3-name">${escapeHtml(r.to)}從${escapeHtml(r.from)}提款</span></div><div class="muted room-cashflow-top3-amount">$${Math.round(r.amount).toLocaleString()}</div></div>`).join(''):'<div class="v" style="font-size:13px">—</div>'}</div>
   </div>
   <div class="room-cashflow-picker"><label for="roomCashflowPlayer">🔍 看看誰是我的提款機</label><select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
   ${selected?`<div style="margin-top:9px"><div class="muted" style="font-weight:900">🏧 ${escapeHtml(selected)}的提款機</div>${rows(incoming,'mine')}</div>`:''}
@@ -10074,7 +10084,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V152'
+  const APP_VERSION='V153'
   let refreshing=false
   let updatePromptOpen=false
 
