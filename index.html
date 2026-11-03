@@ -1,3 +1,4 @@
+<!-- V147：房間金流＋長期排行榜折疊＋個人戰績特殊牌型緊湊化；V146 資料修復與統計邏輯保留 -->
 <!-- V119：以 V118 為母版；個人戰績圓角 + 歷史牌局折疊 -->
 <!-- V118：以 V117 為母版；新增結算 XP + 保守程式健檢清理 -->
 <!doctype html>
@@ -1470,9 +1471,9 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 .member-stats-sticky{position:sticky;top:-1px;z-index:8;background:var(--card);padding:5px 0 10px;border-bottom:1px solid var(--line);margin-bottom:12px}
 .member-stats-title{font-size:20px;font-weight:950;margin-top:3px}
 .member-stats-rank{display:inline-flex;padding:5px 9px;border-radius:999px;background:var(--yellow);font-size:11px;font-weight:900;margin-top:6px}
-.member-pattern-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.member-pattern-stat{padding:11px 8px;border-radius:14px;background:#fffaf3;text-align:center;border:1px solid var(--line)}
-.member-pattern-stat b{display:block;font-size:20px;margin-top:3px}
+.member-pattern-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.member-pattern-stat{padding:7px 4px;border-radius:11px;background:#fffaf3;text-align:center;border:1px solid var(--line);font-size:10px;line-height:1.2}
+.member-pattern-stat b{display:block;font-size:15px;margin-top:2px;line-height:1.1}
 .member-history-row{padding:11px 0;border-bottom:1px dashed var(--line)}
 .member-history-row:last-child{border-bottom:0}
 .member-history-net{font-size:16px;font-weight:950}
@@ -1751,6 +1752,25 @@ main{padding-bottom:74px}
 .king-timeline-wrap.v144-king .v144-king-extra{display:none}
 .king-timeline-wrap.v144-king.expanded .v144-king-extra{display:grid}
 .v144-king-toggle{width:100%;margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#9a4519;font-weight:900;font-size:12px}
+
+/* ===== V147：長期排行榜折疊＋房間歷史金流 ===== */
+.room-ranking-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;padding:0;text-align:left}
+.room-ranking-toggle h2{margin:0}
+.room-ranking-arrow{font-size:18px;color:var(--muted);transition:transform .18s ease}
+.room-ranking-card.collapsed .room-ranking-body{display:none}
+.room-ranking-card:not(.collapsed) .room-ranking-arrow{transform:rotate(180deg)}
+.room-ranking-body{margin-top:12px}
+.room-cashflow-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.room-cashflow-stat{padding:11px 10px;border-radius:14px;background:#fffaf3;border:1px solid var(--line)}
+.room-cashflow-stat .k{font-size:10px;color:var(--muted);font-weight:800}
+.room-cashflow-stat .v{font-size:18px;font-weight:950;margin-top:3px}
+.room-cashflow-picker{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
+.room-cashflow-picker label{margin:0 0 6px;font-size:11px;font-weight:900}
+.room-cashflow-picker select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:13px;background:#fffdfa;padding:9px 11px;font:inherit;font-size:14px;color:var(--ink)}
+.room-cashflow-relations{margin-top:10px;display:grid;gap:6px}
+.room-cashflow-relation{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:12px;background:#faf7f5;font-size:12px}
+.room-cashflow-relation b{font-size:13px}
+.room-cashflow-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}
 
 </style>
 
@@ -2108,22 +2128,32 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
     <div id="roomLiveSession"><div class="muted">正在確認目前是否有進行中的牌局…</div></div>
   </div>
 
-  <div class="card room-protected">
-    <div class="toprow"><h2>🏆 長期排行榜</h2><span id="roomFilterLabel" class="season-chip">全部</span></div>
-    <div class="room-filter-strip">
-      <button class="rule-btn" data-room-filter="all" onclick="setRoomFilter('all')">全部</button>
-      <button class="rule-btn" data-room-filter="year" onclick="setRoomFilter('year')">今年</button>
-      <button class="rule-btn" data-room-filter="month" onclick="setRoomFilter('month')">本月</button>
-      <button class="rule-btn" data-room-filter="week" onclick="setRoomFilter('week')">本週</button>
-      <button class="rule-btn" data-room-filter="today" onclick="setRoomFilter('today')">今天</button>
-      <input id="v113MonthPicker" class="v113-month-picker" type="month" aria-label="選擇歷史月份" onchange="v113SetHistoryMonth(this.value)">
+  <div class="card room-protected room-ranking-card collapsed" id="roomRankingCard">
+    <button type="button" class="room-ranking-toggle" onclick="toggleRoomRanking()" aria-expanded="false">
+      <span style="display:flex;align-items:center;gap:8px"><h2>🏆 長期排行榜</h2><span id="roomFilterLabel" class="season-chip">全部</span></span>
+      <span class="room-ranking-arrow">⌄</span>
+    </button>
+    <div class="room-ranking-body">
+      <div class="room-filter-strip">
+        <button class="rule-btn" data-room-filter="all" onclick="setRoomFilter('all')">全部</button>
+        <button class="rule-btn" data-room-filter="year" onclick="setRoomFilter('year')">今年</button>
+        <button class="rule-btn" data-room-filter="month" onclick="setRoomFilter('month')">本月</button>
+        <button class="rule-btn" data-room-filter="week" onclick="setRoomFilter('week')">本週</button>
+        <button class="rule-btn" data-room-filter="today" onclick="setRoomFilter('today')">今天</button>
+        <input id="v113MonthPicker" class="v113-month-picker" type="month" aria-label="選擇歷史月份" onchange="v113SetHistoryMonth(this.value)">
+      </div>
+      <div id="roomRanking"></div>
     </div>
-    <div id="roomRanking"></div>
   </div>
 
   <div class="card trend-card room-trend-card room-protected">
     <div class="toprow"><h2>📈 房間戰績走勢</h2><span class="muted">橫軸：日期・縱軸：累積輸贏</span></div>
     <div id="roomTrendChart" class="trend-chart"></div>
+  </div>
+
+  <div class="card room-protected" id="roomCashflowCard">
+    <div class="toprow"><h2>🏧 房間金流</h2><span class="muted">歷史累積</span></div>
+    <div id="roomCashflow"><div class="muted">正在計算房間金流…</div></div>
   </div>
 
   <div class="card room-protected">
@@ -7902,6 +7932,88 @@ document.addEventListener('visibilitychange',()=>{
   if(!document.hidden && liveViewerMode && v49ChatRoomId){ v49LoadChat(true) }
 })
 
+function toggleRoomRanking(){
+  const card=document.getElementById('roomRankingCard')
+  if(!card) return
+  const collapsed=card.classList.toggle('collapsed')
+  card.querySelector('.room-ranking-toggle')?.setAttribute('aria-expanded',String(!collapsed))
+}
+
+function v147HistoricalHandTransfers(hand){
+  const out=[]
+  if(!hand) return out
+  const result=String(hand.result||'')
+  const winner=canonicalPlayerName(hand.winner)
+  const discarder=canonicalPlayerName(hand.discarder)
+  const raw=hand.changes||hand.payments||{}
+  const changes={}
+  Object.entries(raw||{}).forEach(([name,value])=>{
+    const key=canonicalPlayerName(name), num=Number(value)
+    if(key && Number.isFinite(num)) changes[key]=(changes[key]||0)+num
+  })
+  if((result==='胡牌'||result==='win') && winner && discarder){
+    const amount=Math.max(0,Number(changes[winner]||0))
+    if(amount) out.push({from:discarder,to:winner,amount})
+  }else if((result==='自摸'||result==='selfdraw') && winner){
+    Object.entries(changes).forEach(([payer,value])=>{
+      if(payer===winner) return
+      const amount=Math.max(0,-Number(value||0))
+      if(amount) out.push({from:payer,to:winner,amount})
+    })
+  }else if((result==='詐胡'||result==='fraud') && winner){
+    Object.entries(changes).forEach(([receiver,value])=>{
+      if(receiver===winner) return
+      const amount=Math.max(0,Number(value||0))
+      if(amount) out.push({from:winner,to:receiver,amount})
+    })
+  }
+  return out
+}
+function v147RoomCashflowData(sessions){
+  const all=(sessions||[])
+  let totalFlow=0, detailedSessions=0, detailedFlow=0
+  const matrix={}
+  const add=(from,to,amount)=>{
+    from=canonicalPlayerName(from);to=canonicalPlayerName(to);amount=Number(amount||0)
+    if(!from||!to||from===to||amount<=0) return
+    matrix[from] ||= {}
+    matrix[from][to]=(matrix[from][to]||0)+amount
+    detailedFlow+=amount
+  }
+  all.forEach(ss=>{
+    const nets=sessionNets(ss)
+    totalFlow+=Object.values(nets).reduce((sum,n)=>sum+Math.max(0,Number(n)||0),0)
+    const hs=Array.isArray(ss.hands)?ss.hands:[]
+    if(hs.length) detailedSessions++
+    hs.forEach(h=>v147HistoricalHandTransfers(h).forEach(t=>add(t.from,t.to,t.amount)))
+  })
+  return {totalFlow,detailedSessions,detailedFlow,matrix}
+}
+function v147RenderRoomCashflow(sessions,selectedName=''){
+  const el=document.getElementById('roomCashflow')
+  if(!el) return
+  const data=v147RoomCashflowData(sessions)
+  const names=aggregateSessions(sessions).map(x=>x.name).sort((a,b)=>a.localeCompare(b,'zh-Hant'))
+  const selected=names.includes(selectedName)?selectedName:(names[0]||'')
+  const relations=[]
+  Object.entries(data.matrix).forEach(([from,row])=>Object.entries(row||{}).forEach(([to,amount])=>{
+    if(Number(amount)>0) relations.push({from,to,amount:Number(amount)})
+  }))
+  relations.sort((a,b)=>b.amount-a.amount)
+  const maxRel=relations[0]
+  const incoming=relations.filter(x=>x.to===selected).sort((a,b)=>b.amount-a.amount)
+  const outgoing=relations.filter(x=>x.from===selected).sort((a,b)=>b.amount-a.amount)
+  const relationRows=(title,arr,arrow)=>`<div style="margin-top:9px"><div class="muted" style="font-weight:900">${title}</div>${arr.length?arr.slice(0,5).map(x=>`<div class="room-cashflow-relation"><span>${escapeHtml(arrow==='in'?x.from:x.to)} ${arrow==='in'?'→ '+escapeHtml(selected):escapeHtml(selected)+' →'}</span><b>$${Number(x.amount).toLocaleString()}</b></div>`).join(''):'<div class="room-cashflow-note">目前沒有可確認的逐把金流紀錄。</div>'}</div>`
+  el.innerHTML=`<div class="room-cashflow-summary">
+    <div class="room-cashflow-stat"><div class="k">歷史總金流</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
+    <div class="room-cashflow-stat"><div class="k">最大提款關係</div><div class="v" style="font-size:13px">${maxRel?`${escapeHtml(maxRel.from)} → ${escapeHtml(maxRel.to)}`:'—'}</div>${maxRel?`<div class="muted" style="margin-top:3px">$${Math.round(maxRel.amount).toLocaleString()}</div>`:''}</div>
+  </div>
+  <div class="room-cashflow-picker"><label for="roomCashflowPlayer">查詢玩家提款關係</label><select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(roomSessions(currentRoomId),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
+  ${selected?relationRows(`${escapeHtml(selected)} 從誰身上拿最多`,incoming,'in'):''}
+  ${selected?relationRows(`${escapeHtml(selected)} 的錢最常流給誰`,outgoing,'out'):''}
+  <div class="room-cashflow-note">歷史總金流以每將最終結算的贏方金額計算；「誰 → 誰」只採用有逐把明細的 ${data.detailedSessions} 將，不會替缺少逐把資料的舊牌局猜付款方向。</div>`
+}
+
 function renderRoomDashboard(loadShared=true){
   ensureAppData()
   let room=appData.rooms.find(r=>r.id===currentRoomId)
@@ -7935,6 +8047,7 @@ function renderRoomDashboard(loadShared=true){
     <div class="career-stat champion-stat"><div class="champion-crown">👑</div><div><div class="k">目前冠軍</div><div class="v">${escapeHtml(rows[0]?.name||'—')}</div>${rows[0]?`<div class="champion-money">${money(rows[0].net)}</div>`:''}</div></div>`
   document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 將・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
   const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
+  v147RenderRoomCashflow(allSs,document.getElementById('roomCashflowPlayer')?.value||'')
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
   renderRoomPlayerVsPlayer(ss)
   renderRoomNemesis(ss)
@@ -9873,7 +9986,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V146'
+  const APP_VERSION='V147'
   let refreshing=false
   let updatePromptOpen=false
 
