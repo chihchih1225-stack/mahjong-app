@@ -8070,7 +8070,7 @@ function badgeHtml(rows,sessions){
     ['🎁','最大貢獻獎','maxLoss',false,'單將輸分最高',true,rows],
     ['🌸','自摸王','selfdraws',false,'自摸次數最多',true,rows],
     ['__SHIELD__','金鐘罩','discardRate',true,`放槍率最低・至少 ${minEligibleSessions} 將`,false,qualified],
-    ['🎯','神槍手','discardWins',false,'胡別人放槍最多',true,rows],
+    ['🎯','神槍手','discardWins',false,'胡牌最多',true,rows],
     ['💣','煙火大師','discards',false,'放槍次數最多',true,rows],
     ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true,rows],
     ['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true,rows],
@@ -9873,7 +9873,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V145'
+  const APP_VERSION='V146'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10358,17 +10358,6 @@ function v117DateKey(ss){
   const d=new Date(ss.startedAt||ss.createdAt||0);if(isNaN(d))return ''
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
-function v117DailyTaskForDate(dateKey){
-  const tasks=[
-    {id:'selfdraw1',label:'自摸 1 次',xp:50},
-    {id:'win2',label:'胡牌 2 次',xp:50},
-    {id:'sessions2',label:'完成 2 將',xp:50},
-    {id:'pattern1',label:'完成任一特殊牌型',xp:80},
-    {id:'first1',label:'拿下 1 次第一名',xp:60}
-  ]
-  let h=0;for(const c of String(dateKey||''))h=(h*31+c.charCodeAt(0))>>>0
-  return tasks[h%tasks.length]
-}
 function v117BuildXpMap(sessions){
   const out={},streak={},days={}
   const touch=n=>out[n]||(out[n]={name:n,xp:0,baseXp:0,multiplierBonus:0,taskXp:0,sessions:0,firsts:0,wins:0,selfdraws:0,patterns:0,maxFirstStreak:0})
@@ -10390,16 +10379,27 @@ function v117BuildXpMap(sessions){
       const base=50+hs.wins*10+hs.selfdraws*15+(isFirst?30:0)+hs.patternBonus
       let mult=1;if(isFirst&&streak[n]>=4)mult=2;else if(isFirst&&streak[n]===3)mult=1.5;else if(isFirst&&streak[n]===2)mult=1.2
       const gained=Math.round(base*mult);x.baseXp+=base;x.multiplierBonus+=gained-base;x.xp+=gained
-      if(date){const d=days[date]||(days[date]={});const q=d[n]||(d[n]={sessions:0,wins:0,selfdraws:0,pattern:false,firsts:0});q.sessions++;q.wins+=hs.wins;q.selfdraws+=hs.selfdraws;q.pattern=q.pattern||hs.pattern;if(isFirst)q.firsts++}
+      if(date){const d=days[date]||(days[date]={});const q=d[n]||(d[n]={sessions:0,wins:0,selfdraws:0,patterns:0,firsts:0});q.sessions++;q.wins+=hs.wins;q.selfdraws+=hs.selfdraws;q.patterns+=hs.pattern?1:0;if(isFirst)q.firsts++}
     })
   })
-  Object.entries(days).forEach(([date,players])=>{const task=v117DailyTaskForDate(date);Object.entries(players).forEach(([n,d])=>{let ok=false;if(task.id==='selfdraw1')ok=d.selfdraws>=1;else if(task.id==='win2')ok=d.wins>=2;else if(task.id==='sessions2')ok=d.sessions>=2;else if(task.id==='pattern1')ok=d.pattern;else if(task.id==='first1')ok=d.firsts>=1;if(ok){const x=touch(n);x.taskXp+=task.xp;x.xp+=task.xp}})})
+  Object.entries(days).forEach(([date,players])=>{Object.entries(players).forEach(([n,d])=>{
+    const x=touch(n)
+    // V146：每日雀士任務不再抽選；五種任務可同日各自累加，每種最多完成 2 次。
+    const completions=[
+      {count:Math.min(2,Math.floor((Number(d.selfdraws)||0)/1)),xp:50},
+      {count:Math.min(2,Math.floor((Number(d.wins)||0)/2)),xp:50},
+      {count:Math.min(2,Math.floor((Number(d.sessions)||0)/2)),xp:50},
+      {count:Math.min(2,Number(d.patterns)||0),xp:80},
+      {count:Math.min(2,Number(d.firsts)||0),xp:60}
+    ]
+    completions.forEach(task=>{const bonus=task.count*task.xp;x.taskXp+=bonus;x.xp+=bonus})
+  })})
   Object.values(out).forEach(x=>Object.assign(x,v117LevelInfo(x.xp)))
   return out
 }
 function v117AllTimeXpMap(){return v117BuildXpMap(appData?.sessions||[])}
 function v117LevelPill(name,map){const x=(map||v117AllTimeXpMap())[canonicalPlayerName(name)]||v117LevelInfo(0);return `<span class="v117-level-pill" title="${escapeHtml(x.title||'麻將初心者')}・${Number(x.xp||0).toLocaleString()} XP">Lv.${x.level||1}</span>`}
-function v117RulesHtml(){return `<button type="button" class="v117-rule-toggle" onclick="v117ToggleRules(this)"><span>等級說明</span><span>⌄</span></button><div class="v117-rule-body"><b>等級怎麼升？</b><div>每累積 500 XP 升 1 級，最高 Lv.100。輸錢不扣 XP。</div><div class="v117-rule-grid"><span>完成一將</span><span>+50 XP</span><span>胡牌</span><span>+10 XP／次</span><span>自摸</span><span>+15 XP／次</span><span>該將第一名</span><span>+30 XP</span><span>碰碰胡</span><span>+15 XP</span><span>混一色／小三元</span><span>+30 XP</span><span>四暗刻</span><span>+50 XP</span><span>清一色／大三元／MIGI／五暗刻</span><span>+80 XP</span></div><b>連勝加乘</b><div>連續 2 將第一名 ×1.2・3 將 ×1.5・4 將以上 ×2.0；沒拿第一就重新計算。</div><b>每日雀士任務</b><div>每天自動抽 1 個任務：自摸 1 次 +50、胡牌 2 次 +50、完成 2 將 +50、特殊牌型 +80、第一名 +60。每日任務 Bonus 不再套連勝倍率。</div></div>`}
+function v117RulesHtml(){return `<button type="button" class="v117-rule-toggle" onclick="v117ToggleRules(this)"><span>等級說明</span><span>⌄</span></button><div class="v117-rule-body"><b>等級怎麼升？</b><div>每累積 500 XP 升 1 級，最高 Lv.100。輸錢不扣 XP。</div><div class="v117-rule-grid"><span>完成一將</span><span>+50 XP</span><span>胡牌</span><span>+10 XP／次</span><span>自摸</span><span>+15 XP／次</span><span>該將第一名</span><span>+30 XP</span><span>碰碰胡</span><span>+15 XP</span><span>混一色／小三元</span><span>+30 XP</span><span>四暗刻</span><span>+50 XP</span><span>清一色／大三元／MIGI／五暗刻</span><span>+80 XP</span></div><b>連勝加乘</b><div>連續 2 將第一名 ×1.2・3 將 ×1.5・4 將以上 ×2.0；沒拿第一就重新計算。</div><b>每日雀士任務</b><div>每天固定 5 種任務，可各自累加完成，單一任務每天最多完成 2 次：自摸 1 次 +50、胡牌 2 次 +50、完成 2 將 +50、特殊牌型 +80、第一名 +60。每日任務 Bonus 不套連勝倍率。</div></div>`}
 function v117ToggleRules(btn){const body=btn?.nextElementSibling;if(!body)return;body.classList.toggle('open');const s=btn.querySelector('span:last-child');if(s)s.textContent=body.classList.contains('open')?'⌃':'⌄'}
 function v117LevelCardHtml(name){const x=v117AllTimeXpMap()[canonicalPlayerName(name)]||Object.assign({xp:0,taskXp:0,maxFirstStreak:0},v117LevelInfo(0));return `<div class="v117-level-card"><div class="v117-level-head"><div><div class="v117-level-title">${escapeHtml(x.title)}</div><div class="v117-level-big">Lv.${x.level}</div></div><div class="v117-xptext">累積 ${Number(x.xp).toLocaleString()} XP</div></div><div class="v117-xpbar"><span style="width:${x.pct}%"></span></div><div class="v117-xptext">${x.level>=100?'已達最高等級':`再 ${Number(x.toNext).toLocaleString()} XP 升 Lv.${x.level+1}`}・最高連續第一 ${x.maxFirstStreak||0} 將</div>${v117RulesHtml()}</div>`}
 
