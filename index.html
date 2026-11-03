@@ -1,4 +1,5 @@
 
+<!-- V158：六角戰力圖補小型說明、移除難懂的優勢/需留意列；無逐把資料者不產生假0分分析；公式不變 -->
 <!-- V157：僅修正自訂日期兩個日期框與「～」的水平／垂直對齊；不更動任何統計或既有功能 -->
 <!-- V156：修正提款機雙框等高／總金流垂直置中；修正戰績排行首次進房真正只顯示前4名；保留 V155 六角戰力與 V143 穩定資料邏輯 -->
 <!-- V155：個人戰績新增六角戰力圖（進攻／防守／自摸／獲利／勝場／牌型）＋牌手類型＋六項分數折疊；不改原始統計/PB -->
@@ -1837,6 +1838,25 @@ main{padding-bottom:74px}
   grid-column:1 / -1!important;
   width:100%!important;
   margin:0!important;
+}
+
+
+/* ===== V158：戰力圖小型說明 ===== */
+.power-radar-legend,.v155-power-legend{
+  margin:4px 0 8px;
+  font-size:10px;
+  line-height:1.55;
+  color:var(--muted);
+  text-align:center;
+}
+.power-radar-empty,.v155-power-empty{
+  padding:18px 12px;
+  border-radius:16px;
+  background:#fffaf3;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.6;
+  text-align:center;
 }
 
 </style>
@@ -10135,7 +10155,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V157'
+  const APP_VERSION='V158'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -11232,7 +11252,10 @@ function v155PowerHtml(stat,playerSs){
   const s=v155PowerScores(stat,playerSs),a=v155Archetype(s)
   const labels=[['⚔️ 進攻','attack','胡牌效率'],['🛡️ 防守','defense','放槍控制'],['🌸 自摸','selfdraw','自摸能力'],['💰 獲利','profit','平均獲利'],['👑 勝場','victory','正收益將'],['🀄 牌型','pattern','特殊牌型']]
   const minSessions=Math.max(3,Math.ceil((roomSessions(currentRoomId)?.length||0)*.10)), stable=s.sessions>=minSessions && s.handN>=20
-  return `<section class="v155-power-card"><div class="v155-power-head"><h3>🎯 我的戰力圖</h3><span class="v155-sample">${stable?'🟢 評估穩定':'🟡 樣本較少'}</span></div><div class="v155-radar-wrap">${v155RadarSvg(s)}</div><div class="v155-archetype"><b>${a.title}</b><p>${a.desc}</p><div class="v155-strength-line">優勢：${a.top}・${a.second}　｜　可加強：${a.low}</div></div><div class="v155-score-card"><button type="button" class="v155-score-toggle" onclick="v155ToggleScores(this)"><span>查看六項戰力分數</span><span class="v155-score-arrow">⌄</span></button><div class="v155-score-body">${labels.map(x=>`<div class="v155-score-row"><span>${x[0]}<small style="display:block;font-weight:700;color:#a096a2;margin-top:2px">${x[2]}</small></span><b>${s[x[1]]}</b></div>`).join('')}</div></div></section>`
+  if(!s.handN){
+    return `<section class="v155-power-card"><div class="v155-power-head"><h3>🎯 我的戰力圖</h3></div><div class="v155-power-empty">目前沒有逐把紀錄可供戰力分析<br><span style="font-size:10px">完成有逐把計分的牌局後，系統會建立六項戰力圖。</span></div></section>`
+  }
+  return `<section class="v155-power-card"><div class="v155-power-head"><h3>🎯 我的戰力圖</h3><div class="v155-power-legend">進攻＝胡牌效率｜防守＝放槍控制｜自摸＝自摸能力<br>獲利＝平均每將獲利｜勝場＝勝將能力｜牌型＝特殊牌型表現</div><span class="v155-sample">${stable?'🟢 評估穩定':'🟡 樣本較少'}</span></div><div class="v155-radar-wrap">${v155RadarSvg(s)}</div><div class="v155-archetype"><b>${a.title}</b><p>${a.desc}</p><div class="v155-strength-line"></div><div class="v155-score-card"><button type="button" class="v155-score-toggle" onclick="v155ToggleScores(this)"><span>查看六項戰力分數</span><span class="v155-score-arrow">⌄</span></button><div class="v155-score-body">${labels.map(x=>`<div class="v155-score-row"><span>${x[0]}<small style="display:block;font-weight:700;color:#a096a2;margin-top:2px">${x[2]}</small></span><b>${s[x[1]]}</b></div>`).join('')}</div></div></section>`
 }
 function v155ToggleScores(btn){const card=btn?.closest('.v155-score-card');if(!card)return;card.classList.toggle('open');btn.querySelector('span:first-child').textContent=card.classList.contains('open')?'收起六項戰力分數':'查看六項戰力分數'}
 function v155EnhanceMemberStats(){
