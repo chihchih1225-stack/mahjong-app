@@ -1,4 +1,4 @@
-<!-- V153：自訂日期改為條件式產生；提款 TOP3 間距與金流卡自然高度修正；保留 V152/V151/V143/V146 穩定邏輯 -->
+<!-- V154：最大提款紀錄 TOP3 預設折疊只顯示第1名，可展開/收起；保留 V153/V152/V151/V143/V146 穩定邏輯 -->
 <!-- V152：強制修正自訂日期顯示條件＋戰績排行真實只渲染前4名；保留 V151/V143/V146 穩定邏輯 -->
 <!-- V151：房間提款機最大提款紀錄改為 TOP 3；保留 V150/V149/V143/V146 穩定邏輯 -->
 <!-- V150：修正自訂日期常駐、戰績排行真正折疊、提款機明細移除重複「提款」；保留 V149 全部統計邏輯 -->
@@ -8082,6 +8082,12 @@ function v147RoomCashflowData(sessions){
   if(mismatch.length) console.warn('V148 房間金流核對未通過',mismatch)
   return {totalFlow,detailedSessions,allocatedSessions,partialSessions,matrix,mismatch}
 }
+let v154CashflowTop3Expanded=false
+function v154ToggleCashflowTop3(selectedName=''){
+  try{selectedName=decodeURIComponent(selectedName||'')}catch(e){}
+  v154CashflowTop3Expanded=!v154CashflowTop3Expanded
+  v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),selectedName)
+}
 function v147RenderRoomCashflow(sessions,selectedName=''){
   const el=document.getElementById('roomCashflow')
   if(!el) return
@@ -8103,7 +8109,7 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
   }).join(''):'<div class="room-cashflow-note">目前沒有提款紀錄。</div>'
   el.innerHTML=`<div class="room-cashflow-summary">
     <div class="room-cashflow-stat"><div class="k">${roomTimeFilter==='all'?'歷史總金流':'期間總金流'}</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
-    <div class="room-cashflow-stat"><div class="k">🏧 最大提款紀錄 TOP 3</div>${topRels.length?topRels.map((r,i)=>`<div class="room-cashflow-top3-item"><div class="room-cashflow-top3-line"><span class="room-cashflow-medal">${['🥇','🥈','🥉'][i]}</span><span class="room-cashflow-top3-name">${escapeHtml(r.to)}從${escapeHtml(r.from)}提款</span></div><div class="muted room-cashflow-top3-amount">$${Math.round(r.amount).toLocaleString()}</div></div>`).join(''):'<div class="v" style="font-size:13px">—</div>'}</div>
+    <div class="room-cashflow-stat"><div class="k">🏧 最大提款紀錄 TOP 3</div>${topRels.length?(v154CashflowTop3Expanded?topRels:topRels.slice(0,1)).map((r,i)=>`<div class="room-cashflow-top3-item"><div class="room-cashflow-top3-line"><span class="room-cashflow-medal">${['🥇','🥈','🥉'][i]}</span><span class="room-cashflow-top3-name">${escapeHtml(r.to)}從${escapeHtml(r.from)}提款</span></div><div class="muted room-cashflow-top3-amount">$${Math.round(r.amount).toLocaleString()}</div></div>`).join(''):'<div class="v" style="font-size:13px">—</div>'}${topRels.length>1?`<button type="button" class="link" style="margin-top:8px;padding:5px 9px;font-size:12px" onclick="v154ToggleCashflowTop3('${encodeURIComponent(selected)}')">${v154CashflowTop3Expanded?'收起':'查看 TOP 3'}</button>`:''}</div>
   </div>
   <div class="room-cashflow-picker"><label for="roomCashflowPlayer">🔍 看看誰是我的提款機</label><select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
   ${selected?`<div style="margin-top:9px"><div class="muted" style="font-weight:900">🏧 ${escapeHtml(selected)}的提款機</div>${rows(incoming,'mine')}</div>`:''}
@@ -10084,7 +10090,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V153'
+  const APP_VERSION='V154'
   let refreshing=false
   let updatePromptOpen=false
 
