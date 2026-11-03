@@ -1,4 +1,4 @@
-<!-- V147：房間金流＋長期排行榜折疊＋個人戰績特殊牌型緊湊化；V146 資料修復與統計邏輯保留 -->
+<!-- V149：房間統計期間／統計方法／顯示方式／說明文字完整統一；保留 V143/V146/V148 穩定邏輯 -->
 <!-- V119：以 V118 為母版；個人戰績圓角 + 歷史牌局折疊 -->
 <!-- V118：以 V117 為母版；新增結算 XP + 保守程式健檢清理 -->
 <!doctype html>
@@ -1772,6 +1772,16 @@ main{padding-bottom:74px}
 .room-cashflow-relation b{font-size:13px}
 .room-cashflow-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}
 
+/* ===== V149：房間統計統一呈現 ===== */
+.room-stat-help{font-size:10px;color:var(--muted);font-weight:700;line-height:1.4;margin-top:3px}
+.room-period-card .room-filter-strip{padding-bottom:4px}
+.v149-custom-range{display:grid;grid-template-columns:1fr auto 1fr auto;gap:6px;align-items:center;margin-top:8px}
+.v149-custom-range input{min-width:0;width:100%;border:1px solid var(--line);border-radius:11px;background:#fffdfa;padding:8px 6px;font:inherit;font-size:12px}
+.v149-ranking-more{width:100%;margin-top:7px;padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#8b684c;font-weight:900;font-size:12px}
+.v149-rank-extra{display:none}
+#roomRanking.v149-expanded .v149-rank-extra{display:grid}
+@media(max-width:560px){.v149-custom-range{grid-template-columns:1fr auto 1fr}.v149-custom-range .nav-action{grid-column:1/-1;width:100%}}
+
 </style>
 
 <style id="v46-home-stylefix">
@@ -2128,55 +2138,55 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
     <div id="roomLiveSession"><div class="muted">正在確認目前是否有進行中的牌局…</div></div>
   </div>
 
-  <div class="card room-protected room-ranking-card collapsed" id="roomRankingCard">
-    <button type="button" class="room-ranking-toggle" onclick="toggleRoomRanking()" aria-expanded="false">
-      <span style="display:flex;align-items:center;gap:8px"><h2>🏆 長期排行榜</h2><span id="roomFilterLabel" class="season-chip">全部</span></span>
-      <span class="room-ranking-arrow">⌄</span>
-    </button>
-    <div class="room-ranking-body">
-      <div class="room-filter-strip">
-        <button class="rule-btn" data-room-filter="all" onclick="setRoomFilter('all')">全部</button>
-        <button class="rule-btn" data-room-filter="year" onclick="setRoomFilter('year')">今年</button>
-        <button class="rule-btn" data-room-filter="month" onclick="setRoomFilter('month')">本月</button>
-        <button class="rule-btn" data-room-filter="week" onclick="setRoomFilter('week')">本週</button>
-        <button class="rule-btn" data-room-filter="today" onclick="setRoomFilter('today')">今天</button>
-        <input id="v113MonthPicker" class="v113-month-picker" type="month" aria-label="選擇歷史月份" onchange="v113SetHistoryMonth(this.value)">
-      </div>
-      <div id="roomRanking"></div>
+  <div class="card room-protected room-period-card" id="roomStatsPeriodCard">
+    <div class="toprow"><div><h2>📅 統計期間</h2><div class="room-stat-help">選一段時間，看看這段期間大家打得怎麼樣</div></div><span id="roomFilterLabel" class="season-chip">全部紀錄</span></div>
+    <div class="room-filter-strip">
+      <button class="rule-btn" data-room-filter="all" onclick="setRoomFilter('all')">全部紀錄</button>
+      <button class="rule-btn" data-room-filter="today" onclick="setRoomFilter('today')">今天</button>
+      <button class="rule-btn" data-room-filter="month" onclick="setRoomFilter('month')">本月</button>
+      <button class="rule-btn" data-room-filter="last30" onclick="setRoomFilter('last30')">近30天</button>
+      <button class="rule-btn" data-room-filter="custom" onclick="v149ToggleCustomRange()">自訂日期</button>
     </div>
+    <div id="v149CustomRange" class="v149-custom-range hidden"><input id="v149DateFrom" type="date" aria-label="開始日期"><span>～</span><input id="v149DateTo" type="date" aria-label="結束日期"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>
+  </div>
+
+  <div class="card room-protected room-ranking-card" id="roomRankingCard">
+    <div class="toprow"><div><h2>🏆 戰績排行</h2><div class="room-stat-help">誰贏最多、誰最穩，排名一次看清楚</div></div></div>
+    <div class="room-ranking-body"><div id="roomRanking"></div><button id="roomRankingMoreBtn" type="button" class="v149-ranking-more hidden" onclick="v149ToggleRankingMore()"></button></div>
   </div>
 
   <div class="card trend-card room-trend-card room-protected">
-    <div class="toprow"><h2>📈 房間戰績走勢</h2><span class="muted">橫軸：日期・縱軸：累積輸贏</span></div>
+    <div class="toprow"><div><h2>📈 戰績走勢</h2><div class="room-stat-help">每一將打下來，看看大家的輸贏怎麼一路變化</div></div></div>
     <div id="roomTrendChart" class="trend-chart"></div>
   </div>
 
+  <div class="card room-protected">
+    <div class="toprow"><div><h2>🏅 麻將名人堂</h2><div class="room-stat-help">不只看輸贏，各種打法與紀錄都有自己的王者</div></div></div>
+    <div id="roomBadges" class="badge-grid"></div>
+  </div>
+
   <div class="card room-protected" id="roomCashflowCard">
-    <div class="toprow"><h2>🏧 房間金流</h2><span class="muted">歷史累積</span></div>
+    <div class="toprow"><div><h2>🏧 房間提款機</h2><div class="room-stat-help">看看誰把誰當提款機，房間裡的錢都流去哪了</div></div></div>
     <div id="roomCashflow"><div class="muted">正在計算房間金流…</div></div>
   </div>
 
   <div class="card room-protected">
-    <div class="toprow"><h2>🎖️ 麻將名人堂</h2><span class="muted">依房間紀錄自動更新</span></div>
-    <div id="roomBadges" class="badge-grid"></div>
-  </div>
-  <div class="card room-protected">
-    <div class="toprow"><h2>⚔️ 同桌勝負</h2><span class="muted">兩位玩家共同牌局</span></div>
-    <div id="roomPlayerVsPlayer"></div>
-  </div>
-
-  <div class="card room-protected">
-    <div class="toprow"><h2>😈 剋星 ＆ 🍀 福星分析</h2><span class="muted">有他 vs 沒他</span></div>
+    <div class="toprow"><div><h2>😈 剋星／🍀 福星</h2><div class="room-stat-help">跟誰同桌特別難打？又是誰一出現就特別旺你？</div></div></div>
     <div id="roomNemesis"></div>
   </div>
 
   <div class="card room-protected">
-    <div class="toprow"><h2>👑 王座更替史</h2><span class="muted">依累積輸贏自動更新</span></div>
+    <div class="toprow"><div><h2>⚔️ 同桌戰績</h2><div class="room-stat-help">選一位對手，看看你們同桌時誰的表現更好</div></div></div>
+    <div id="roomPlayerVsPlayer"></div>
+  </div>
+
+  <div class="card room-protected">
+    <div class="toprow"><div><h2>👑 王座更替史</h2><div class="room-stat-help">誰曾經坐上第一名？記錄房間王座一路怎麼換人</div></div></div>
     <div id="roomKingHistory"></div>
   </div>
 
   <div class="card room-protected">
-    <div class="toprow"><h2>📜 歷史牌局</h2><span id="roomSessionCount" class="muted"></span></div>
+    <div class="toprow"><div><h2>🧾 歷史牌局</h2><div class="room-stat-help">每一將都有跡可循，隨時回頭查看當時的完整戰績</div></div><span id="roomSessionCount" class="muted"></span></div>
     <div id="roomHistory" class="muted"></div>
   </div>
 
@@ -7464,7 +7474,13 @@ function renderHomeDashboard(){
   }).join('')
 }
 let roomTimeFilter='all'
-function setRoomFilter(v){ roomTimeFilter=v; renderRoomDashboard() }
+let v149CustomFrom=''
+let v149CustomTo=''
+let v149RankingExpanded=false
+function setRoomFilter(v){ roomTimeFilter=v; if(v!=='custom') document.getElementById('v149CustomRange')?.classList.add('hidden'); v149RankingExpanded=false; renderRoomDashboard() }
+function v149ToggleCustomRange(){ document.getElementById('v149CustomRange')?.classList.toggle('hidden') }
+function v149ApplyCustomRange(){ const a=document.getElementById('v149DateFrom')?.value||'',b=document.getElementById('v149DateTo')?.value||''; if(!a||!b){alert('請選擇開始與結束日期');return} if(a>b){alert('開始日期不能晚於結束日期');return} v149CustomFrom=a;v149CustomTo=b;roomTimeFilter='custom';v149RankingExpanded=false;renderRoomDashboard() }
+function v149ToggleRankingMore(){v149RankingExpanded=!v149RankingExpanded;v149ApplyRankingFold()}
 function filterSessionsByTime(sessions,filter){
   if(filter==='all') return sessions
   const now=new Date(), y=now.getFullYear(), m=now.getMonth()
@@ -7477,6 +7493,8 @@ function filterSessionsByTime(sessions,filter){
     if(filter==='year') return d.getFullYear()===y
     if(filter==='month') return d.getFullYear()===y&&d.getMonth()===m
     if(filter==='week') return d>=startWeek
+    if(filter==='last30'){const st=new Date(startToday);st.setDate(st.getDate()-29);return d>=st&&d<endToday}
+    if(filter==='custom'&&v149CustomFrom&&v149CustomTo){const st=new Date(v149CustomFrom+'T00:00:00'),en=new Date(v149CustomTo+'T00:00:00');en.setDate(en.getDate()+1);return d>=st&&d<en}
     return true
   })
 }
@@ -7842,6 +7860,15 @@ async function v37RefreshCurrentRoomHistory(){
    4. 在線狀態需要可更新 last_seen 的 PB presence 資料來源；V72 不以假資料冒充在線。
 ===== */
 
+
+function v149ApplyRankingFold(){
+  const box=document.getElementById('roomRanking'),btn=document.getElementById('roomRankingMoreBtn');if(!box||!btn)return
+  box.classList.toggle('v149-expanded',v149RankingExpanded)
+  const extra=box.querySelectorAll('.v149-rank-extra').length
+  btn.classList.toggle('hidden',extra===0)
+  if(extra) btn.textContent=v149RankingExpanded?'收起後半排名':`查看完整排名（其餘 ${extra} 位）`
+}
+
 /* ===== V49：PocketBase 房間聊天室 ===== */
 let v49ChatRoomId=''
 let v49ChatTimer=null
@@ -7969,25 +7996,71 @@ function v147HistoricalHandTransfers(hand){
   }
   return out
 }
+function v148CanonicalNets(ss){
+  const out={}
+  Object.entries(sessionNets(ss)||{}).forEach(([name,value])=>{
+    const key=canonicalPlayerName(name), num=Math.round(Number(value)||0)
+    if(key) out[key]=(out[key]||0)+num
+  })
+  return out
+}
+function v148AllocateResidual(residual,add){
+  const winners=Object.entries(residual).filter(([,v])=>v>0).map(([name,v])=>({name,remain:Math.round(v)}))
+  const losers=Object.entries(residual).filter(([,v])=>v<0).map(([name,v])=>({name,remain:Math.round(-v)}))
+  let wi=0,li=0
+  // 整數逐筆配對：每一元都實際落到一組付款關係，總額與每位玩家 residual 精準相符。
+  while(wi<winners.length && li<losers.length){
+    const amount=Math.min(winners[wi].remain,losers[li].remain)
+    if(amount>0) add(losers[li].name,winners[wi].name,amount,'allocated')
+    winners[wi].remain-=amount; losers[li].remain-=amount
+    if(winners[wi].remain===0) wi++
+    if(losers[li].remain===0) li++
+  }
+}
 function v147RoomCashflowData(sessions){
   const all=(sessions||[])
-  let totalFlow=0, detailedSessions=0, detailedFlow=0
-  const matrix={}
-  const add=(from,to,amount)=>{
-    from=canonicalPlayerName(from);to=canonicalPlayerName(to);amount=Number(amount||0)
+  let totalFlow=0, detailedSessions=0, allocatedSessions=0, partialSessions=0
+  const matrix={}, audit={}
+  const add=(from,to,amount,source='detail')=>{
+    from=canonicalPlayerName(from);to=canonicalPlayerName(to);amount=Math.round(Number(amount||0))
     if(!from||!to||from===to||amount<=0) return
-    matrix[from] ||= {}
-    matrix[from][to]=(matrix[from][to]||0)+amount
-    detailedFlow+=amount
+    matrix[from] ||= {}; matrix[from][to]=(matrix[from][to]||0)+amount
+    audit[from]=(audit[from]||0)-amount; audit[to]=(audit[to]||0)+amount
   }
   all.forEach(ss=>{
-    const nets=sessionNets(ss)
-    totalFlow+=Object.values(nets).reduce((sum,n)=>sum+Math.max(0,Number(n)||0),0)
+    const nets=v148CanonicalNets(ss)
+    totalFlow+=Object.values(nets).reduce((sum,n)=>sum+Math.max(0,n),0)
     const hs=Array.isArray(ss.hands)?ss.hands:[]
-    if(hs.length) detailedSessions++
-    hs.forEach(h=>v147HistoricalHandTransfers(h).forEach(t=>add(t.from,t.to,t.amount)))
+    const detailNet={}
+    const detailTransfers=[]
+    hs.forEach(h=>v147HistoricalHandTransfers(h).forEach(t=>detailTransfers.push(t)))
+    detailTransfers.forEach(t=>{
+      const amount=Math.round(Number(t.amount)||0); if(amount<=0)return
+      const from=canonicalPlayerName(t.from),to=canonicalPlayerName(t.to)
+      if(!from||!to||from===to)return
+      add(from,to,amount,'detail')
+      detailNet[from]=(detailNet[from]||0)-amount; detailNet[to]=(detailNet[to]||0)+amount
+    })
+    if(detailTransfers.length) detailedSessions++
+    const residual={}
+    const people=new Set([...Object.keys(nets),...Object.keys(detailNet)])
+    people.forEach(name=>{ const d=(nets[name]||0)-(detailNet[name]||0); if(d) residual[name]=Math.round(d) })
+    const pos=Object.values(residual).reduce((a,v)=>a+Math.max(0,v),0)
+    const neg=Object.values(residual).reduce((a,v)=>a+Math.max(0,-v),0)
+    if(pos||neg){
+      // 若逐把資料不完整，先保留已確認金流，再用最終結算補齊剩餘差額。
+      if(detailTransfers.length) partialSessions++; else allocatedSessions++
+      if(pos===neg) v148AllocateResidual(residual,add)
+      else console.warn('V148 金流 residual 不平衡，未推估此將',ss?.id||'',residual)
+    }
   })
-  return {totalFlow,detailedSessions,detailedFlow,matrix}
+  // 房間總核對：matrix 淨額必須等於實際累積輸贏；供開發檢查，不改動任何歷史成績。
+  const actual={}
+  all.forEach(ss=>Object.entries(v148CanonicalNets(ss)).forEach(([n,v])=>actual[n]=(actual[n]||0)+v))
+  const people=new Set([...Object.keys(actual),...Object.keys(audit)])
+  const mismatch=[...people].filter(n=>Math.round(actual[n]||0)!==Math.round(audit[n]||0)).map(n=>({name:n,actual:actual[n]||0,cashflow:audit[n]||0}))
+  if(mismatch.length) console.warn('V148 房間金流核對未通過',mismatch)
+  return {totalFlow,detailedSessions,allocatedSessions,partialSessions,matrix,mismatch}
 }
 function v147RenderRoomCashflow(sessions,selectedName=''){
   const el=document.getElementById('roomCashflow')
@@ -8001,17 +8074,21 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
   }))
   relations.sort((a,b)=>b.amount-a.amount)
   const maxRel=relations[0]
+  // incoming：別人付給 selected＝selected 從對方提款；outgoing：selected 付給別人＝別人提款 selected。
   const incoming=relations.filter(x=>x.to===selected).sort((a,b)=>b.amount-a.amount)
   const outgoing=relations.filter(x=>x.from===selected).sort((a,b)=>b.amount-a.amount)
-  const relationRows=(title,arr,arrow)=>`<div style="margin-top:9px"><div class="muted" style="font-weight:900">${title}</div>${arr.length?arr.slice(0,5).map(x=>`<div class="room-cashflow-relation"><span>${escapeHtml(arrow==='in'?x.from:x.to)} ${arrow==='in'?'→ '+escapeHtml(selected):escapeHtml(selected)+' →'}</span><b>$${Number(x.amount).toLocaleString()}</b></div>`).join(''):'<div class="room-cashflow-note">目前沒有可確認的逐把金流紀錄。</div>'}</div>`
+  const rows=(arr,mode)=>arr.length?arr.slice(0,5).map(x=>{
+    const other=mode==='mine'?x.from:x.to
+    return `<div class="room-cashflow-relation"><span><b>${escapeHtml(other)}</b>　提款</span><b>$${Math.round(Number(x.amount)).toLocaleString()}</b></div>`
+  }).join(''):'<div class="room-cashflow-note">目前沒有提款紀錄。</div>'
   el.innerHTML=`<div class="room-cashflow-summary">
-    <div class="room-cashflow-stat"><div class="k">歷史總金流</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
-    <div class="room-cashflow-stat"><div class="k">最大提款關係</div><div class="v" style="font-size:13px">${maxRel?`${escapeHtml(maxRel.from)} → ${escapeHtml(maxRel.to)}`:'—'}</div>${maxRel?`<div class="muted" style="margin-top:3px">$${Math.round(maxRel.amount).toLocaleString()}</div>`:''}</div>
+    <div class="room-cashflow-stat"><div class="k">${roomTimeFilter==='all'?'歷史總金流':'期間總金流'}</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
+    <div class="room-cashflow-stat"><div class="k">🏧 最大提款紀錄</div><div class="v" style="font-size:13px">${maxRel?`${escapeHtml(maxRel.to)}從${escapeHtml(maxRel.from)}提款`:'—'}</div>${maxRel?`<div class="muted" style="margin-top:3px">$${Math.round(maxRel.amount).toLocaleString()}</div>`:''}</div>
   </div>
-  <div class="room-cashflow-picker"><label for="roomCashflowPlayer">查詢玩家提款關係</label><select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(roomSessions(currentRoomId),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
-  ${selected?relationRows(`${escapeHtml(selected)} 從誰身上拿最多`,incoming,'in'):''}
-  ${selected?relationRows(`${escapeHtml(selected)} 的錢最常流給誰`,outgoing,'out'):''}
-  <div class="room-cashflow-note">歷史總金流以每將最終結算的贏方金額計算；「誰 → 誰」只採用有逐把明細的 ${data.detailedSessions} 將，不會替缺少逐把資料的舊牌局猜付款方向。</div>`
+  <div class="room-cashflow-picker"><label for="roomCashflowPlayer">🔍 看看誰是我的提款機</label><select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
+  ${selected?`<div style="margin-top:9px"><div class="muted" style="font-weight:900">🏧 ${escapeHtml(selected)}的提款機</div>${rows(incoming,'mine')}</div>`:''}
+  ${selected?`<div style="margin-top:9px"><div class="muted" style="font-weight:900">💸 誰最愛提款${escapeHtml(selected)}</div>${rows(outgoing,'others')}</div>`:''}
+  <div class="room-cashflow-note">💡 有逐把計分紀錄的牌局依實際紀錄計算；只有最終輸贏的歷史牌局，依該將實際最終輸贏分配。若逐把資料不完整，會先保留已確認金流，再以最終結算補齊。所有金流皆會與每位玩家的實際累積輸贏核對一致。${data.mismatch.length?' <b>⚠️ 目前核對異常，請勿以此區金流判讀。</b>':''}</div>`
 }
 
 function renderRoomDashboard(loadShared=true){
@@ -8024,7 +8101,7 @@ function renderRoomDashboard(loadShared=true){
   }
   const allSs=roomSessions(room.id), ss=filterSessionsByTime(allSs,roomTimeFilter), rows=aggregateSessions(ss).sort((a,b)=>b.net-a.net)
   const totalHands=ss.reduce((n,x)=>n+(x.hands||[]).length,0)
-  const labels={all:'全部',year:'今年',month:'本月',week:'本週',today:'今天',historyMonth:v113HistoryMonth||'歷史月份'}
+  const labels={all:'全部紀錄',year:'今年',month:'本月',week:'本週',today:'今天',last30:'近30天',custom:(v149CustomFrom&&v149CustomTo?`${v149CustomFrom}～${v149CustomTo}`:'自訂日期'),historyMonth:v113HistoryMonth||'歷史月份'}
   document.getElementById('roomFilterLabel').textContent=labels[roomTimeFilter]||'全部'
   document.querySelectorAll('[data-room-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.roomFilter===roomTimeFilter))
   document.getElementById('roomDashboardTitle').textContent=room.name
@@ -8045,15 +8122,15 @@ function renderRoomDashboard(loadShared=true){
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
     <div class="career-stat"><div class="k">參與玩家</div><div class="v">${rows.length}</div></div>
     <div class="career-stat champion-stat"><div class="champion-crown">👑</div><div><div class="k">目前冠軍</div><div class="v">${escapeHtml(rows[0]?.name||'—')}</div>${rows[0]?`<div class="champion-money">${money(rows[0].net)}</div>`:''}</div></div>`
-  document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${x.name}</b><div class="muted">${x.sessions} 將・胡 ${x.wins}・自摸 ${x.selfdraws}・放槍 ${x.discards}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
+  document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row ${i>=4?'v149-rank-extra':''}"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・勝率 ${((Number(x.sessionWins||0)/Math.max(1,Number(x.sessions||0)))*100).toFixed(1)}%・平均 ${money(Math.round(Number(x.net||0)/Math.max(1,Number(x.sessions||0))))}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'; v149ApplyRankingFold()
   const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
-  v147RenderRoomCashflow(allSs,document.getElementById('roomCashflowPlayer')?.value||'')
+  v147RenderRoomCashflow(ss,document.getElementById('roomCashflowPlayer')?.value||'')
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
   renderRoomPlayerVsPlayer(ss)
   renderRoomNemesis(ss)
   const kingHistory=document.getElementById('roomKingHistory'); if(kingHistory) kingHistory.innerHTML=roomKingHistoryHtml(allSs)
-  document.getElementById('roomSessionCount').textContent=`${ss.length} 將`
-  document.getElementById('roomHistory').innerHTML=ss.length?[...ss].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(sessionRowHtml).join(''):'還沒有歷史牌局'
+  document.getElementById('roomSessionCount').textContent=`${allSs.length} 將`
+  document.getElementById('roomHistory').innerHTML=allSs.length?[...allSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(sessionRowHtml).join(''):'還沒有歷史牌局'
 }
 
 function v48PairStats(sessions,a,b){
@@ -9986,7 +10063,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V147'
+  const APP_VERSION='V149'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10876,7 +10953,7 @@ function v125SeriesRowHtml(g){
 }
 function v125RenderRoomHistory(sessions){const box=document.getElementById('roomHistory');if(!box)return;const groups=v125HistoryGroups(sessions);box.innerHTML=groups.length?groups.map(g=>g.type==='series'?v125SeriesRowHtml(g):sessionRowHtml(g.ss)).join(''):'還沒有歷史牌局';const c=document.getElementById('roomSessionCount');if(c)c.textContent=`${sessions.length} 將・${groups.length} 筆歷史`;setTimeout(v132ApplyHistoryFold,0)}
 const v125OldRenderRoomDashboard=renderRoomDashboard
-renderRoomDashboard=function(loadShared=true){const r=v125OldRenderRoomDashboard.apply(this,arguments);try{const room=appData?.rooms?.find(x=>x.id===currentRoomId);if(room){const ss=filterSessionsByTime(roomSessions(room.id),roomTimeFilter);v125RenderRoomHistory(ss)}}catch(e){console.warn('V125 history grouping',e)}return r}
+renderRoomDashboard=function(loadShared=true){const r=v125OldRenderRoomDashboard.apply(this,arguments);try{const room=appData?.rooms?.find(x=>x.id===currentRoomId);if(room){const allSs=roomSessions(room.id);v125RenderRoomHistory(allSs)}}catch(e){console.warn('V125 history grouping',e)}return r}
 
 /* 剋星／福星：比較「他在場」與「他不在場」。第一名率為主、平均每將輸贏為輔。 */
 function v125FirstRate(list,me){if(!list.length)return 0;let first=0;list.forEach(ss=>{const nets=sessionNets(ss);if(!Object.prototype.hasOwnProperty.call(nets,me))return;const vals=Object.values(nets).map(Number).filter(Number.isFinite);if(vals.length&&Number(nets[me])===Math.max(...vals))first++});return first/list.length}
