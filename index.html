@@ -7221,10 +7221,24 @@ function ensureRoomMembers(room, names){
 }
 function roomSessions(roomId){ ensureAppData(); return appData.sessions.filter(x=>x.roomId===roomId) }
 
+/* V139 identity bridge:
+   Legacy Friday Night room_player IDs confirmed from PocketBase.
+   Identity is normalized before nickname/user fallback so old records stay attached
+   to the same player even when legacy session metadata is incomplete. */
+const V139_LEGACY_ROOM_PLAYER_ID_NAME=Object.freeze({
+  'si2mp1vtj6ojobc':'場主',
+  'ynxd3p3qct3my9d':'飛帆',
+  'y4ydupy891qsjjs':'麻俠',
+  'zlu7i5q7wb015ah':'威'
+})
+function v139CanonicalLegacyRoomPlayerId(id){
+  return V139_LEGACY_ROOM_PLAYER_ID_NAME[String(id||'')]||''
+}
+
 // V78：舊暱稱只作歷史別名；統計與歷史顯示一律歸到目前身份。
 // 不改 game_sessions 原始資料，也不改計分/直播/投影流程。
 function canonicalPlayerName(name){
- const v138Legacy=v138CanonicalLegacyRoomPlayerId(name);if(v138Legacy)return v138Legacy;
+ const v139Legacy=v139CanonicalLegacyRoomPlayerId(name);if(v139Legacy)return v139Legacy;
   const clean=String(name??'').trim()
   if(clean==='龍隱王' || clean==='麻將俠') return '麻俠'
   if(clean==='阿樹') return '場主'
@@ -9759,7 +9773,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V138'
+  const APP_VERSION='V139'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -9948,21 +9962,8 @@ html body #game.projection-mode .live-ticker-wrap{background:linear-gradient(90d
 <script id="v113-runtime">
 /* ===== V113 runtime ===== */
 
-/* V138 identity bridge:
-   Legacy Friday Night room_player IDs confirmed from PocketBase.
-   Identity is normalized before nickname/user fallback so old records stay attached
-   to the same player even when legacy session metadata is incomplete. */
-const V138_LEGACY_ROOM_PLAYER_ID_NAME=Object.freeze({
-  'si2mp1vtj6ojobc':'場主',
-  'ynxd3p3qct3my9d':'飛帆',
-  'y4ydupy891qsjjs':'麻俠',
-  'zlu7i5q7wb015ah':'威'
-})
-function v138CanonicalLegacyRoomPlayerId(id){
-  return V138_LEGACY_ROOM_PLAYER_ID_NAME[String(id||'')]||''
-}
 function canonicalRoomPlayerName(rp, roomPlayers=[]){
- const v138Fixed=v138CanonicalLegacyRoomPlayerId(rp?.id);if(v138Fixed)return v138Fixed;
+ const v139Fixed=v139CanonicalLegacyRoomPlayerId(rp?.id);if(v139Fixed)return v139Fixed;
   if(!rp) return ''
   if(rp.user){
     const same=(roomPlayers||[]).filter(x=>x.user===rp.user && x.status!=='removed')
