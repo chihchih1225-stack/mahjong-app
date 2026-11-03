@@ -1,3 +1,7 @@
+
+<!-- V157：僅修正自訂日期兩個日期框與「～」的水平／垂直對齊；不更動任何統計或既有功能 -->
+<!-- V156：修正提款機雙框等高／總金流垂直置中；修正戰績排行首次進房真正只顯示前4名；保留 V155 六角戰力與 V143 穩定資料邏輯 -->
+<!-- V155：個人戰績新增六角戰力圖（進攻／防守／自摸／獲利／勝場／牌型）＋牌手類型＋六項分數折疊；不改原始統計/PB -->
 <!-- V154：最大提款紀錄 TOP3 預設折疊只顯示第1名，可展開/收起；保留 V153/V152/V151/V143/V146 穩定邏輯 -->
 <!-- V152：強制修正自訂日期顯示條件＋戰績排行真實只渲染前4名；保留 V151/V143/V146 穩定邏輯 -->
 <!-- V151：房間提款機最大提款紀錄改為 TOP 3；保留 V150/V149/V143/V146 穩定邏輯 -->
@@ -1794,6 +1798,46 @@ main{padding-bottom:74px}
 .v149-rank-extra{display:none}
 #roomRanking.v149-expanded .v149-rank-extra{display:grid}
 @media(max-width:560px){.v149-custom-range{grid-template-columns:1fr auto 1fr}.v149-custom-range .nav-action{grid-column:1/-1;width:100%}}
+
+
+/* ===== V156：提款機雙框等高 ===== */
+.room-cashflow-summary{align-items:stretch!important}
+.room-cashflow-stat{min-height:118px;height:100%}
+.room-cashflow-stat.room-cashflow-total{display:flex;flex-direction:column}
+.room-cashflow-stat.room-cashflow-total .v{
+  flex:1;display:flex;align-items:center;justify-content:flex-start;margin-top:0
+}
+
+
+/* ===== V157：自訂日期排版微調（僅視覺，不動功能） ===== */
+.v149-custom-range{
+  grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr)!important;
+  column-gap:8px!important;
+  row-gap:8px!important;
+  align-items:center!important;
+}
+.v149-custom-range input{
+  width:100%!important;
+  min-width:0!important;
+  height:44px!important;
+  padding:8px 10px!important;
+  margin:0!important;
+}
+.v149-custom-range .v149-date-sep{
+  width:24px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  align-self:stretch!important;
+  font-size:18px!important;
+  line-height:1!important;
+  color:var(--ink)!important;
+}
+.v149-custom-range .nav-action{
+  grid-column:1 / -1!important;
+  width:100%!important;
+  margin:0!important;
+}
 
 </style>
 
@@ -7879,13 +7923,14 @@ async function v37RefreshCurrentRoomHistory(){
 function v152RenderRanking(){
   const box=document.getElementById('roomRanking'),btn=document.getElementById('roomRankingMoreBtn');if(!box||!btn)return
   const rows=Array.isArray(v152LastRankingRows)?v152LastRankingRows:[]
-  const visible=v149RankingExpanded?rows:rows.slice(0,4)
+  const expanded=(v149RankingExpanded===true)
+  const visible=expanded?rows:rows.slice(0,4)
   box.innerHTML=visible.length?visible.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・勝率 ${((Number(x.sessionWins||0)/Math.max(1,Number(x.sessions||0)))*100).toFixed(1)}%・平均 ${money(Math.round(Number(x.net||0)/Math.max(1,Number(x.sessions||0))))}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
   const extra=Math.max(0,rows.length-4)
   btn.hidden=extra===0
   btn.classList.toggle('hidden',extra===0)
   btn.style.setProperty('display',extra?'block':'none','important')
-  if(extra) btn.textContent=v149RankingExpanded?'收起排名':`查看完整排名（其餘 ${extra} 位）`
+  if(extra) btn.textContent=expanded?'收起排名':`查看完整排名（其餘 ${extra} 位）`
 }
 function v149ApplyRankingFold(){ v152RenderRanking() }
 
@@ -8108,7 +8153,7 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
     return `<div class="room-cashflow-relation"><span><b>${escapeHtml(other)}</b></span><b>$${Math.round(Number(x.amount)).toLocaleString()}</b></div>`
   }).join(''):'<div class="room-cashflow-note">目前沒有提款紀錄。</div>'
   el.innerHTML=`<div class="room-cashflow-summary">
-    <div class="room-cashflow-stat"><div class="k">${roomTimeFilter==='all'?'歷史總金流':'期間總金流'}</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
+    <div class="room-cashflow-stat room-cashflow-total"><div class="k">${roomTimeFilter==='all'?'歷史總金流':'期間總金流'}</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
     <div class="room-cashflow-stat"><div class="k">🏧 最大提款紀錄 TOP 3</div>${topRels.length?(v154CashflowTop3Expanded?topRels:topRels.slice(0,1)).map((r,i)=>`<div class="room-cashflow-top3-item"><div class="room-cashflow-top3-line"><span class="room-cashflow-medal">${['🥇','🥈','🥉'][i]}</span><span class="room-cashflow-top3-name">${escapeHtml(r.to)}從${escapeHtml(r.from)}提款</span></div><div class="muted room-cashflow-top3-amount">$${Math.round(r.amount).toLocaleString()}</div></div>`).join(''):'<div class="v" style="font-size:13px">—</div>'}${topRels.length>1?`<button type="button" class="link" style="margin-top:8px;padding:5px 9px;font-size:12px" onclick="v154ToggleCashflowTop3('${encodeURIComponent(selected)}')">${v154CashflowTop3Expanded?'收起':'查看 TOP 3'}</button>`:''}</div>
   </div>
   <div class="room-cashflow-picker"><label for="roomCashflowPlayer">🔍 看看誰是我的提款機</label><select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
@@ -10090,7 +10135,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V154'
+  const APP_VERSION='V157'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -11119,6 +11164,106 @@ showSessionDetail=function(id){v132OldShowSessionDetail(id);const modal=document
 
 
 
+
+
+<style>
+/* ===== V155：個人戰績六角戰力圖 ===== */
+.v155-power-card{margin:14px 0 12px;padding:14px;border:1px solid #eadff0;border-radius:20px;background:linear-gradient(145deg,#fff,#fcf8ff);box-shadow:0 4px 14px rgba(91,72,108,.045)}
+.v155-power-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}.v155-power-head h3{margin:0!important}.v155-sample{font-size:10px;font-weight:900;color:#85798b;background:#f3edf8;border-radius:999px;padding:5px 8px;white-space:nowrap}
+.v155-radar-wrap{max-width:360px;margin:2px auto 0}.v155-radar{display:block;width:100%;height:auto;overflow:visible}.v155-radar .grid{fill:none;stroke:#e8e1ea;stroke-width:1}.v155-radar .axis{stroke:#eee7ef;stroke-width:1}.v155-radar .shape{fill:rgba(207,127,145,.20);stroke:#cf7f91;stroke-width:2.2;stroke-linejoin:round}.v155-radar .dot{fill:#cf7f91}.v155-radar text{font-size:11px;font-weight:900;fill:#6e6671}.v155-radar .score-label{font-size:9px;fill:#9a909c}
+.v155-archetype{text-align:center;margin-top:0;padding:10px 12px;border-radius:15px;background:#fff8f4}.v155-archetype b{display:block;font-size:16px;margin-bottom:4px}.v155-archetype p{margin:0;color:#7d747b;font-size:12px;line-height:1.55}.v155-strength-line{margin-top:6px;font-size:11px;font-weight:900;color:#8b7680}
+.v155-score-toggle{width:100%;margin-top:9px;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5dce8;background:#fff;color:#6f6672;border-radius:14px;padding:11px 12px;font-size:12px;font-weight:900}.v155-score-body{display:none;padding-top:8px}.v155-score-card.open .v155-score-body{display:grid;grid-template-columns:1fr 1fr;gap:7px}.v155-score-card.open .v155-score-arrow{transform:rotate(180deg)}.v155-score-arrow{transition:transform .18s ease}.v155-score-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:12px;background:#fff;border:1px solid #eee7ef;font-size:11px;color:#827982}.v155-score-row b{font-size:15px;color:#5f5761}.v155-score-row span:first-child{font-weight:900}
+#roomMemberStatsModal .v119-history-section{margin-bottom:max(26px,env(safe-area-inset-bottom))!important}.v119-history-toggle{min-height:52px!important;cursor:pointer!important;touch-action:manipulation}.v119-history-toggle-left{flex:1}.v119-history-toggle *{pointer-events:none}
+@media(max-width:520px){.v155-power-card{padding:12px;border-radius:18px}.v155-radar-wrap{max-width:330px}.v155-score-card.open .v155-score-body{grid-template-columns:1fr 1fr}.member-stats-box{padding-bottom:calc(64px + env(safe-area-inset-bottom))!important}}
+</style>
+
+<script>
+/* ===== V155：六角戰力評分。純讀取既有統計，不回寫 PB、不修改 aggregateSessions。 ===== */
+function v155Clamp(v,min=0,max=100){return Math.max(min,Math.min(max,Number(v)||0))}
+function v155Linear(v,lo,hi){return v155Clamp((Number(v||0)-lo)/(hi-lo)*100)}
+function v155Inverse(v,best,worst){return v155Clamp((worst-Number(v||0))/(worst-best)*100)}
+function v155StakeBase(stake){const n=Number(String(stake||'').match(/\d+/)?.[0]||100);return n>0?n:100}
+function v155PowerScores(stat,playerSs){
+  const handN=Number(stat.handAppearances||0), sessions=Number(stat.sessions||0)
+  const attackRate=handN?Number(stat.wins||0)/handN:0
+  const discardRate=handN?Number(stat.discards||0)/handN:null
+  const selfRate=handN?Number(stat.selfdraws||0)/handN:0
+  // 獲利用每將淨利 ÷ 該將底分做尺度化，避免不同 50/20、100/20 房間/場次直接比金額。
+  let normalizedProfit=0
+  if(sessions){normalizedProfit=(playerSs||[]).reduce((sum,ss)=>sum+(Number(sessionNets(ss)[stat.name]||0)/v155StakeBase(ss.stake)),0)/sessions}
+  const sessionWinRate=sessions?Number(stat.sessionWins||0)/sessions:0
+  // 牌型：頻率＋難度。基礎牌型1分、中階1.5分、高階2.5~4分；以有效逐把數作分母。
+  const patternPoints=(Number(stat.mixedSuit||0)+Number(stat.pongPong||0))*1 + Number(stat.cleanSuit||0)*1.5 + Number(stat.smallThree||0)*1.5 + Number(stat.bigThree||0)*2.5 + Number(stat.fourConcealed||0)*2.5 + Number(stat.fiveConcealed||0)*4 + Number(stat.migi||0)*4
+  const patternRate=handN?patternPoints/handN:0
+  return {
+    attack:Math.round(v155Linear(attackRate,0.04,0.24)),       // 4%→0，24%→100
+    defense:discardRate===null?0:Math.round(v155Inverse(discardRate,0.04,0.20)), // 4%→100，20%→0
+    selfdraw:Math.round(v155Linear(selfRate,0.01,0.12)),       // 1%→0，12%→100
+    profit:Math.round(v155Linear(normalizedProfit,-4,8)),      // 平均每將 -4~+8 個底分單位
+    victory:Math.round(v155Linear(sessionWinRate,0.20,0.70)),  // 正收益將 20%→0，70%→100
+    pattern:Math.round(v155Linear(patternRate,0,0.12)),        // 加權牌型點/把 12%→100
+    handN,sessions
+  }
+}
+function v155Archetype(scores){
+  const dims=[['attack','進攻','⚔️'],['defense','防守','🛡️'],['selfdraw','自摸','🌸'],['profit','獲利','💰'],['victory','勝場','👑'],['pattern','牌型','🀄']]
+  const sorted=[...dims].sort((a,b)=>scores[b[0]]-scores[a[0]])
+  const top=sorted[0],second=sorted[1],low=[...dims].sort((a,b)=>scores[a[0]]-scores[b[0]])[0]
+  const avg=dims.reduce((n,d)=>n+scores[d[0]],0)/dims.length
+  let title='',desc=''
+  if(avg>=78 && scores[low[0]]>=62){title='💎 全能型牌手';desc='六項能力都維持在高檔，攻守與成績表現相對完整。'}
+  else if(scores[top[0]]-scores[second[0]]<=8){title=`${top[2]}${second[2]} ${top[1]}${second[1]}型`;desc=`${top[1]}與${second[1]}是目前最突出的兩項能力，牌風特色很鮮明。`}
+  else {title=`${top[2]} ${top[1]}型牌手`;desc=`${top[1]}是目前最突出的能力，整體打法明顯以${top[1]}表現見長。`}
+  return {title,desc,top:top[1],second:second[1],low:low[1]}
+}
+function v155RadarSvg(scores){
+  const dims=[['進攻','attack'],['防守','defense'],['自摸','selfdraw'],['獲利','profit'],['勝場','victory'],['牌型','pattern']]
+  const cx=160,cy=145,R=103, angles=[-90,-30,30,90,150,210].map(x=>x*Math.PI/180)
+  const pt=(r,i)=>[cx+Math.cos(angles[i])*r,cy+Math.sin(angles[i])*r]
+  let svg='<svg class="v155-radar" viewBox="0 0 320 292" role="img" aria-label="六角戰力圖">'
+  ;[.2,.4,.6,.8,1].forEach(k=>{svg+=`<polygon class="grid" points="${angles.map((_,i)=>pt(R*k,i).map(n=>n.toFixed(1)).join(',')).join(' ')}"/>`})
+  angles.forEach((_,i)=>{const [x,y]=pt(R,i);svg+=`<line class="axis" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"/>`})
+  const poly=dims.map((d,i)=>pt(R*v155Clamp(scores[d[1]])/100,i).map(n=>n.toFixed(1)).join(',')).join(' ')
+  svg+=`<polygon class="shape" points="${poly}"/>`
+  dims.forEach((d,i)=>{const [dx,dy]=pt(R*v155Clamp(scores[d[1]])/100,i);const [lx,ly]=pt(R+23,i);const anchor=lx<cx-8?'end':lx>cx+8?'start':'middle';svg+=`<circle class="dot" cx="${dx}" cy="${dy}" r="3"/><text x="${lx}" y="${ly}" text-anchor="${anchor}">${d[0]}</text><text class="score-label" x="${lx}" y="${ly+12}" text-anchor="${anchor}">${scores[d[1]]}</text>`})
+  return svg+'</svg>'
+}
+function v155PowerHtml(stat,playerSs){
+  const s=v155PowerScores(stat,playerSs),a=v155Archetype(s)
+  const labels=[['⚔️ 進攻','attack','胡牌效率'],['🛡️ 防守','defense','放槍控制'],['🌸 自摸','selfdraw','自摸能力'],['💰 獲利','profit','平均獲利'],['👑 勝場','victory','正收益將'],['🀄 牌型','pattern','特殊牌型']]
+  const minSessions=Math.max(3,Math.ceil((roomSessions(currentRoomId)?.length||0)*.10)), stable=s.sessions>=minSessions && s.handN>=20
+  return `<section class="v155-power-card"><div class="v155-power-head"><h3>🎯 我的戰力圖</h3><span class="v155-sample">${stable?'🟢 評估穩定':'🟡 樣本較少'}</span></div><div class="v155-radar-wrap">${v155RadarSvg(s)}</div><div class="v155-archetype"><b>${a.title}</b><p>${a.desc}</p><div class="v155-strength-line">優勢：${a.top}・${a.second}　｜　可加強：${a.low}</div></div><div class="v155-score-card"><button type="button" class="v155-score-toggle" onclick="v155ToggleScores(this)"><span>查看六項戰力分數</span><span class="v155-score-arrow">⌄</span></button><div class="v155-score-body">${labels.map(x=>`<div class="v155-score-row"><span>${x[0]}<small style="display:block;font-weight:700;color:#a096a2;margin-top:2px">${x[2]}</small></span><b>${s[x[1]]}</b></div>`).join('')}</div></div></section>`
+}
+function v155ToggleScores(btn){const card=btn?.closest('.v155-score-card');if(!card)return;card.classList.toggle('open');btn.querySelector('span:first-child').textContent=card.classList.contains('open')?'收起六項戰力分數':'查看六項戰力分數'}
+function v155EnhanceMemberStats(){
+  const box=document.querySelector('#roomMemberStatsModal .member-stats-box');if(!box||box.querySelector('.v155-power-card'))return
+  const name=box.querySelector('.member-stats-title')?.textContent?.trim();if(!name)return
+  const allSs=roomSessions(currentRoomId),playerSs=allSs.filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),name))
+  const stat=aggregateSessions(playerSs).find(x=>x.name===name);if(!stat)return
+  const grid=box.querySelector('.career-grid');if(grid)grid.insertAdjacentHTML('afterend',v155PowerHtml(stat,playerSs))
+}
+const v155OldOpenRoomMemberStats=openRoomMemberStats
+openRoomMemberStats=async function(){const r=await v155OldOpenRoomMemberStats.apply(this,arguments);v155EnhanceMemberStats();return r}
+</script>
+
+
+<script>
+/* ===== V156：戰績排行真正收合 =====
+   舊 V117 renderer 會在 dashboard 完成後再次把全部排名畫回來。
+   V156 在最後一層重新套用 V152 的前4名收合，並在每次進房時重設為收合。
+*/
+const v156OldOpenRoom=openRoom
+openRoom=function(id){
+  v149RankingExpanded=false
+  return v156OldOpenRoom.apply(this,arguments)
+}
+const v156OldRenderRoomDashboard=renderRoomDashboard
+renderRoomDashboard=function(loadShared=true){
+  const r=v156OldRenderRoomDashboard.apply(this,arguments)
+  setTimeout(()=>{try{v152RenderRanking()}catch(e){console.warn('V156 ranking fold',e)}},30)
+  return r
+}
+</script>
 
 </body>
 </html>
