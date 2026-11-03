@@ -9758,7 +9758,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V133'
+  const APP_VERSION='V134'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10733,69 +10733,109 @@ showSessionDetail=function(id){v132OldShowSessionDetail(id);const modal=document
 
 
 <script id="v133-ma-xia-repair-runtime">
-/* V133：只修復 2026/10/29~10/30 麻俠三筆舊牌局缺少的 final_balances。
-   不新增牌局、不改 game_hands、不以差額自動修復其他牌局。 */
-const V133_MX_REPAIRS=[
-  {key:'2026-10-29 21:47',value:2120},
-  {key:'2026-10-29 23:12',value:160},
-  {key:'2026-10-30 00:21',value:300}
+
+/* V134：修正 V133 的安全檢查。
+   三筆舊資料的 final_balances 使用舊 key（名稱/舊 room_player id），
+   V133 卻只用目前 players relation id 加總，因此把既有三人的金額當成 0。
+   本版先驗證畫面已讀出的三人結算，再把四人的 final_balances 正規化成「本場 players relation id」。
+   不改 game_hands、不新增牌局、不碰其他日期。 */
+const V134_MX_REPAIRS=[
+  {key:'2026-10-29 21:47',expected:{'飛帆':-180,'威':-860,'場主':-1080},mx:2120},
+  {key:'2026-10-29 23:12',expected:{'場主':760,'飛帆':-340,'威':-580},mx:160},
+  {key:'2026-10-30 00:21',expected:{'威':440,'飛帆':-40,'場主':-700},mx:300}
 ]
-function v133LocalMinute(value){
+function v134LocalMinute(value){
   const d=new Date(value||0);if(!Number.isFinite(d.getTime()))return ''
   const p=n=>String(n).padStart(2,'0')
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
-function v133FindRepairSession(spec){
-  return (appData.sessions||[]).find(ss=>ss.remote&&ss.roomId===currentRoomId&&v133LocalMinute(ss.startedAt||ss.createdAt)===spec.key)
+function v134FindRepairSession(spec){
+  return (appData.sessions||[]).find(ss=>ss.remote&&ss.roomId===currentRoomId&&v134LocalMinute(ss.startedAt||ss.createdAt)===spec.key)
 }
-function v133RepairState(){
-  const rows=V133_MX_REPAIRS.map(spec=>{const ss=v133FindRepairSession(spec);const nets=ss?sessionNets(ss):{};return {spec,ss,nets,missing:ss&&!Object.prototype.hasOwnProperty.call(nets,'麻俠'),sum:Object.values(nets).reduce((a,b)=>a+Number(b||0),0)}})
-  return rows
+function v134VisibleCheck(ss,spec){
+  if(!ss)return {ok:false,reason:'找不到牌局'}
+  const nets=sessionNets(ss)
+  for(const [name,value] of Object.entries(spec.expected)){
+    if(Number(nets[name])!==Number(value)) return {ok:false,reason:`${name} 顯示金額不是預期的 ${money(value)}`}
+  }
+  if(Object.prototype.hasOwnProperty.call(nets,'麻俠') && Number(nets['麻俠'])!==0){
+    return {ok:false,reason:`麻俠已經有不同結算 ${money(Number(nets['麻俠']))}`}
+  }
+  return {ok:true,nets}
 }
-function v133RenderRepairButton(){
+function v134RenderRepairButton(){
   document.getElementById('v133MxRepairWrap')?.remove()
+  document.getElementById('v134MxRepairWrap')?.remove()
   const history=document.getElementById('roomHistory');if(!history||!currentRoomId)return
-  const rows=v133RepairState();
-  const repairable=rows.filter(x=>x.ss&&x.missing&&x.sum===-x.spec.value)
-  if(!repairable.length)return
-  const wrap=document.createElement('div');wrap.id='v133MxRepairWrap';wrap.style.margin='12px 0'
-  wrap.innerHTML=`<button type="button" class="secondary" style="width:100%" onclick="v133RepairMaXiaThreeSessions()">🛠️ 修復麻俠 10/29–10/30 缺少的 3 筆結算</button><div class="career-note" style="margin-top:6px">只會修復符合指定時間與差額的舊資料，不會動其他牌局。</div>`
+  const rows=V134_MX_REPAIRS.map(spec=>({spec,ss:v134FindRepairSession(spec)}))
+  if(rows.some(x=>!x.ss))return
+  const checks=rows.map(x=>v134VisibleCheck(x.ss,x.spec))
+  if(checks.some(x=>!x.ok))return
+  const wrap=document.createElement('div');wrap.id='v134MxRepairWrap';wrap.style.margin='12px 0'
+  wrap.innerHTML=`<button type="button" class="secondary" style="width:100%" onclick="v134RepairMaXiaThreeSessions()">🛠️ 修復麻俠 10/29–10/30 三筆舊結算</button><div class="career-note" style="margin-top:6px">V134 會先核對三筆既有三人金額，再把四人結算 key 正規化；不會修改逐把明細。</div>`
   history.parentNode?.insertBefore(wrap,history.nextSibling)
 }
-async function v133RepairMaXiaThreeSessions(){
-  const rows=v133RepairState();
-  if(rows.length!==3||rows.some(x=>!x.ss)){await uiAlert('目前沒有完整找到指定的三筆舊牌局，已停止修復。','安全檢查未通過');return}
-  if(rows.every(x=>Object.prototype.hasOwnProperty.call(x.nets,'麻俠'))){await uiAlert('這三筆已經都有麻俠結算，不需要再修復。','已完成');v133RenderRepairButton();return}
-  const bad=rows.filter(x=>!x.missing||x.sum!==-x.spec.value)
-  if(bad.length){await uiAlert('三筆資料的時間或差額與預期不一致，為避免改錯資料，已停止修復。','安全檢查未通過');return}
-  const ok=await uiConfirm('將只補回這三筆麻俠結算：\n10/29 21:47  +$2,120\n10/29 23:12  +$160\n10/30 00:21  +$300\n\n不新增牌局、不修改胡牌／自摸明細。','修復麻俠三筆舊資料')
+async function v134RepairMaXiaThreeSessions(){
+  const rows=V134_MX_REPAIRS.map(spec=>({spec,ss:v134FindRepairSession(spec)}))
+  if(rows.some(x=>!x.ss)){await uiAlert('沒有完整找到指定三筆牌局，已停止。','安全檢查未通過');return}
+  for(const row of rows){
+    const check=v134VisibleCheck(row.ss,row.spec)
+    if(!check.ok){await uiAlert(`${row.spec.key}：${check.reason}\n\n資料未修改。`,'安全檢查未通過');return}
+  }
+  const ok=await uiConfirm(
+    '這次會先核對三筆目前畫面上的三人金額完全一致，再將四人的 final_balances 統一改成該場 players relation ID：\n\n'+
+    '10/29 21:47　飛帆 -180・威 -860・場主 -1,080・麻俠 +2,120\n'+
+    '10/29 23:12　場主 +760・飛帆 -340・威 -580・麻俠 +160\n'+
+    '10/30 00:21　威 +440・飛帆 -40・場主 -700・麻俠 +300\n\n'+
+    '每場都必須四人合計 $0 才會寫入。',
+    'V134 修復三筆舊結算'
+  )
   if(!ok)return
   try{
     for(const row of rows){
-      const ss=row.ss
-      const raw=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(ss.id)}`)
-      const roomId=raw.room||ss.roomId
-      const f=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
-      const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&filter=${f}`);const rps=rpd.items||[]
+      const raw=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(row.ss.id)}`)
+      const roomId=raw.room||row.ss.roomId
       const playerIds=Array.isArray(raw.players)?raw.players:[]
-      const mx=playerIds.map(id=>rps.find(x=>x.id===id)).find(rp=>rp&&canonicalRoomPlayerName(rp,rps)==='麻俠')
-      if(!mx)throw new Error(`${row.spec.key} 找不到該場參與的麻俠身分 ID`)
-      const finalBalances=(raw.final_balances&&typeof raw.final_balances==='object')?{...raw.final_balances}:{}
-      const already=Object.prototype.hasOwnProperty.call(finalBalances,mx.id)
-      if(already){const n=Number(finalBalances[mx.id]);if(n!==row.spec.value)throw new Error(`${row.spec.key} 麻俠已有不同結算 ${money(n)}`);continue}
-      finalBalances[mx.id]=row.spec.value
-      const check=playerIds.reduce((sum,pid)=>sum+(Number(finalBalances[pid])||0),0)
-      if(check!==0)throw new Error(`${row.spec.key} 補入後四人合計仍為 ${money(check)}，已停止`)
-      await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(ss.id)}`,{method:'PATCH',body:JSON.stringify({final_balances:finalBalances})})
+      if(playerIds.length!==4)throw new Error(`${row.spec.key} players relation 不是 4 人，已停止`)
+      const f=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
+      const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&filter=${f}`)
+      const rps=rpd.items||[]
+      const idByName={}
+      for(const pid of playerIds){
+        const rp=rps.find(x=>x.id===pid)
+        const name=rp?canonicalRoomPlayerName(rp,rps):''
+        if(name) idByName[name]=pid
+      }
+      const required=['場主','飛帆','威','麻俠']
+      const missing=required.filter(n=>!idByName[n])
+      if(missing.length)throw new Error(`${row.spec.key} players relation 找不到：${missing.join('、')}`)
+      const normalized={}
+      for(const [name,value] of Object.entries(row.spec.expected)) normalized[idByName[name]]=Number(value)
+      normalized[idByName['麻俠']]=Number(row.spec.mx)
+      const total=Object.values(normalized).reduce((a,b)=>a+Number(b||0),0)
+      if(total!==0)throw new Error(`${row.spec.key} 四人合計不是 0，已停止`)
+      await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(row.ss.id)}`,{
+        method:'PATCH',body:JSON.stringify({final_balances:normalized})
+      })
     }
     v37RoomHistoryLoaded.delete(currentRoomId)
     await v37LoadSharedRoomHistory(currentRoomId,true)
+    const verify=V134_MX_REPAIRS.map(spec=>{
+      const ss=v134FindRepairSession(spec),nets=ss?sessionNets(ss):{}
+      const total=Object.values(nets).reduce((a,b)=>a+Number(b||0),0)
+      return {spec,nets,total}
+    })
+    const failed=verify.filter(x=>Number(x.nets['麻俠'])!==x.spec.mx||x.total!==0)
     renderRoomDashboard(false)
-    await uiAlert('三筆已修復完成：麻俠 +$2,120、+$160、+$300，合計 +$2,580。請重新打開三筆確認四人合計皆為 $0。','修復完成')
-  }catch(e){await uiAlert('修復已停止：'+(e?.message||e)+'\n\n沒有通過安全檢查的資料不會繼續修改。','修復失敗')}
+    if(failed.length)throw new Error('寫入後重新讀取驗證未通過，請不要再操作並把畫面截圖給我')
+    await uiAlert('三筆已修復並重新讀取驗證完成。每一將四人合計都是 $0；麻俠三將合計 +$2,580。','修復完成')
+  }catch(e){
+    await uiAlert('修復停止：'+(e?.message||e)+'\n\n未通過的資料不會繼續修改。','V134 修復失敗')
+  }
 }
-const v133OldRenderRoomDashboard=renderRoomDashboard
-renderRoomDashboard=function(...args){const r=v133OldRenderRoomDashboard.apply(this,args);setTimeout(v133RenderRepairButton,0);return r}
+const v134OldRenderRoomDashboard=renderRoomDashboard
+renderRoomDashboard=function(...args){const r=v134OldRenderRoomDashboard.apply(this,args);setTimeout(v134RenderRepairButton,0);return r}
+
 </script>
 
 </body>
