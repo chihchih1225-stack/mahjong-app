@@ -9758,7 +9758,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V131'
+  const APP_VERSION='V132'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10636,12 +10636,15 @@ function v125HistoryGroups(sessions){
 }
 function v125SeriesRowHtml(g){
   const sessions=[...(g.sessions||[])].sort((a,b)=>String(a.startedAt||a.createdAt).localeCompare(String(b.startedAt||b.createdAt)))
+  // V132：只有 1 將不應顯示成「連打 1 將」，直接回到一般歷史牌局。
+  if(sessions.length<=1) return sessions[0]?sessionRowHtml(sessions[0]):''
   const totals={};sessions.forEach(ss=>Object.entries(sessionNets(ss)).forEach(([n,v])=>totals[n]=(totals[n]||0)+Number(v||0)))
   const first=sessions[0]||{},date=new Date(first.seriesStartedAt||first.startedAt||first.createdAt).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})
   const result=Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${escapeHtml(n)} ${money(v)}`).join('・')
-  return `<div class="v125-series-row"><div class="toprow"><span>${date}・${escapeHtml(first.roomName||'牌局')}</span><span class="v125-series-title">連打 ${sessions.length} 將・合計顯示</span></div><div class="v125-series-result">${result}</div><div class="v125-series-sub">${escapeHtml(first.stake||'')}・底層仍保留 ${sessions.length} 筆獨立牌局</div></div>`
+  const ids=sessions.map(x=>x.id)
+  return `<div class="v125-series-row v132-history-row" onclick='v132OpenSeries(${JSON.stringify(ids)})' style="cursor:pointer"><div class="toprow"><span>${date}・${escapeHtml(first.roomName||'牌局')}</span><span class="v125-series-title">連打 ${sessions.length} 將・合計顯示 ›</span></div><div class="v125-series-result">${result}</div><div class="v125-series-sub">${escapeHtml(first.stake||'')}・點擊查看／修改每一將</div></div>`
 }
-function v125RenderRoomHistory(sessions){const box=document.getElementById('roomHistory');if(!box)return;const groups=v125HistoryGroups(sessions);box.innerHTML=groups.length?groups.map(g=>g.type==='series'?v125SeriesRowHtml(g):sessionRowHtml(g.ss)).join(''):'還沒有歷史牌局';const c=document.getElementById('roomSessionCount');if(c){const seriesCount=groups.filter(g=>g.type==='series').length;c.textContent=`${sessions.length} 將・${groups.length} 筆歷史`}}
+function v125RenderRoomHistory(sessions){const box=document.getElementById('roomHistory');if(!box)return;const groups=v125HistoryGroups(sessions);box.innerHTML=groups.length?groups.map(g=>g.type==='series'?v125SeriesRowHtml(g):sessionRowHtml(g.ss)).join(''):'還沒有歷史牌局';const c=document.getElementById('roomSessionCount');if(c)c.textContent=`${sessions.length} 將・${groups.length} 筆歷史`;setTimeout(v132ApplyHistoryFold,0)}
 const v125OldRenderRoomDashboard=renderRoomDashboard
 renderRoomDashboard=function(loadShared=true){const r=v125OldRenderRoomDashboard.apply(this,arguments);try{const room=appData?.rooms?.find(x=>x.id===currentRoomId);if(room){const ss=filterSessionsByTime(roomSessions(room.id),roomTimeFilter);v125RenderRoomHistory(ss)}}catch(e){console.warn('V125 history grouping',e)}return r}
 
@@ -10672,6 +10675,60 @@ v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
    4) 移除 openRoom 額外重複 presence touch；show() 已負責啟動。
    保留既有 UI、計分、徽章、直播與多桌功能。
 ===== */
+</script>
+
+
+<script id="v132-history-edit-runtime">
+/* V132：歷史牌局一致性 + 已結束牌局可修改。 */
+function v132ApplyHistoryFold(){
+  const box=document.getElementById('roomHistory');if(!box)return
+  box.querySelectorAll('.v115-history-toggle').forEach(x=>x.remove())
+  const rows=[...box.children].filter(x=>x.classList?.contains('session-row')||x.classList?.contains('v125-series-row'))
+  rows.forEach((row,i)=>row.style.display=(v115HistoryExpanded||i<3)?'':'none')
+  if(rows.length>3){
+    const btn=document.createElement('button');btn.type='button';btn.className='v115-history-toggle'
+    btn.textContent=v115HistoryExpanded?'收起歷史牌局':`展開全部（共 ${rows.length} 筆歷史）`
+    btn.onclick=()=>{v115HistoryExpanded=!v115HistoryExpanded;v132ApplyHistoryFold()};box.appendChild(btn)
+  }
+}
+function v132OpenSeries(ids){
+  const sessions=(ids||[]).map(id=>appData.sessions.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>String(a.startedAt||a.createdAt).localeCompare(String(b.startedAt||b.createdAt)))
+  if(sessions.length===1){showSessionDetail(sessions[0].id);return}
+  const old=document.getElementById('v132SeriesModal');if(old)old.remove()
+  const div=document.createElement('div');div.id='v132SeriesModal';div.className='modal'
+  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">連打 ${sessions.length} 將</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><div class="career-note" style="margin:10px 0 12px">選擇要查看或修改的牌局</div>${sessions.map((ss,i)=>`<button class="secondary" style="margin-top:8px;text-align:left" onclick="document.getElementById('v132SeriesModal')?.remove();showSessionDetail('${ss.id}')">第 ${i+1} 將　${escapeHtml(ss.stake||'')}　${Object.entries(sessionNets(ss)).map(([n,v])=>`${escapeHtml(n)} ${money(v)}`).join('・')}</button>`).join('')}</div>`
+  document.body.appendChild(div)
+}
+function v132EditSession(id){
+  const ss=appData.sessions.find(s=>s.id===id);if(!ss)return
+  const old=document.getElementById('v132EditSessionModal');if(old)old.remove()
+  const names=ss.players?.length?ss.players:Object.keys(sessionNets(ss));const nets=sessionNets(ss)
+  const d=new Date(ss.startedAt||ss.createdAt||Date.now());const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)
+  const div=document.createElement('div');div.id='v132EditSessionModal';div.className='modal'
+  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">修改這一將</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><label>日期時間</label><input id="v132EditAt" type="datetime-local" value="${local}"><label>底／台</label><input id="v132EditStake" value="${escapeHtml(ss.stake||'')}"><label>地點</label><input id="v132EditPlace" value="${escapeHtml(ss.place||'')}"><h3>四人最終輸贏</h3>${names.map((n,i)=>`<label>${escapeHtml(n)}</label><input class="v132EditNet" data-name="${encodeURIComponent(n)}" inputmode="numeric" type="number" value="${Number(nets[n]||0)}">`).join('')}<div id="v132EditCheck" class="career-note" style="margin-top:10px">四人合計必須為 0</div><button class="primary" style="margin-top:12px" onclick="v132SaveSessionEdit('${id}')">儲存修改</button></div>`
+  document.body.appendChild(div)
+}
+async function v132SaveSessionEdit(id){
+  const ss=appData.sessions.find(s=>s.id===id);if(!ss)return
+  const inputs=[...document.querySelectorAll('#v132EditSessionModal .v132EditNet')];const nets={};inputs.forEach(x=>nets[decodeURIComponent(x.dataset.name)]=Number(x.value)||0)
+  const total=Object.values(nets).reduce((a,b)=>a+b,0);if(total!==0){const b=document.getElementById('v132EditCheck');if(b)b.innerHTML=`⚠️ 四人合計 ${money(total)}，必須為 0 才能儲存`;return}
+  const at=document.getElementById('v132EditAt')?.value;const started=at?new Date(at).toISOString():(ss.startedAt||ss.createdAt)
+  const stake=(document.getElementById('v132EditStake')?.value||'').trim(),place=(document.getElementById('v132EditPlace')?.value||'').trim()
+  try{
+    if(ss.remote&&pbAuth?.token){
+      const f=encodeURIComponent(`room="${pbFilterValue(ss.roomId)}"`);const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&filter=${f}`);const rps=rpd.items||[];const finalBalances={}
+      ;(ss.players||Object.keys(nets)).forEach(name=>{const rp=rps.find(x=>canonicalRoomPlayerName(x,rps)===canonicalPlayerName(name));if(rp)finalBalances[rp.id]=Number(nets[name]||0)})
+      if(Object.keys(finalBalances).length!==Object.keys(nets).length)throw new Error('玩家身分對應不完整，已停止儲存')
+      await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({started_at:started,stake,place,final_balances:finalBalances})})
+      v37RoomHistoryLoaded.delete(ss.roomId)
+    }
+    ss.startedAt=started;ss.createdAt=started;ss.stake=stake;ss.place=place;ss.nets=nets;persistAppData()
+    document.getElementById('v132EditSessionModal')?.remove();document.getElementById('sessionDetailModal')?.remove()
+    if(ss.remote)await v37LoadSharedRoomHistory(ss.roomId,true);renderRoomDashboard(false)
+  }catch(e){await uiAlert('修改失敗：'+(e?.message||e),'無法儲存')}
+}
+const v132OldShowSessionDetail=showSessionDetail
+showSessionDetail=function(id){v132OldShowSessionDetail(id);const modal=document.getElementById('sessionDetailModal');const box=modal?.querySelector('.session-detail-box');if(!box)return;const del=box.querySelector('.session-delete-btn');if(del&&!box.querySelector('.v132-edit-session-btn')){const btn=document.createElement('button');btn.type='button';btn.className='primary v132-edit-session-btn';btn.style.marginTop='16px';btn.textContent='✏️ 修改這一將';btn.onclick=()=>v132EditSession(id);del.insertAdjacentElement('beforebegin',btn)}}
 </script>
 
 </body>
