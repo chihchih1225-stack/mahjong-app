@@ -9739,7 +9739,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V129'
+  const APP_VERSION='V130'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10586,7 +10586,7 @@ function v124OpenMemberSessionDetail(sessionId,userId,nickname){
 <!-- V125：完成清單 3～9 + 房間效能 + 個人戰績返回修正；投影與麻俠資料問題暫不處理 -->
 <style id="v125-style">
 .v125-final-money-row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center}.v125-sign-toggle{height:48px;border-radius:14px;background:#eef3ff;color:#536b98;font-weight:950;border:1px solid #d4def2}
-.v125-latest-hand{margin-top:7px!important;padding:7px 10px!important;font-size:11px!important;line-height:1.35!important;background:#eef7ff!important;border:1px solid #d8e8f5!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v125-latest-hand{margin-top:7px!important;padding:7px 10px!important;font-size:11px!important;line-height:1.35!important;background:#eef7ff!important;border:1px solid #d8e8f5!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
 .v125-series-row{border:1px solid #dbe5f1;border-radius:16px;padding:12px 13px;margin-bottom:9px;background:#f8fbff}.v125-series-title{font-weight:950;color:#536b98}.v125-series-result{margin-top:5px;font-weight:850;line-height:1.6}.v125-series-sub{font-size:11px;color:var(--muted);margin-top:4px}
 .v125-nemesis-row{padding:10px 0;border-bottom:1px dashed var(--line)}.v125-nemesis-row:last-child{border-bottom:0}.v125-delta{font-weight:950}.v125-good{color:var(--green)}.v125-bad{color:var(--red)}
 </style>
@@ -10650,4 +10650,4 @@ v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
 </body>
 </html>
 
-/* ===== V129：玩家選擇器修復 + 開打不卡遠端同步；保留徽章 canonical identity 修正 ===== */
+
