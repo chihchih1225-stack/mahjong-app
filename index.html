@@ -7710,7 +7710,16 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
         place:rs.place||'',stake:rs.stake||'',mode:remoteHands.length?'detailed':'final',players,nets,hands,remote:true
       }
     })
-    const visibleShared=shared.filter(ss=>!v140IsHiddenLegacy(ss))
+    // V141：不再用 V140 localStorage 指紋隱藏舊牌局（曾造成多筆誤隱藏）。
+    // 同一房間、同一開始秒數、同底台、同四位玩家視為同一將；若 V140 已建立 replacement，只保留最後讀到的一筆。
+    const sharedByIdentity=new Map()
+    shared.forEach(ss=>{
+      const names=(ss.players||Object.keys(sessionNets(ss)||{})).map(canonicalPlayerName).sort().join('|')
+      const key=[ss.roomId||'',String(ss.startedAt||ss.createdAt||'').slice(0,19),String(ss.stake||''),names].join('§')
+      sharedByIdentity.set(key,ss)
+    })
+    const visibleShared=[...sharedByIdentity.values()]
+    try{localStorage.removeItem(V140_HIDDEN_LEGACY_KEY)}catch(e){}
     ensureAppData()
     // PocketBase 房間只保留共同遠端歷史；避免每支手機自己的 localStorage 混進房間統計。
     appData.sessions=appData.sessions.filter(x=>x.roomId!==roomId || !room?.pocketbase)
@@ -9774,7 +9783,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V140'
+  const APP_VERSION='V141'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10698,7 +10707,7 @@ v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
 
 
 <script id="v140-legacy-history-edit-bridge">
-/* V140：舊匯入牌局若可讀但不可 PATCH，允許「修改」時安全遷移成目前可寫的 game_sessions。
+/* V141：舊匯入牌局若可讀但不可 PATCH，允許「修改」時安全遷移成目前可寫的 game_sessions。
    舊唯讀列用穩定指紋隱藏，不刪未知 PB 原始資料；新列 POST 成 completed 後照正常共同歷史運作。 */
 const V140_HIDDEN_LEGACY_KEY='mahjong_v140_hidden_legacy_sessions'
 function v140LegacyFingerprint(ss){
@@ -10758,8 +10767,13 @@ function v132EditSession(id){
   const names=ss.players?.length?ss.players:Object.keys(sessionNets(ss));const nets=sessionNets(ss)
   const d=new Date(ss.startedAt||ss.createdAt||Date.now());const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)
   const div=document.createElement('div');div.id='v132EditSessionModal';div.className='modal'
-  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">修改這一將</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><label>日期時間</label><input id="v132EditAt" type="datetime-local" value="${local}"><label>底／台</label><input id="v132EditStake" value="${escapeHtml(ss.stake||'')}"><label>地點</label><input id="v132EditPlace" value="${escapeHtml(ss.place||'')}"><h3>四人最終輸贏</h3>${names.map((n,i)=>`<label>${escapeHtml(n)}</label><input class="v132EditNet" data-name="${encodeURIComponent(n)}" inputmode="numeric" type="number" value="${Number(nets[n]||0)}">`).join('')}<div id="v132EditCheck" class="career-note" style="margin-top:10px">四人合計必須為 0</div><button class="primary" style="margin-top:12px" onclick="v132SaveSessionEdit('${id}')">儲存修改</button></div>`
+  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">修改這一將</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><label>日期時間</label><input id="v132EditAt" type="datetime-local" value="${local}"><label>底／台</label><input id="v132EditStake" value="${escapeHtml(ss.stake||'')}"><label>地點</label><input id="v132EditPlace" value="${escapeHtml(ss.place||'')}"><h3>四人最終輸贏</h3>${names.map((n,i)=>`<label>${escapeHtml(n)}</label><div style="display:grid;grid-template-columns:1fr 58px;gap:8px"><input class="v132EditNet" data-name="${encodeURIComponent(n)}" inputmode="text" type="text" autocomplete="off" value="${Number(nets[n]||0)}" oninput="this.value=this.value.replace(/[^0-9-]/g,'').replace(/(?!^)-/g,'')"><button type="button" class="secondary" style="padding:0;font-size:22px;font-weight:900" onclick="v141ToggleNetSign(this)">±</button></div>`).join('')}<div id="v132EditCheck" class="career-note" style="margin-top:10px">四人合計必須為 0</div><button class="primary" style="margin-top:12px" onclick="v132SaveSessionEdit('${id}')">儲存修改</button></div>`
   document.body.appendChild(div)
+}
+function v141ToggleNetSign(btn){
+  const input=btn?.parentElement?.querySelector('.v132EditNet');if(!input)return
+  let v=String(input.value||'').trim();if(!v){input.value='-';input.focus();return}
+  input.value=v.startsWith('-')?v.slice(1):('-'+v);input.dispatchEvent(new Event('input',{bubbles:true}));input.focus()
 }
 async function v132SaveSessionEdit(id){
   const ss=appData.sessions.find(s=>s.id===id);if(!ss)return
@@ -10779,7 +10793,7 @@ async function v132SaveSessionEdit(id){
         if(!/not found|404|requested resource/i.test(msg))throw patchErr
         // 舊匯入資料：讀得到但現行規則不可寫。建立一筆乾淨 replacement，再隱藏舊唯讀列。
         await v140CreateReplacementSession(ss,{started,stake,place,nets})
-        v140HideLegacy(ss)
+        // V141：不寫入隱藏指紋；重新載入時以精確牌局身分去重。
       }
       v37RoomHistoryLoaded.delete(ss.roomId)
     }else{
