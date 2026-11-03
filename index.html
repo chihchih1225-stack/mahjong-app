@@ -2120,7 +2120,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
   </div>
 
   <div class="card room-protected">
-    <div class="toprow"><h2>😈 剋星 ＆ 🍀 福星分析</h2><span class="muted">至少共同 3 場</span></div>
+    <div class="toprow"><h2>😈 剋星 ＆ 🍀 福星分析</h2><span class="muted">有他 vs 沒他</span></div>
     <div id="roomNemesis"></div>
   </div>
 
@@ -2723,6 +2723,8 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
           >
             MIGI
           </button>
+          <button class="pattern" data-pattern="四暗刻" onclick="togglePattern(this,'四暗刻')">四暗刻</button>
+          <button class="pattern" data-pattern="五暗刻" onclick="togglePattern(this,'五暗刻')">五暗刻</button>
 
 
           <button
@@ -3723,6 +3725,10 @@ function buildSeatMap(roomPlayerMap={}){
   seatMap._series_cashflow_base=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
   // 新場剛建立時，完整快照等於前面場次的累積基底。
   seatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
+  // V125：明確保存連打識別；只用於顯示合併，不合併底層 game_session。
+  seatMap._series_id=seriesId||''
+  seatMap._series_index=Math.max(1,Number(seriesGameCount||0)+1)
+  seatMap._series_started_at=seriesStartedAt||gameStartedAt||new Date().toISOString()
   return seatMap
 }
 
@@ -6810,13 +6816,13 @@ function renderFinal(){
           ${player}
         </label>
 
-        <input
+        <div class="v125-final-money-row"><input
           class="finalMoney"
           type="number"
           inputmode="numeric"
           value="0"
           oninput="checkBalance()"
-        >
+        ><button type="button" class="v125-sign-toggle" onclick="v125ToggleFinalSign(this)">＋/－</button></div>
 
       `).join('')
 
@@ -7224,7 +7230,7 @@ function aggregateSessions(sessions){
   const players={}
   const touch=name=>players[name]||(players[name]={
     name,net:0,sessions:0,wins:0,selfdraws:0,discardWins:0,discards:0,frauds:0,maxWin:-Infinity,minWin:Infinity,maxLoss:0,
-    sessionWins:0,winRate:0,maxStreak:0,currentStreak:0,cleanSuit:0,mixedSuit:0,pongPong:0,smallThree:0,bigThree:0,migi:0,handAppearances:0,detailedHands:0
+    sessionWins:0,winRate:0,maxStreak:0,currentStreak:0,maxLossStreak:0,currentLossStreak:0,attendanceCount:0,_attendanceKeys:new Set(),cleanSuit:0,mixedSuit:0,pongPong:0,smallThree:0,bigThree:0,migi:0,fourConcealed:0,fiveConcealed:0,handAppearances:0,detailedHands:0
   })
 
   // 連勝一定要按實際牌局時間計算，不能受資料載入順序影響。
@@ -7243,11 +7249,14 @@ function aggregateSessions(sessions){
       x.maxWin=Math.max(x.maxWin,net)
       x.minWin=Math.min(x.minWin,net)
       x.maxLoss=Math.max(x.maxLoss,Math.max(0,-net))
+      const attendanceKey=ss.seriesId?`series:${ss.seriesId}`:`session:${ss.id||ss.createdAt||x.sessions}`
+      if(!x._attendanceKeys.has(attendanceKey)){x._attendanceKeys.add(attendanceKey);x.attendanceCount++}
       if(net>0){
-        x.sessionWins++; x.currentStreak++; x.maxStreak=Math.max(x.maxStreak,x.currentStreak)
+        x.sessionWins++; x.currentStreak++; x.maxStreak=Math.max(x.maxStreak,x.currentStreak); x.currentLossStreak=0
+      }else if(net<0){
+        x.currentStreak=0; x.currentLossStreak++; x.maxLossStreak=Math.max(x.maxLossStreak,x.currentLossStreak)
       }else{
-        // 平手不是「獲利場」，因此會中斷連續獲利。
-        x.currentStreak=0
+        x.currentStreak=0; x.currentLossStreak=0
       }
     })
 
@@ -7273,6 +7282,8 @@ function aggregateSessions(sessions){
         if(patterns.includes('小三元')) touch(h.winner).smallThree++
         if(patterns.includes('大三元')) touch(h.winner).bigThree++
         if(patterns.includes('MIGI')) touch(h.winner).migi++
+        if(patterns.includes('四暗刻')) touch(h.winner).fourConcealed++
+        if(patterns.includes('五暗刻')) touch(h.winner).fiveConcealed++
       }
     })
   })
@@ -7282,7 +7293,8 @@ function aggregateSessions(sessions){
     maxWin:Number.isFinite(x.maxWin)?x.maxWin:0,
     minWin:Number.isFinite(x.minWin)?x.minWin:0,
     winRate:x.sessions?x.sessionWins/x.sessions:0,
-    discardRate:x.handAppearances?x.discards/x.handAppearances:null
+    discardRate:x.handAppearances?x.discards/x.handAppearances:null,
+    _attendanceKeys:undefined
   }))
 }
 function activeGameSnapshot(){
@@ -7607,7 +7619,12 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
     const shared=await Promise.all(remoteSessions.map(async rs=>{
       const hf=encodeURIComponent(`session="${pbFilterValue(rs.id)}"`)
       let hd={items:[]}
-      try{ hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`) }catch(e){ console.warn('V37：讀取歷史逐把資料失敗',rs.id,e) }
+      // V125：final-only 歷史沒有逐把資料，不再每將額外打一個 game_hands request。
+      // 大量匯入歷史時可避免房間一次產生數十～上百個無效請求。
+      const shouldLoadHands=Number(rs.hand_number||0)>0
+      if(shouldLoadHands){
+        try{ hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`) }catch(e){ console.warn('V37：讀取歷史逐把資料失敗',rs.id,e) }
+      }
       const remoteHands=hd.items||[]
       const players=(rs.players||[]).map(id=>canonicalRoomPlayerName(byId[id],roomPlayers)).filter(Boolean)
       const hands=remoteHands.map(h=>({
@@ -7651,6 +7668,7 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
         endedAt:rs.ended_at||'',
         tableNumber:Number(rs.table_number||1),
         seatMap:rs.seat_map||{},
+        seriesId:rs.seat_map?._series_id||'',seriesIndex:Number(rs.seat_map?._series_index||0),seriesStartedAt:rs.seat_map?._series_started_at||'',
         place:rs.place||'',stake:rs.stake||'',mode:remoteHands.length?'detailed':'final',players,nets,hands,remote:true
       }
     }))
@@ -7924,10 +7942,10 @@ function badgeHtml(rows,sessions){
     return pool.filter(r=>(Number(r[key])||0)===target)
   }
   const specs=[
-    ['👑','冠軍','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單將贏分最高',true],['📅','出席王','sessions',false,'出席將數最多',true],
-    ['📈','最高勝率','winRate',false,'獲利場次 ÷ 總場次',true],['🔥','連勝王','maxStreak',false,'依牌局時間連續獲利最多',true],['🎁','最大貢獻獎','maxLoss',false,'單場貢獻最高',true],
+    ['👑','冠軍','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單將贏分最高',true],['📅','出席王','attendanceCount',false,'參與連打／聚會次數最多',true],
+    ['📈','最高勝率','winRate',false,'獲利場次 ÷ 總場次',true],['🔥','連勝王','maxStreak',false,'依牌局時間連續獲利最多',true],['🌧️','連敗王','maxLossStreak',false,'依牌局時間連續輸錢最多將',true],['🎁','最大貢獻獎','maxLoss',false,'單場貢獻最高',true],
     ['🌸','自摸王','selfdraws',false,'自摸次數最多',true],['🎯','神槍手','discardWins',false,'胡別人放槍最多',true],['💣','煙火大師','discards',false,'放槍次數最多',true],
-    ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true],['✨','MIGI 專家','migi',false,'MIGI 次數最多',true]
+    ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true],['🌑','四暗刻達人','fourConcealed',false,'四暗刻次數最多',true],['🌌','五暗刻傳說','fiveConcealed',false,'五暗刻次數最多',true],['✨','MIGI 專家','migi',false,'MIGI 次數最多',true]
   ]
   const cards=specs.map(([icon,title,key,low,desc,requirePositive])=>{
     const ws=winners(key,low,rows,requirePositive)
@@ -8067,7 +8085,7 @@ function saveCurrentSession(kind, finalValues){
       if(!Number.isNaN(d.getTime())) createdAt=d.toISOString()
     }
   }
-  const ss={id:makeId('session'),roomId:room.id,roomName:room.name,createdAt,startedAt:kind==='detailed'?(gameStartedAt||createdAt):createdAt,endedAt:kind==='detailed'?(gameEndedAt||new Date().toISOString()):'',tableNumber:Number(currentTableNumber||1),seatMap:kind==='detailed'?buildSeatMap(remoteRoomPlayerMap):{},place:(document.getElementById('place').value||'').trim(),stake:selectedStake,mode:kind,players:[...P],nets,hands:kind==='detailed'?hands.map(h=>JSON.parse(JSON.stringify(h))):[]}
+  const ss={id:makeId('session'),roomId:room.id,roomName:room.name,createdAt,startedAt:kind==='detailed'?(gameStartedAt||createdAt):createdAt,endedAt:kind==='detailed'?(gameEndedAt||new Date().toISOString()):'',tableNumber:Number(currentTableNumber||1),seatMap:kind==='detailed'?buildSeatMap(remoteRoomPlayerMap):{},seriesId:kind==='detailed'?(seriesId||''):'',seriesIndex:kind==='detailed'?Math.max(1,Number(seriesGameCount||0)+1):0,seriesStartedAt:kind==='detailed'?(seriesStartedAt||''):'',place:(document.getElementById('place').value||'').trim(),stake:selectedStake,mode:kind,players:[...P],nets,hands:kind==='detailed'?hands.map(h=>JSON.parse(JSON.stringify(h))):[]}
   appData.sessions.push(ss); sessionSaved=true; persistAppData()
   return ss
 }
@@ -8422,7 +8440,7 @@ async function openRoomMemberStats(userId,nickname){
       <div class="career-stat"><div class="k">放槍率</div><div class="v">${(discardRate*100).toFixed(1)}%</div></div>
       <div class="career-stat"><div class="k">最高 / 最低單將</div><div class="v" style="font-size:16px">${money(best)} / ${money(worst)}</div></div>
     </div>
-    <h3>🀄 特殊牌型</h3><div class="member-pattern-grid"><div class="member-pattern-stat">清一色<b>${stat.cleanSuit||0}</b></div><div class="member-pattern-stat">混一色<b>${stat.mixedSuit||0}</b></div><div class="member-pattern-stat">碰碰胡<b>${stat.pongPong||0}</b></div><div class="member-pattern-stat">小三元<b>${stat.smallThree||0}</b></div><div class="member-pattern-stat">大三元<b>${stat.bigThree||0}</b></div><div class="member-pattern-stat">MIGI<b>${stat.migi||0}</b></div></div>
+    <h3>🀄 特殊牌型</h3><div class="member-pattern-grid"><div class="member-pattern-stat">清一色<b>${stat.cleanSuit||0}</b></div><div class="member-pattern-stat">混一色<b>${stat.mixedSuit||0}</b></div><div class="member-pattern-stat">碰碰胡<b>${stat.pongPong||0}</b></div><div class="member-pattern-stat">小三元<b>${stat.smallThree||0}</b></div><div class="member-pattern-stat">大三元<b>${stat.bigThree||0}</b></div><div class="member-pattern-stat">四暗刻<b>${stat.fourConcealed||0}</b></div><div class="member-pattern-stat">五暗刻<b>${stat.fiveConcealed||0}</b></div><div class="member-pattern-stat">MIGI<b>${stat.migi||0}</b></div></div>
     <h3>📈 在這個房間的戰績走勢</h3><div class="trend-chart">${v40SinglePlayerTrendHtml(playerSs,name)}</div>
     <h3>🗂️ 參與過的歷史牌局</h3><div>${history}</div></div>`
   document.body.appendChild(modal)
@@ -9717,7 +9735,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V124'
+  const APP_VERSION='V125'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10187,7 +10205,7 @@ function v117LevelInfo(xp){
   return {xp,level,title,current,need,pct:Math.max(0,Math.min(100,current/need*100)),toNext:need-current}
 }
 function v117PatternBonus(patterns=[]){
-  const pts={'混一色':15,'碰碰胡':15,'清一色':20,'小三元':30,'大三元':50,'MIGI':50}
+  const pts={'碰碰胡':15,'混一色':30,'小三元':30,'四暗刻':50,'清一色':80,'大三元':80,'MIGI':80,'五暗刻':80}
   return (Array.isArray(patterns)?patterns:[]).reduce((sum,p)=>sum+(pts[p]||0),0)
 }
 function v117SessionWinnerNames(ss){
@@ -10241,7 +10259,7 @@ function v117BuildXpMap(sessions){
 }
 function v117AllTimeXpMap(){return v117BuildXpMap(appData?.sessions||[])}
 function v117LevelPill(name,map){const x=(map||v117AllTimeXpMap())[canonicalPlayerName(name)]||v117LevelInfo(0);return `<span class="v117-level-pill" title="${escapeHtml(x.title||'麻將初心者')}・${Number(x.xp||0).toLocaleString()} XP">Lv.${x.level||1}</span>`}
-function v117RulesHtml(){return `<button type="button" class="v117-rule-toggle" onclick="v117ToggleRules(this)"><span>等級說明</span><span>⌄</span></button><div class="v117-rule-body"><b>等級怎麼升？</b><div>每累積 500 XP 升 1 級，最高 Lv.100。輸錢不扣 XP。</div><div class="v117-rule-grid"><span>完成一將</span><span>+50 XP</span><span>胡牌</span><span>+10 XP／次</span><span>自摸</span><span>+15 XP／次</span><span>該將第一名</span><span>+30 XP</span><span>混一色／碰碰胡</span><span>+15 XP</span><span>清一色</span><span>+20 XP</span><span>小三元</span><span>+30 XP</span><span>大三元／MIGI</span><span>+50 XP</span></div><b>連勝加乘</b><div>連續 2 將第一名 ×1.2・3 將 ×1.5・4 將以上 ×2.0；沒拿第一就重新計算。</div><b>每日雀士任務</b><div>每天自動抽 1 個任務：自摸 1 次 +50、胡牌 2 次 +50、完成 2 將 +50、特殊牌型 +80、第一名 +60。每日任務 Bonus 不再套連勝倍率。</div></div>`}
+function v117RulesHtml(){return `<button type="button" class="v117-rule-toggle" onclick="v117ToggleRules(this)"><span>等級說明</span><span>⌄</span></button><div class="v117-rule-body"><b>等級怎麼升？</b><div>每累積 500 XP 升 1 級，最高 Lv.100。輸錢不扣 XP。</div><div class="v117-rule-grid"><span>完成一將</span><span>+50 XP</span><span>胡牌</span><span>+10 XP／次</span><span>自摸</span><span>+15 XP／次</span><span>該將第一名</span><span>+30 XP</span><span>碰碰胡</span><span>+15 XP</span><span>混一色／小三元</span><span>+30 XP</span><span>四暗刻</span><span>+50 XP</span><span>清一色／大三元／MIGI／五暗刻</span><span>+80 XP</span></div><b>連勝加乘</b><div>連續 2 將第一名 ×1.2・3 將 ×1.5・4 將以上 ×2.0；沒拿第一就重新計算。</div><b>每日雀士任務</b><div>每天自動抽 1 個任務：自摸 1 次 +50、胡牌 2 次 +50、完成 2 將 +50、特殊牌型 +80、第一名 +60。每日任務 Bonus 不再套連勝倍率。</div></div>`}
 function v117ToggleRules(btn){const body=btn?.nextElementSibling;if(!body)return;body.classList.toggle('open');const s=btn.querySelector('span:last-child');if(s)s.textContent=body.classList.contains('open')?'⌃':'⌄'}
 function v117LevelCardHtml(name){const x=v117AllTimeXpMap()[canonicalPlayerName(name)]||Object.assign({xp:0,taskXp:0,maxFirstStreak:0},v117LevelInfo(0));return `<div class="v117-level-card"><div class="v117-level-head"><div><div class="v117-level-title">${escapeHtml(x.title)}</div><div class="v117-level-big">Lv.${x.level}</div></div><div class="v117-xptext">累積 ${Number(x.xp).toLocaleString()} XP</div></div><div class="v117-xpbar"><span style="width:${x.pct}%"></span></div><div class="v117-xptext">${x.level>=100?'已達最高等級':`再 ${Number(x.toNext).toLocaleString()} XP 升 Lv.${x.level+1}`}・最高連續第一 ${x.maxFirstStreak||0} 將</div>${v117RulesHtml()}</div>`}
 
@@ -10560,5 +10578,70 @@ function v124OpenMemberSessionDetail(sessionId,userId,nickname){
   }
 }
 </script>
+
+<!-- V125：完成清單 3～9 + 房間效能 + 個人戰績返回修正；投影與麻俠資料問題暫不處理 -->
+<style id="v125-style">
+.v125-final-money-row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center}.v125-sign-toggle{height:48px;border-radius:14px;background:#eef3ff;color:#536b98;font-weight:950;border:1px solid #d4def2}
+.v125-latest-hand{margin-top:7px!important;padding:7px 10px!important;font-size:11px!important;line-height:1.35!important;background:#eef7ff!important;border:1px solid #d8e8f5!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v125-series-row{border:1px solid #dbe5f1;border-radius:16px;padding:12px 13px;margin-bottom:9px;background:#f8fbff}.v125-series-title{font-weight:950;color:#536b98}.v125-series-result{margin-top:5px;font-weight:850;line-height:1.6}.v125-series-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.v125-nemesis-row{padding:10px 0;border-bottom:1px dashed var(--line)}.v125-nemesis-row:last-child{border-bottom:0}.v125-delta{font-weight:950}.v125-good{color:var(--green)}.v125-bad{color:var(--red)}
+</style>
+<script id="v125-runtime">
+function v125ToggleFinalSign(btn){const input=btn?.previousElementSibling;if(!input)return;const n=Number(input.value)||0;input.value=String(n===0?0:-n);checkBalance();input.dispatchEvent(new Event('input',{bubbles:true}))}
+
+/* 最新一筆計分：使用既有 hands，不增加整頁固定高度。 */
+function v125RenderLatestHand(){
+  let box=document.getElementById('v125LatestHand');const anchor=document.getElementById('calculationPreview');if(!anchor)return
+  if(!box){box=document.createElement('div');box.id='v125LatestHand';box.className='notice v125-latest-hand';anchor.insertAdjacentElement('afterend',box)}
+  const h=Array.isArray(hands)&&hands.length?hands[hands.length-1]:null
+  if(!h){box.textContent='最新一筆：尚未記錄';return}
+  const changes=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([n,v])=>`${n} ${Number(v)>0?'+':''}$${Number(v).toLocaleString()}`).join('・')
+  box.textContent=`最新一筆｜${h.round||''} ${h.winner?`${h.winner} ${h.result||''}`:(h.result||'')}｜${changes||'—'}`
+}
+const v125OldRenderHistory=renderHistory
+renderHistory=function(){const r=v125OldRenderHistory.apply(this,arguments);v125RenderLatestHand();return r}
+setTimeout(v125RenderLatestHand,0)
+
+/* 連打歷史：只合併有明確 seriesId 的新資料；舊資料不猜。 */
+function v125HistoryGroups(sessions){
+  const out=[],bySeries=new Map()
+  ;[...(sessions||[])].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).forEach(ss=>{
+    if(!ss.seriesId){out.push({type:'single',sort:ss.startedAt||ss.createdAt,ss});return}
+    let g=bySeries.get(ss.seriesId);if(!g){g={type:'series',seriesId:ss.seriesId,sort:ss.seriesStartedAt||ss.startedAt||ss.createdAt,sessions:[]};bySeries.set(ss.seriesId,g);out.push(g)}g.sessions.push(ss)
+  })
+  return out.sort((a,b)=>String(b.sort||'').localeCompare(String(a.sort||'')))
+}
+function v125SeriesRowHtml(g){
+  const sessions=[...(g.sessions||[])].sort((a,b)=>String(a.startedAt||a.createdAt).localeCompare(String(b.startedAt||b.createdAt)))
+  const totals={};sessions.forEach(ss=>Object.entries(sessionNets(ss)).forEach(([n,v])=>totals[n]=(totals[n]||0)+Number(v||0)))
+  const first=sessions[0]||{},date=new Date(first.seriesStartedAt||first.startedAt||first.createdAt).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})
+  const result=Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${escapeHtml(n)} ${money(v)}`).join('・')
+  return `<div class="v125-series-row"><div class="toprow"><span>${date}・${escapeHtml(first.roomName||'牌局')}</span><span class="v125-series-title">連打 ${sessions.length} 將・合計顯示</span></div><div class="v125-series-result">${result}</div><div class="v125-series-sub">${escapeHtml(first.stake||'')}・底層仍保留 ${sessions.length} 筆獨立牌局</div></div>`
+}
+function v125RenderRoomHistory(sessions){const box=document.getElementById('roomHistory');if(!box)return;const groups=v125HistoryGroups(sessions);box.innerHTML=groups.length?groups.map(g=>g.type==='series'?v125SeriesRowHtml(g):sessionRowHtml(g.ss)).join(''):'還沒有歷史牌局';const c=document.getElementById('roomSessionCount');if(c){const seriesCount=groups.filter(g=>g.type==='series').length;c.textContent=`${sessions.length} 將・${groups.length} 筆歷史`}}
+const v125OldRenderRoomDashboard=renderRoomDashboard
+renderRoomDashboard=function(loadShared=true){const r=v125OldRenderRoomDashboard.apply(this,arguments);try{const room=appData?.rooms?.find(x=>x.id===currentRoomId);if(room){const ss=filterSessionsByTime(roomSessions(room.id),roomTimeFilter);v125RenderRoomHistory(ss)}}catch(e){console.warn('V125 history grouping',e)}return r}
+
+/* 剋星／福星：比較「他在場」與「他不在場」。第一名率為主、平均每將輸贏為輔。 */
+function v125FirstRate(list,me){if(!list.length)return 0;let first=0;list.forEach(ss=>{const nets=sessionNets(ss);if(!Object.prototype.hasOwnProperty.call(nets,me))return;const vals=Object.values(nets).map(Number).filter(Number.isFinite);if(vals.length&&Number(nets[me])===Math.max(...vals))first++});return first/list.length}
+function v48RefreshNemesis(){
+  const me=document.getElementById('v48NemesisPlayer')?.value,box=document.getElementById('v48NemesisResult');if(!box||!me)return
+  const sessions=(window.v48NemesisSessions||[]).filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),me))
+  const others=[...new Set(sessions.flatMap(ss=>Object.keys(sessionNets(ss))))].filter(n=>n!==me)
+  const rows=others.map(other=>{const withP=sessions.filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),other)),withoutP=sessions.filter(ss=>!Object.prototype.hasOwnProperty.call(sessionNets(ss),other));if(withP.length<5||withoutP.length<3)return null;const wr=v125FirstRate(withP,me),wor=v125FirstRate(withoutP,me);const wa=withP.reduce((a,ss)=>a+Number(sessionNets(ss)[me]||0),0)/withP.length,woa=withoutP.reduce((a,ss)=>a+Number(sessionNets(ss)[me]||0),0)/withoutP.length;return {other,withN:withP.length,withoutN:withoutP.length,wr,wor,delta:wr-wor,wa,woa,netDelta:wa-woa}}).filter(Boolean)
+  if(!rows.length){box.innerHTML='<div class="career-note" style="margin-top:12px">門檻：他在場至少 5 將、他不在場至少 3 將。目前資料還不足。</div>';return}
+  const row=x=>`<div class="v125-nemesis-row"><div class="toprow"><b>${escapeHtml(x.other)}</b><span class="v125-delta ${x.delta>=0?'v125-good':'v125-bad'}">${x.delta>=0?'+':''}${(x.delta*100).toFixed(1)}%</span></div><div class="muted">第一名率：有他 ${(x.wr*100).toFixed(1)}%（${x.withN}將）／沒他 ${(x.wor*100).toFixed(1)}%（${x.withoutN}將）</div><div class="muted">平均每將：有他 ${money(Math.round(x.wa))}／沒他 ${money(Math.round(x.woa))}・差 ${money(Math.round(x.netDelta))}</div></div>`
+  const nem=[...rows].filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta),luck=[...rows].filter(x=>x.delta>0).sort((a,b)=>b.delta-a.delta)
+  box.innerHTML='<div class="career-note" style="margin-top:12px">主要判斷：第一名率差；輔助：平均每將輸贏差。門檻＝有他 ≥5 將、沒他 ≥3 將。</div><div class="nemesis-section-title">😈 剋星</div>'+(nem.length?nem.map(row).join(''):'<div class="nemesis-empty">目前沒有符合條件的剋星。</div>')+'<div class="nemesis-section-title lucky-title">🍀 福星</div>'+(luck.length?luck.map(row).join(''):'<div class="nemesis-empty">目前沒有符合條件的福星。</div>')
+}
+
+/* V124 返回偶爾亂跳：保留 modal context，返回時不先清 context，並阻止舊 onclick。 */
+v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
+  const ctx={userId:String(userId||''),nickname:String(nickname||'')};v124MemberStatsReturnContext=ctx;closeRoomMemberStats();showSessionDetail(sessionId)
+  const modal=document.getElementById('sessionDetailModal'),back=modal?.querySelector('.session-back-btn');if(!back)return
+  back.textContent='← 返回個人戰績';back.onclick=null;back.addEventListener('click',async ev=>{ev.preventDefault();ev.stopPropagation();modal.remove();await openRoomMemberStats(ctx.userId,ctx.nickname)},{once:true})
+}
+</script>
+
 </body>
 </html>
