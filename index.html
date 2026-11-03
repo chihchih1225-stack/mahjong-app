@@ -3014,6 +3014,8 @@ const PB_REMEMBER_EMAIL_KEY='shuiYuZhengFengRememberEmailV1'
 let authMode='login'
 let pbAuth=loadPocketBaseAuth()
 let remoteSessionId=''
+let remoteSessionCreatePromise=null
+let remoteSessionClosingRequested=false
 let currentTableNumber=0
 let preferredNextTableNumber=0
 let remoteRoomPlayerMap={}
@@ -3787,6 +3789,10 @@ async function createRemoteGameSession(){
       body:JSON.stringify(sessionPayload)
     })
     remoteSessionId=rec.id
+    // V131：若使用者在遠端 session 尚未建立完成前就按了結束，建立完成後立刻補標 completed。
+    if(remoteSessionClosingRequested){
+      try{ await completeRemoteSession('normal') }catch(e){ console.warn('V131：延遲建立後補關閉失敗',e) }
+    }
     // V57：只在開局時辨認一次特殊帳號；之後跑馬燈不增加 polling。
     try{ await v57ResolveCheerForRoomPlayers(Object.values(map||{})) }catch(e){}
     return rec
@@ -3845,33 +3851,25 @@ async function completeRemoteSession(reason='normal'){
   }catch(e){ console.warn('V81：遠端結束狀態同步失敗',e) }
 }
 
-async function getCurrentRoomPlayerAccess(roomId=currentRoomId){
-  // V37：觀看權限只看 room_members。加入房間的註冊會員，不必先上桌。
+const v131MembershipCache=new Map()
+async function v131GetMembership(roomId=currentRoomId){
   if(!roomId || !pbAuth?.record?.id) return null
+  const key=`${roomId}|${pbAuth.record.id}`, now=Date.now(), hit=v131MembershipCache.get(key)
+  if(hit && now-hit.at<10000) return hit.value
   try{
     const f=encodeURIComponent(`room="${pbFilterValue(roomId)}" && user="${pbFilterValue(pbAuth.record.id)}"`)
     const d=await pbRequest(`/api/collections/room_members/records?perPage=10&filter=${f}`)
-    return (d.items||[])[0]||null
+    const value=(d.items||[])[0]||null;v131MembershipCache.set(key,{at:now,value});return value
   }catch(e){ return null }
 }
+async function getCurrentRoomPlayerAccess(roomId=currentRoomId){return v131GetMembership(roomId)}
 async function applyCurrentRoomAccess(){
   const page=document.getElementById('roomDashboard'), notice=document.getElementById('roomAccessNotice')
   if(!page) return false
-  const access=await getCurrentRoomPlayerAccess(currentRoomId)
-  const allowed=!!access
-  page.classList.toggle('room-access-denied',!allowed)
-  if(notice) notice.classList.toggle('hidden',allowed)
-  return allowed
+  const access=await v131GetMembership(currentRoomId), allowed=!!access
+  page.classList.toggle('room-access-denied',!allowed);if(notice)notice.classList.toggle('hidden',allowed);return allowed
 }
-
-async function getCurrentRoomMembership(){
-  if(!currentRoomId || !pbAuth?.record?.id) return null
-  try{
-    const f=encodeURIComponent(`room="${pbFilterValue(currentRoomId)}" && user="${pbFilterValue(pbAuth.record.id)}"`)
-    const d=await pbRequest(`/api/collections/room_members/records?perPage=10&filter=${f}`)
-    return (d.items||[])[0]||null
-  }catch(e){ return null }
-}
+async function getCurrentRoomMembership(){return v131GetMembership(currentRoomId)}
 
 async function applyRoomOwnerControls(){
   const btn=document.getElementById('deleteRoomBtn')
@@ -4416,8 +4414,14 @@ async function confirmDealer(){
   v33StartGameClock()
   persistActiveGame()
   show('game')
-  // V129：先進入計分頁，遠端牌局建立改為背景同步，避免網路慢時卡在「正在開打…」。
-  Promise.resolve(createRemoteGameSession()).catch(e=>console.warn('V129：遠端牌局背景建立失敗',e))
+  // V131：先進入計分頁；同時保留遠端建立 Promise。
+  // 結束牌局若剛好撞上背景建立，會等待／補關閉，避免 PocketBase 留下幽靈 active session。
+  remoteSessionClosingRequested=false
+  const pending=Promise.resolve(createRemoteGameSession())
+  remoteSessionCreatePromise=pending
+  pending.catch(e=>console.warn('V131：遠端牌局背景建立失敗',e)).finally(()=>{
+    if(remoteSessionCreatePromise===pending) remoteSessionCreatePromise=null
+  })
 
 }
 
@@ -6598,6 +6602,12 @@ async function finishDetailedGame(){
   // V53：先確實把「這一將」標成 completed，再開放下一將。
   // 這樣按「繼續下一將」時不會因上一場仍短暫 active 而跳到錯的桌號，
   // 也完全不會去結束同房間其他桌的 session。
+  remoteSessionClosingRequested=true
+  // V131：V129 起開打採背景建立；結束時必須把尚在建立中的遠端 session 接回來。
+  // 最多等 2.5 秒，不讓 UI 長時間卡住；若仍未完成，createRemoteGameSession 建好後會自行補關閉。
+  if(!remoteSessionId && remoteSessionCreatePromise){
+    try{ await Promise.race([remoteSessionCreatePromise,new Promise(resolve=>setTimeout(resolve,2500))]) }catch(e){}
+  }
   const finishedRemoteId=remoteSessionId
   if(finishedRemoteId){
     await completeRemoteSession('normal')
@@ -6617,6 +6627,8 @@ function continueNextMatch(){
   // V53：同一桌接著打下一將，保留桌號；牌局本身仍建立全新的 game_session。
   preferredNextTableNumber=Number(currentTableNumber||0)
   remoteSessionId=''
+  remoteSessionCreatePromise=null
+  remoteSessionClosingRequested=false
   // V81：連打時不把桌上水位歸零；下一將以目前水位作為起點。
   // sessionOpeningBalances 只用來算「這一將」的輸贏，避免長期戰績重複累加。
   sessionOpeningBalances={}
@@ -7620,16 +7632,23 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
     const roomPlayers=rpd.items||[]
     const byId=Object.fromEntries(roomPlayers.map(x=>[x.id,x]))
     const room=appData?.rooms?.find(r=>r.id===roomId)
-    const shared=await Promise.all(remoteSessions.map(async rs=>{
-      const hf=encodeURIComponent(`session="${pbFilterValue(rs.id)}"`)
-      let hd={items:[]}
-      // V125：final-only 歷史沒有逐把資料，不再每將額外打一個 game_hands request。
-      // 大量匯入歷史時可避免房間一次產生數十～上百個無效請求。
-      const shouldLoadHands=Number(rs.hand_number||0)>0
-      if(shouldLoadHands){
-        try{ hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`) }catch(e){ console.warn('V37：讀取歷史逐把資料失敗',rs.id,e) }
-      }
-      const remoteHands=hd.items||[]
+
+    // V131 效能：舊版對每一將各打一個 game_hands request（N+1）。
+    // 改成每 20 個 session 一批 OR 查詢；96 將不再可能送出近百個 request。
+    const handsBySession=new Map()
+    const detailedIds=remoteSessions.filter(rs=>Number(rs.hand_number||0)>0).map(rs=>rs.id).filter(Boolean)
+    for(let i=0;i<detailedIds.length;i+=20){
+      const ids=detailedIds.slice(i,i+20)
+      const rawFilter=ids.map(id=>`session="${pbFilterValue(id)}"`).join(' || ')
+      try{
+        const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${encodeURIComponent(rawFilter)}`)
+        ;(hd.items||[]).forEach(h=>{
+          const sid=String(h.session||'');if(!handsBySession.has(sid))handsBySession.set(sid,[]);handsBySession.get(sid).push(h)
+        })
+      }catch(e){ console.warn('V131：批次讀取歷史逐把資料失敗',e) }
+    }
+    const shared=remoteSessions.map(rs=>{
+      const remoteHands=handsBySession.get(String(rs.id))||[]
       const players=(rs.players||[]).map(id=>canonicalRoomPlayerName(byId[id],roomPlayers)).filter(Boolean)
       const hands=remoteHands.map(h=>({
         round:h.round||'',result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,
@@ -7675,7 +7694,7 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
         seriesId:rs.seat_map?._series_id||'',seriesIndex:Number(rs.seat_map?._series_index||0),seriesStartedAt:rs.seat_map?._series_started_at||'',
         place:rs.place||'',stake:rs.stake||'',mode:remoteHands.length?'detailed':'final',players,nets,hands,remote:true
       }
-    }))
+    })
     ensureAppData()
     // PocketBase 房間只保留共同遠端歷史；避免每支手機自己的 localStorage 混進房間統計。
     appData.sessions=appData.sessions.filter(x=>x.roomId!==roomId || !room?.pocketbase)
@@ -8725,8 +8744,8 @@ show=function(id){
 
 const v73OriginalOpenRoom=openRoom
 openRoom=function(id){
-  v73OriginalOpenRoom(id)
-  v73StartPresence()
+  // V131：show('roomDashboard') 已會啟動 presence，不再重複 touch 一次 PocketBase。
+  return v73OriginalOpenRoom(id)
 }
 
 const v73OriginalLogoutAccount=logoutAccount
@@ -9739,7 +9758,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V130'
+  const APP_VERSION='V131'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10645,6 +10664,14 @@ v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
   const modal=document.getElementById('sessionDetailModal'),back=modal?.querySelector('.session-back-btn');if(!back)return
   back.textContent='← 返回個人戰績';back.onclick=null;back.addEventListener('click',async ev=>{ev.preventDefault();ev.stopPropagation();modal.remove();await openRoomMemberStats(ctx.userId,ctx.nickname)},{once:true})
 }
+
+/* ===== V131：效能 / 生命週期整理 =====
+   1) 修正背景建立 session 與結束牌局競速，避免已結束仍顯示 active。
+   2) 共同歷史 game_hands 由逐將 N+1 request 改成 20 sessions / batch。
+   3) 房間 membership 權限 / owner 查詢共用 10 秒快取。
+   4) 移除 openRoom 額外重複 presence touch；show() 已負責啟動。
+   保留既有 UI、計分、徽章、直播與多桌功能。
+===== */
 </script>
 
 </body>
