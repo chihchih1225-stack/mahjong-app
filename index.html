@@ -7724,12 +7724,12 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
     // PocketBase 房間只保留共同遠端歷史；避免每支手機自己的 localStorage 混進房間統計。
     appData.sessions=appData.sessions.filter(x=>x.roomId!==roomId || !room?.pocketbase)
     appData.sessions.push(...visibleShared)
-    // V142：三筆已核對的 2026/10/29–10/30 舊牌局救援。
-    // 只在 PB「沒有回傳同一房間、同一分鐘的 completed 牌局」時補到畫面/統計，
-    // 不再 POST/PATCH/DELETE PB，也不使用 V140 的隱藏指紋。
-    const v142RoomName=String(room?.name||'').trim()
-    if(v142RoomName==='Friday Night !'){
-      const rescue=[
+    // V143：三筆舊牌局精準去重。
+    // 同一房間＋同一分鐘：保留「四人完整且合計為 0」的修正版，
+    // 只排除缺麻俠結算的舊異常列；不新增/修改/刪除 PocketBase。
+    const v143RoomName=String(room?.name||'').trim()
+    if(v143RoomName==='Friday Night !'){
+      const targets=[
         {key:'2026-10-29T21:47',at:'2026-10-29T21:47:40+08:00',nets:{'場主':-1080,'飛帆':-180,'麻俠':2120,'威':-860}},
         {key:'2026-10-29T23:12',at:'2026-10-29T23:12:19+08:00',nets:{'場主':760,'飛帆':-340,'麻俠':160,'威':-580}},
         {key:'2026-10-30T00:21',at:'2026-10-30T00:21:56+08:00',nets:{'場主':-700,'飛帆':-40,'麻俠':300,'威':440}}
@@ -7738,16 +7738,35 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
         const d=new Date(v);if(Number.isNaN(d.getTime()))return ''
         return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(d).replace(' ','T')
       }
-      rescue.forEach((r,idx)=>{
-        const already=visibleShared.some(ss=>localMinute(ss.startedAt||ss.createdAt)===r.key)
-        if(already)return
-        appData.sessions.push({
-          id:`v142-rescue-${idx+1}`,roomId,roomName:room?.name||'Friday Night !',
-          createdAt:r.at,startedAt:r.at,endedAt:'',
-          tableNumber:1,seatMap:{},seriesId:'v142-legacy-20261029',seriesIndex:idx+1,seriesStartedAt:rescue[0].at,
-          place:'',stake:'100/20',mode:'final',
-          players:['場主','飛帆','麻俠','威'],nets:r.nets,hands:[],remote:false,v142Rescue:true
-        })
+      const exactGood=(ss,target)=>{
+        const n=sessionNets(ss)||{}
+        return Object.entries(target.nets).every(([name,val])=>Number(n[name])===Number(val)) &&
+          Object.values(target.nets).reduce((a,b)=>a+Number(b),0)===0
+      }
+      targets.forEach((r,idx)=>{
+        const candidates=appData.sessions.filter(ss=>ss.roomId===roomId && localMinute(ss.startedAt||ss.createdAt)===r.key)
+        const good=candidates.find(ss=>exactGood(ss,r))
+        if(good){
+          // 精準保留修正版，僅移除同分鐘的缺人/不平衡舊列。
+          appData.sessions=appData.sessions.filter(ss=>{
+            if(ss===good)return true
+            if(ss.roomId!==roomId || localMinute(ss.startedAt||ss.createdAt)!==r.key)return true
+            const n=sessionNets(ss)||{}
+            const hasAll=Object.keys(r.nets).every(name=>Object.prototype.hasOwnProperty.call(n,name))
+            const sum=Object.values(n).reduce((a,b)=>a+Number(b||0),0)
+            return hasAll && sum===0
+          })
+        }else{
+          // 若修正版真的不存在，才在本機資料層補一筆；不寫 PB。
+          appData.sessions=appData.sessions.filter(ss=>!(ss.roomId===roomId && localMinute(ss.startedAt||ss.createdAt)===r.key))
+          appData.sessions.push({
+            id:`v143-rescue-${idx+1}`,roomId,roomName:room?.name||'Friday Night !',
+            createdAt:r.at,startedAt:r.at,endedAt:'',
+            tableNumber:1,seatMap:{},seriesId:'v143-legacy-20261029',seriesIndex:idx+1,seriesStartedAt:targets[0].at,
+            place:'',stake:'100/20',mode:'final',
+            players:['場主','飛帆','麻俠','威'],nets:r.nets,hands:[],remote:false,v143Rescue:true
+          })
+        }
       })
     }
     persistAppData()
@@ -9809,7 +9828,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V142'
+  const APP_VERSION='V143'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10808,7 +10827,7 @@ async function v132SaveSessionEdit(id){
   const at=document.getElementById('v132EditAt')?.value;const started=at?new Date(at).toISOString():(ss.startedAt||ss.createdAt)
   const stake=(document.getElementById('v132EditStake')?.value||'').trim(),place=(document.getElementById('v132EditPlace')?.value||'').trim()
   try{
-    if(ss.v142Rescue){
+    if(ss.v143Rescue){
       ss.startedAt=started;ss.createdAt=started;ss.stake=stake;ss.place=place;ss.nets=nets;persistAppData()
     }else if(ss.remote&&pbAuth?.token){
       const f=encodeURIComponent(`room="${pbFilterValue(ss.roomId)}"`);const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&filter=${f}`);const rps=rpd.items||[];const finalBalances={}
