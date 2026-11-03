@@ -7340,6 +7340,7 @@ function aggregateSessions(sessions){
     maxWin:Number.isFinite(x.maxWin)?x.maxWin:0,
     minWin:Number.isFinite(x.minWin)?x.minWin:0,
     winRate:x.sessions?x.sessionWins/x.sessions:0,
+    avgNet:x.sessions?x.net/x.sessions:0,
     discardRate:x.handAppearances?x.discards/x.handAppearances:null,
     _attendanceKeys:undefined
   }))
@@ -8047,6 +8048,10 @@ function v48RefreshNemesis(){
 }
 function badgeHtml(rows,sessions){
   if(!rows.length) return '<div class="muted">累積幾場後，這裡會開始產生房間徽章。</div>'
+  // V145：比例型徽章採房間有效將數 10% 門檻，避免只打一將就以 100% / 0% 取得徽章。
+  const roomSessionCount=(sessions||[]).filter(ss=>Object.keys(sessionNets(ss)||{}).length>0).length
+  const minEligibleSessions=Math.max(1,Math.ceil(roomSessionCount*0.10))
+  const qualified=rows.filter(r=>(Number(r.sessions)||0)>=minEligibleSessions)
   const winners=(key,low=false,eligible=rows,requirePositive=false)=>{
     let pool=eligible.filter(r=>Number.isFinite(Number(r[key])))
     if(requirePositive) pool=pool.filter(r=>Number(r[key])>0)
@@ -8055,25 +8060,45 @@ function badgeHtml(rows,sessions){
     return pool.filter(r=>(Number(r[key])||0)===target)
   }
   const specs=[
-    ['👑','冠軍','net',false,'累積贏最多',false],['🏅','最大贏分獎','maxWin',false,'單將贏分最高',true],['📅','出席王','attendanceCount',false,'參與連打／聚會次數最多',true],
-    ['📈','最高勝率','winRate',false,'獲利場次 ÷ 總場次',true],['🔥','連勝王','maxStreak',false,'依牌局時間連續獲利最多',true],['🌧️','連敗王','maxLossStreak',false,'依牌局時間連續輸錢最多將',true],['🎁','最大貢獻獎','maxLoss',false,'單場貢獻最高',true],
-    ['🌸','自摸王','selfdraws',false,'自摸次數最多',true],['🎯','神槍手','discardWins',false,'胡別人放槍最多',true],['💣','煙火大師','discards',false,'放槍次數最多',true],
-    ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true],['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true],['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true],['🌑','四暗刻達人','fourConcealed',false,'四暗刻次數最多',true],['🌌','五暗刻傳說','fiveConcealed',false,'五暗刻次數最多',true],['✨','MIGI 專家','migi',false,'MIGI 次數最多',true]
+    ['👑','冠軍','net',false,'累積贏最多',false,rows],
+    ['🏅','最大贏分獎','maxWin',false,'單將贏分最高',true,rows],
+    ['📈','最高勝率','winRate',false,`獲利將 ÷ 總將・至少 ${minEligibleSessions} 將`,true,qualified],
+    ['💰','穩賺王','avgNet',false,`平均每將淨贏最高・至少 ${minEligibleSessions} 將`,true,qualified],
+    ['🔥','連勝王','maxStreak',false,'依牌局時間連續獲利最多',true,rows],
+    ['🌧️','連敗王','maxLossStreak',false,'依牌局時間連續輸錢最多將',true,rows],
+    ['📅','出席王','attendanceCount',false,'參與連打／聚會次數最多',true,rows],
+    ['🎁','最大貢獻獎','maxLoss',false,'單將輸分最高',true,rows],
+    ['🌸','自摸王','selfdraws',false,'自摸次數最多',true,rows],
+    ['__SHIELD__','金鐘罩','discardRate',true,`放槍率最低・至少 ${minEligibleSessions} 將`,false,qualified],
+    ['🎯','神槍手','discardWins',false,'胡別人放槍最多',true,rows],
+    ['💣','煙火大師','discards',false,'放槍次數最多',true,rows],
+    ['🀄','超會清一色','cleanSuit',false,'清一色次數最多',true,rows],
+    ['🎨','喜歡混一色','mixedSuit',false,'混一色次數最多',true,rows],
+    ['🤜','就愛碰碰胡','pongPong',false,'碰碰胡次數最多',true,rows],
+    ['🌑','四暗刻達人','fourConcealed',false,'四暗刻次數最多',true,rows],
+    ['🌌','五暗刻傳說','fiveConcealed',false,'五暗刻次數最多',true,rows],
+    ['✨','MIGI 專家','migi',false,'MIGI 次數最多',true,rows]
   ]
-  const cards=specs.map(([icon,title,key,low,desc,requirePositive])=>{
-    const ws=winners(key,low,rows,requirePositive)
+  const cards=specs.map(([icon,title,key,low,desc,requirePositive,eligible])=>{
+    if(icon==='__SHIELD__'){
+      const shieldPool=(eligible||[]).filter(r=>r.handAppearances>0 && Number.isFinite(Number(r.discardRate)))
+      const hasAnyDiscard=shieldPool.some(r=>(Number(r.discards)||0)>0)
+      const minRate=(shieldPool.length&&hasAnyDiscard)?Math.min(...shieldPool.map(r=>Number(r.discardRate))):null
+      const ws=minRate===null?[]:shieldPool.filter(r=>Math.abs(Number(r.discardRate)-minRate)<1e-12)
+      return `<div class="badge-card"><div class="badge-icon">🛡️</div><div class="badge-title">金鐘罩</div><div class="badge-winner">${ws.length?ws.map(x=>x.name).join('・'):'尚未產生'}</div><div class="badge-desc">${minRate===null?`需至少 ${minEligibleSessions} 將且有逐把紀錄`:(minRate*100).toFixed(1)+'%・'+desc}</div></div>`
+    }
+    let ws=winners(key,low,eligible,requirePositive)
+    // V145：一勝/一敗不是「連勝/連敗」，至少 2 連才成立。
+    if(key==='maxStreak') ws=ws.filter(x=>(Number(x.maxStreak)||0)>=2)
+    if(key==='maxLossStreak') ws=ws.filter(x=>(Number(x.maxLossStreak)||0)>=2)
     if(!ws.length) return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">尚未產生</div><div class="badge-desc">${desc}</div></div>`
     const names=ws.map(x=>x.name).join('・'), v=Number(ws[0]?.[key])||0
-    const value=(key==='net'||key==='maxWin')?money(v):key==='maxLoss'?`$${v.toLocaleString()}`:key==='winRate'?`${(v*100).toFixed(1)}%`:key==='sessions'?`${v} 場`:`${v} 次`
+    const value=(key==='net'||key==='maxWin'||key==='avgNet')?money(v):key==='maxLoss'?`$${v.toLocaleString()}`:key==='winRate'?`${(v*100).toFixed(1)}%`:`${v} 次`
     return `<div class="badge-card"><div class="badge-icon">${icon}</div><div class="badge-title">${title}</div><div class="badge-winner">${names}</div><div class="badge-desc">${value}・${desc}</div></div>`
   })
-  const eligible=rows.filter(r=>r.handAppearances>0)
-  const hasAnyDiscard=eligible.some(r=>(Number(r.discards)||0)>0)
-  const minRate=(eligible.length&&hasAnyDiscard)?Math.min(...eligible.map(r=>r.discardRate)):null
-  const shields=minRate===null?[]:eligible.filter(r=>Math.abs(r.discardRate-minRate)<1e-12)
-  cards.splice(8,0,`<div class="badge-card"><div class="badge-icon">🛡️</div><div class="badge-title">金鐘罩</div><div class="badge-winner">${shields.length?shields.map(x=>x.name).join('・'):'尚未產生'}</div><div class="badge-desc">${minRate===null?'尚無放槍紀錄':(minRate*100).toFixed(1)+'%・放槍率最低'}</div></div>`)
   return cards.join('')
 }
+
 function sessionRowHtml(ss){
   const room=appData.rooms.find(r=>r.id===ss.roomId)
   const date=new Date(ss.startedAt||ss.createdAt).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})
@@ -9848,7 +9873,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V144'
+  const APP_VERSION='V145'
   let refreshing=false
   let updatePromptOpen=false
 
