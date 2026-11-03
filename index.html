@@ -1,3 +1,4 @@
+<!-- V152：強制修正自訂日期顯示條件＋戰績排行真實只渲染前4名；保留 V151/V143/V146 穩定邏輯 -->
 <!-- V151：房間提款機最大提款紀錄改為 TOP 3；保留 V150/V149/V143/V146 穩定邏輯 -->
 <!-- V150：修正自訂日期常駐、戰績排行真正折疊、提款機明細移除重複「提款」；保留 V149 全部統計邏輯 -->
 <!-- V149：房間統計期間／統計方法／顯示方式／說明文字完整統一；保留 V143/V146/V148 穩定邏輯 -->
@@ -2149,7 +2150,7 @@ html body #game.live-viewer-mode.projection-mode .v74-live-chat{display:none!imp
       <button class="rule-btn" data-room-filter="last30" onclick="setRoomFilter('last30')">近30天</button>
       <button class="rule-btn" data-room-filter="custom" onclick="v149ToggleCustomRange()">自訂日期</button>
     </div>
-    <div id="v149CustomRange" class="v149-custom-range hidden"><input id="v149DateFrom" type="date" aria-label="開始日期"><span>～</span><input id="v149DateTo" type="date" aria-label="結束日期"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>
+    <div id="v149CustomRange" class="v149-custom-range hidden" hidden style="display:none"><input id="v149DateFrom" type="date" aria-label="開始日期"><span>～</span><input id="v149DateTo" type="date" aria-label="結束日期"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>
   </div>
 
   <div class="card room-protected room-ranking-card" id="roomRankingCard">
@@ -7479,11 +7480,12 @@ let roomTimeFilter='all'
 let v149CustomFrom=''
 let v149CustomTo=''
 let v149RankingExpanded=false
-function v150SyncCustomRange(){ const el=document.getElementById('v149CustomRange'); if(!el)return; const show=roomTimeFilter==='custom'; el.classList.toggle('hidden',!show); el.style.display=show?'grid':'none' }
+let v152LastRankingRows=[]
+function v150SyncCustomRange(){ const el=document.getElementById('v149CustomRange'); if(!el)return; const show=roomTimeFilter==='custom'; el.hidden=!show; el.classList.toggle('hidden',!show); el.style.setProperty('display',show?'grid':'none','important') }
 function setRoomFilter(v){ roomTimeFilter=v; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ToggleCustomRange(){ roomTimeFilter='custom'; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ApplyCustomRange(){ const a=document.getElementById('v149DateFrom')?.value||'',b=document.getElementById('v149DateTo')?.value||''; if(!a||!b){alert('請選擇開始與結束日期');return} if(a>b){alert('開始日期不能晚於結束日期');return} v149CustomFrom=a;v149CustomTo=b;roomTimeFilter='custom';v149RankingExpanded=false;renderRoomDashboard() }
-function v149ToggleRankingMore(){v149RankingExpanded=!v149RankingExpanded;v149ApplyRankingFold()}
+function v149ToggleRankingMore(){v149RankingExpanded=!v149RankingExpanded;v152RenderRanking()}
 function filterSessionsByTime(sessions,filter){
   if(filter==='all') return sessions
   const now=new Date(), y=now.getFullYear(), m=now.getMonth()
@@ -7864,16 +7866,18 @@ async function v37RefreshCurrentRoomHistory(){
 ===== */
 
 
-function v149ApplyRankingFold(){
+function v152RenderRanking(){
   const box=document.getElementById('roomRanking'),btn=document.getElementById('roomRankingMoreBtn');if(!box||!btn)return
-  box.classList.toggle('v149-expanded',v149RankingExpanded)
-  const extras=[...box.querySelectorAll('.v149-rank-extra')]
-  extras.forEach(el=>{el.style.display=v149RankingExpanded?'grid':'none'})
-  const extra=extras.length
+  const rows=Array.isArray(v152LastRankingRows)?v152LastRankingRows:[]
+  const visible=v149RankingExpanded?rows:rows.slice(0,4)
+  box.innerHTML=visible.length?visible.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・勝率 ${((Number(x.sessionWins||0)/Math.max(1,Number(x.sessions||0)))*100).toFixed(1)}%・平均 ${money(Math.round(Number(x.net||0)/Math.max(1,Number(x.sessions||0))))}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'
+  const extra=Math.max(0,rows.length-4)
+  btn.hidden=extra===0
   btn.classList.toggle('hidden',extra===0)
-  btn.style.display=extra?'block':'none'
+  btn.style.setProperty('display',extra?'block':'none','important')
   if(extra) btn.textContent=v149RankingExpanded?'收起排名':`查看完整排名（其餘 ${extra} 位）`
 }
+function v149ApplyRankingFold(){ v152RenderRanking() }
 
 /* ===== V49：PocketBase 房間聊天室 ===== */
 let v49ChatRoomId=''
@@ -8129,7 +8133,7 @@ function renderRoomDashboard(loadShared=true){
     <div class="career-stat"><div class="k">累積把數</div><div class="v">${totalHands}</div></div>
     <div class="career-stat"><div class="k">參與玩家</div><div class="v">${rows.length}</div></div>
     <div class="career-stat champion-stat"><div class="champion-crown">👑</div><div><div class="k">目前冠軍</div><div class="v">${escapeHtml(rows[0]?.name||'—')}</div>${rows[0]?`<div class="champion-money">${money(rows[0].net)}</div>`:''}</div></div>`
-  document.getElementById('roomRanking').innerHTML=rows.length?rows.map((x,i)=>`<div class="rank-row ${i>=4?'v149-rank-extra':''}"><div class="rank-no">${i===0?'👑':i+1}</div><div><b>${escapeHtml(x.name)}</b><div class="muted">${x.sessions} 將・勝率 ${((Number(x.sessionWins||0)/Math.max(1,Number(x.sessions||0)))*100).toFixed(1)}%・平均 ${money(Math.round(Number(x.net||0)/Math.max(1,Number(x.sessions||0))))}</div></div><div class="rank-money">${money(x.net)}</div></div>`).join(''):'這個期間還沒有牌局紀錄。'; v149ApplyRankingFold()
+  v152LastRankingRows=rows; v152RenderRanking()
   const roomTrend=document.getElementById('roomTrendChart'); if(roomTrend) roomTrend.innerHTML=roomTrendChartHtml(ss)
   v147RenderRoomCashflow(ss,document.getElementById('roomCashflowPlayer')?.value||'')
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
@@ -10070,7 +10074,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V151'
+  const APP_VERSION='V152'
   let refreshing=false
   let updatePromptOpen=false
 
