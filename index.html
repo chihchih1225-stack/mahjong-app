@@ -7599,9 +7599,6 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
     const sf=encodeURIComponent(`room="${pbFilterValue(roomId)}" && status="completed"`)
     const sd=await pbRequest(`/api/collections/game_sessions/records?perPage=500&sort=created&filter=${sf}`)
     const remoteSessions=sd.items||[]
-    // V123：歷史牌局必須讀取此房間「全部」room_players。
-    // 舊的逐把牌局可能仍引用較早的 room_player ID；若只讀 active 玩家，
-    // final_balances 雖然還在，畫面卻會因找不到舊 ID 而漏掉該玩家。
     const rpf=encodeURIComponent(`room="${pbFilterValue(roomId)}"`)
     const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&sort=created&filter=${rpf}`)
     const roomPlayers=rpd.items||[]
@@ -8409,7 +8406,7 @@ async function openRoomMemberStats(userId,nickname){
   const worst=Number.isFinite(stat.minWin)?stat.minWin:0
   const history=[...playerSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(ss=>{
     const d=new Date(ss.createdAt), net=Number(sessionNets(ss)[name]||0)
-    return `<div class="member-history-row" onclick="closeRoomMemberStats();showSessionDetail('${ss.id}')" style="cursor:pointer"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・點擊查看牌局 ›</div></div>`
+    return `<div class="member-history-row" onclick="v124OpenMemberSessionDetail('${ss.id}',decodeURIComponent('${encodeURIComponent(userId||'')}'),decodeURIComponent('${encodeURIComponent(nickname||name||'')}'))" role="button" tabindex="0"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・點擊查看牌局 ›</div></div>`
   }).join('')||'<div class="muted">目前沒有參與過的歷史牌局。</div>'
   closeRoomMemberStats()
   const modal=document.createElement('div');modal.id='roomMemberStatsModal';modal.className='modal member-stats-modal'
@@ -9720,7 +9717,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V123'
+  const APP_VERSION='V124'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10521,5 +10518,47 @@ refreshCurrentPage=async function(){
 }
 </script>
 
+
+
+<!-- V124：個人戰績操作體驗修正 -->
+<style>
+/* 整張歷史牌局卡都能明確點擊，手機觸控區更完整 */
+#roomMemberStatsModal .member-history-row{
+  cursor:pointer!important;
+  transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+#roomMemberStatsModal .member-history-row:active{transform:scale(.985)}
+#roomMemberStatsModal .member-history-row:hover{border-color:#cbddeb!important;box-shadow:0 7px 18px rgba(54,86,120,.08)!important}
+/* 個人走勢 SVG 原本 245 高，但共用 trend-chart 強制 min-height:250，會留下多餘空白。 */
+#roomMemberStatsModal .trend-chart{min-height:0!important;height:auto!important;margin-bottom:2px!important}
+#roomMemberStatsModal .trend-chart svg{display:block!important;width:100%!important;height:auto!important;margin:0!important}
+#roomMemberStatsModal .trend-chart + h3{margin-top:12px!important}
+@media(max-width:520px){
+  #roomMemberStatsModal .trend-chart{min-height:0!important}
+  #roomMemberStatsModal .member-history-row{min-height:64px;display:block}
+}
+</style>
+<script>
+/* ===== V124：從個人戰績進入某將後，返回鍵回到原本那位玩家的個人戰績 ===== */
+let v124MemberStatsReturnContext=null
+function v124OpenMemberSessionDetail(sessionId,userId,nickname){
+  v124MemberStatsReturnContext={userId:String(userId||''),nickname:String(nickname||'')}
+  closeRoomMemberStats()
+  showSessionDetail(sessionId)
+  const modal=document.getElementById('sessionDetailModal')
+  const back=modal?.querySelector('.session-back-btn')
+  if(back){
+    back.textContent='← 返回個人戰績'
+    back.onclick=async function(){
+      modal.remove()
+      const ctx=v124MemberStatsReturnContext
+      v124MemberStatsReturnContext=null
+      if(ctx) await openRoomMemberStats(ctx.userId,ctx.nickname)
+    }
+  }
+}
+</script>
 </body>
 </html>
