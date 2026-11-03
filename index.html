@@ -1736,6 +1736,22 @@ main{padding-bottom:74px}
 .nemesis-empty{margin-top:7px;padding:10px 12px;border-radius:13px;background:#fffaf7;color:#95898d;font-size:12px}
 .nemesis-neutral{margin-top:14px;padding:10px 12px;border-radius:13px;background:#f7f5f2;color:#857b7e;font-size:11px;line-height:1.55}
 
+
+/* ===== V144：徽章緊湊化＋王座更替史預覽 ===== */
+#roomBadges.badge-grid{gap:6px}
+#roomBadges .badge-card{border-radius:12px;padding:7px 8px}
+#roomBadges .badge-icon{font-size:18px;line-height:1}
+#roomBadges .badge-title{font-size:10px;margin-top:3px;line-height:1.2}
+#roomBadges .badge-winner{font-size:13px;margin-top:2px;line-height:1.25}
+#roomBadges .badge-desc{font-size:9px;margin-top:2px;line-height:1.25}
+.king-timeline-wrap.v144-king{padding:12px 12px 10px}
+.king-timeline-wrap.v144-king .king-timeline-summary{font-size:13px;margin-bottom:7px}
+.king-timeline-wrap.v144-king .king-timeline-item{min-height:64px}
+.king-timeline-wrap.v144-king .king-timeline-item:last-child{min-height:46px}
+.king-timeline-wrap.v144-king .v144-king-extra{display:none}
+.king-timeline-wrap.v144-king.expanded .v144-king-extra{display:grid}
+.v144-king-toggle{width:100%;margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#9a4519;font-weight:900;font-size:12px}
+
 </style>
 
 <style id="v46-home-stylefix">
@@ -7590,12 +7606,16 @@ function roomKingHistoryHtml(sessions){
   const items=displayReigns.map((r,i)=>{
     const isCurrent=i===0
     const d=days(r.startAt,r.endAt)
-    return `<div class="king-timeline-item${isCurrent?' current':''}">
+    const extra=i>=3?' v144-king-extra':''
+    return `<div class="king-timeline-item${isCurrent?' current':''}${extra}">
       <div class="king-timeline-rail"><span class="king-timeline-node"></span></div>
       <div class="king-timeline-content"><span class="king-timeline-name">${escapeHtml(r.name)}</span>${isCurrent?'<span class="king-timeline-crown">👑</span>':''}<span class="king-timeline-date">${fmt(r.startAt)}</span><span class="king-timeline-days">${isCurrent?'現任第'+d+'天':d+'天'}</span></div>
     </div>`
   }).join('')
-  return `<div class="king-timeline-wrap"><div class="king-timeline-summary">王座歷經 ${reigns.length} 任｜現任 ${escapeHtml(currentKing||'—')}｜第${currentDays}天</div><div class="king-timeline">${items}</div></div>`
+  const toggle=displayReigns.length>3
+    ? `<button type="button" class="v144-king-toggle" onclick="const w=this.closest('.v144-king');const on=w.classList.toggle('expanded');this.textContent=on?'收起較早紀錄':'展開全部（還有 ${displayReigns.length-3} 筆）'">展開全部（還有 ${displayReigns.length-3} 筆）</button>`
+    : ''
+  return `<div class="king-timeline-wrap v144-king"><div class="king-timeline-summary">王座歷經 ${reigns.length} 任｜現任 ${escapeHtml(currentKing||'—')}｜第${currentDays}天</div><div class="king-timeline">${items}</div>${toggle}</div>`
 }
 
 async function syncCurrentRoomMembers(){
@@ -9828,7 +9848,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V143'
+  const APP_VERSION='V144'
   let refreshing=false
   let updatePromptOpen=false
 
