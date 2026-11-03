@@ -7221,7 +7221,7 @@ function ensureRoomMembers(room, names){
 }
 function roomSessions(roomId){ ensureAppData(); return appData.sessions.filter(x=>x.roomId===roomId) }
 
-/* V139 identity bridge:
+/* V140 identity bridge:
    Legacy Friday Night room_player IDs confirmed from PocketBase.
    Identity is normalized before nickname/user fallback so old records stay attached
    to the same player even when legacy session metadata is incomplete. */
@@ -7710,10 +7710,11 @@ async function v37LoadSharedRoomHistory(roomId=currentRoomId,force=false){
         place:rs.place||'',stake:rs.stake||'',mode:remoteHands.length?'detailed':'final',players,nets,hands,remote:true
       }
     })
+    const visibleShared=shared.filter(ss=>!v140IsHiddenLegacy(ss))
     ensureAppData()
     // PocketBase 房間只保留共同遠端歷史；避免每支手機自己的 localStorage 混進房間統計。
     appData.sessions=appData.sessions.filter(x=>x.roomId!==roomId || !room?.pocketbase)
-    appData.sessions.push(...shared)
+    appData.sessions.push(...visibleShared)
     persistAppData()
     v37RoomHistoryLoaded.add(roomId)
     return shared
@@ -9773,7 +9774,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V139'
+  const APP_VERSION='V140'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10695,6 +10696,41 @@ v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
 </script>
 
 
+
+<script id="v140-legacy-history-edit-bridge">
+/* V140：舊匯入牌局若可讀但不可 PATCH，允許「修改」時安全遷移成目前可寫的 game_sessions。
+   舊唯讀列用穩定指紋隱藏，不刪未知 PB 原始資料；新列 POST 成 completed 後照正常共同歷史運作。 */
+const V140_HIDDEN_LEGACY_KEY='mahjong_v140_hidden_legacy_sessions'
+function v140LegacyFingerprint(ss){
+  const names=(ss?.players||Object.keys(sessionNets(ss)||{})).map(canonicalPlayerName).sort().join('|')
+  return [ss?.roomId||'',String(ss?.startedAt||ss?.createdAt||'').slice(0,16),String(ss?.stake||''),names].join('§')
+}
+function v140HiddenLegacySet(){
+  try{return new Set(JSON.parse(localStorage.getItem(V140_HIDDEN_LEGACY_KEY)||'[]'))}catch(e){return new Set()}
+}
+function v140HideLegacy(ss){
+  const s=v140HiddenLegacySet();s.add(v140LegacyFingerprint(ss));localStorage.setItem(V140_HIDDEN_LEGACY_KEY,JSON.stringify([...s]))
+}
+function v140IsHiddenLegacy(ss){return v140HiddenLegacySet().has(v140LegacyFingerprint(ss))}
+async function v140CreateReplacementSession(ss,{started,stake,place,nets}){
+  const f=encodeURIComponent(`room="${pbFilterValue(ss.roomId)}"`)
+  const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&filter=${f}`)
+  const rps=rpd.items||[], finalBalances={}, playerIds=[]
+  ;(ss.players||Object.keys(nets)).forEach(name=>{
+    const target=canonicalPlayerName(name)
+    const rp=rps.find(x=>canonicalRoomPlayerName(x,rps)===target)
+    if(!rp) throw new Error(`找不到玩家身分：${target}`)
+    playerIds.push(rp.id);finalBalances[rp.id]=Number(nets[name]||0)
+  })
+  if(playerIds.length!==4 || Object.keys(finalBalances).length!==4)throw new Error('玩家身分對應不完整，已停止儲存')
+  const payload={
+    room:ss.roomId,status:'completed',players:playerIds,recorder:pbAuth.record.id,
+    started_at:started,ended_reason:'normal',final_balances:finalBalances,
+    place,stake,table_number:Number(ss.tableNumber||1),seat_map:ss.seatMap||{}
+  }
+  return pbRequest('/api/collections/game_sessions/records',{method:'POST',body:JSON.stringify(payload)})
+}
+</script>
 <script id="v132-history-edit-runtime">
 /* V132：歷史牌局一致性 + 已結束牌局可修改。 */
 function v132ApplyHistoryFold(){
@@ -10736,12 +10772,22 @@ async function v132SaveSessionEdit(id){
       const f=encodeURIComponent(`room="${pbFilterValue(ss.roomId)}"`);const rpd=await pbRequest(`/api/collections/room_players/records?perPage=500&filter=${f}`);const rps=rpd.items||[];const finalBalances={}
       ;(ss.players||Object.keys(nets)).forEach(name=>{const rp=rps.find(x=>canonicalRoomPlayerName(x,rps)===canonicalPlayerName(name));if(rp)finalBalances[rp.id]=Number(nets[name]||0)})
       if(Object.keys(finalBalances).length!==Object.keys(nets).length)throw new Error('玩家身分對應不完整，已停止儲存')
-      await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({started_at:started,stake,place,final_balances:finalBalances})})
+      try{
+        await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({started_at:started,stake,place,final_balances:finalBalances})})
+      }catch(patchErr){
+        const msg=String(patchErr?.message||patchErr||'')
+        if(!/not found|404|requested resource/i.test(msg))throw patchErr
+        // 舊匯入資料：讀得到但現行規則不可寫。建立一筆乾淨 replacement，再隱藏舊唯讀列。
+        await v140CreateReplacementSession(ss,{started,stake,place,nets})
+        v140HideLegacy(ss)
+      }
       v37RoomHistoryLoaded.delete(ss.roomId)
+    }else{
+      ss.startedAt=started;ss.createdAt=started;ss.stake=stake;ss.place=place;ss.nets=nets;persistAppData()
     }
-    ss.startedAt=started;ss.createdAt=started;ss.stake=stake;ss.place=place;ss.nets=nets;persistAppData()
     document.getElementById('v132EditSessionModal')?.remove();document.getElementById('sessionDetailModal')?.remove()
     if(ss.remote)await v37LoadSharedRoomHistory(ss.roomId,true);renderRoomDashboard(false)
+    await uiAlert('這一將已儲存。','修改完成',{icon:'✓'})
   }catch(e){await uiAlert('修改失敗：'+(e?.message||e),'無法儲存')}
 }
 const v132OldShowSessionDetail=showSessionDetail
