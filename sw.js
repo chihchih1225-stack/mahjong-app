@@ -1,5 +1,5 @@
-/* 誰與爭鋒 V137 Service Worker */
-const CACHE_NAME='mahjong-pwa-V137';
+/* 誰與爭鋒 V138 Service Worker */
+const CACHE_NAME='mahjong-pwa-V138';
 const APP_SHELL=['/','/manifest.webmanifest'];
 
 self.addEventListener('install',event=>{
