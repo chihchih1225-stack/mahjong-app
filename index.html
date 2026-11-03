@@ -9758,7 +9758,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V134'
+  const APP_VERSION='V135'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -10734,7 +10734,7 @@ showSessionDetail=function(id){v132OldShowSessionDetail(id);const modal=document
 
 <script id="v133-ma-xia-repair-runtime">
 
-/* V134：修正 V133 的安全檢查。
+/* V135：修正 V134 的 PocketBase record ID。
    三筆舊資料的 final_balances 使用舊 key（名稱/舊 room_player id），
    V133 卻只用目前 players relation id 加總，因此把既有三人的金額當成 0。
    本版先驗證畫面已讀出的三人結算，再把四人的 final_balances 正規化成「本場 players relation id」。
@@ -10772,7 +10772,7 @@ function v134RenderRepairButton(){
   const checks=rows.map(x=>v134VisibleCheck(x.ss,x.spec))
   if(checks.some(x=>!x.ok))return
   const wrap=document.createElement('div');wrap.id='v134MxRepairWrap';wrap.style.margin='12px 0'
-  wrap.innerHTML=`<button type="button" class="secondary" style="width:100%" onclick="v134RepairMaXiaThreeSessions()">🛠️ 修復麻俠 10/29–10/30 三筆舊結算</button><div class="career-note" style="margin-top:6px">V134 會先核對三筆既有三人金額，再把四人結算 key 正規化；不會修改逐把明細。</div>`
+  wrap.innerHTML=`<button type="button" class="secondary" style="width:100%" onclick="v134RepairMaXiaThreeSessions()">🛠️ 修復麻俠 10/29–10/30 三筆舊結算</button><div class="career-note" style="margin-top:6px">V135 會先核對三筆既有三人金額，再把四人結算 key 正規化；不會修改逐把明細。</div>`
   history.parentNode?.insertBefore(wrap,history.nextSibling)
 }
 async function v134RepairMaXiaThreeSessions(){
@@ -10788,12 +10788,14 @@ async function v134RepairMaXiaThreeSessions(){
     '10/29 23:12　場主 +760・飛帆 -340・威 -580・麻俠 +160\n'+
     '10/30 00:21　威 +440・飛帆 -40・場主 -700・麻俠 +300\n\n'+
     '每場都必須四人合計 $0 才會寫入。',
-    'V134 修復三筆舊結算'
+    'V135 修復三筆舊結算'
   )
   if(!ok)return
   try{
     for(const row of rows){
-      const raw=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(row.ss.id)}`)
+      const remoteId=row.ss.remoteId||row.ss.remote_id||''
+      if(!remoteId)throw new Error(`${row.spec.key} 找不到 PocketBase 原始牌局 ID，已停止`)
+      const raw=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteId)}`)
       const roomId=raw.room||row.ss.roomId
       const playerIds=Array.isArray(raw.players)?raw.players:[]
       if(playerIds.length!==4)throw new Error(`${row.spec.key} players relation 不是 4 人，已停止`)
@@ -10814,7 +10816,7 @@ async function v134RepairMaXiaThreeSessions(){
       normalized[idByName['麻俠']]=Number(row.spec.mx)
       const total=Object.values(normalized).reduce((a,b)=>a+Number(b||0),0)
       if(total!==0)throw new Error(`${row.spec.key} 四人合計不是 0，已停止`)
-      await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(row.ss.id)}`,{
+      await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteId)}`,{
         method:'PATCH',body:JSON.stringify({final_balances:normalized})
       })
     }
@@ -10830,7 +10832,7 @@ async function v134RepairMaXiaThreeSessions(){
     if(failed.length)throw new Error('寫入後重新讀取驗證未通過，請不要再操作並把畫面截圖給我')
     await uiAlert('三筆已修復並重新讀取驗證完成。每一將四人合計都是 $0；麻俠三將合計 +$2,580。','修復完成')
   }catch(e){
-    await uiAlert('修復停止：'+(e?.message||e)+'\n\n未通過的資料不會繼續修改。','V134 修復失敗')
+    await uiAlert('修復停止：'+(e?.message||e)+'\n\n未通過的資料不會繼續修改。','V135 修復失敗')
   }
 }
 const v134OldRenderRoomDashboard=renderRoomDashboard
