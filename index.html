@@ -2102,14 +2102,14 @@ main{padding-bottom:74px}
 
 
 
-/* 房間頁：標題與操作列固定上下排列，避免房主權限造成版型差異 */
-#roomDashboard .room-dashboard-header{display:flex;flex-direction:column;align-items:stretch;gap:14px}
-#roomDashboard .room-dashboard-identity{min-width:0;width:100%}
+/* V169：房間操作固定右上角；有無房主刪除權限都不推移主按鈕 */
+#roomDashboard .room-dashboard-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px;width:100%}
+#roomDashboard .room-dashboard-identity{min-width:0;width:auto}
 #roomDashboard .room-dashboard-identity h2{overflow-wrap:anywhere}
-#roomDashboard .room-dashboard-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:8px;width:100%}
-#roomDashboard .room-dashboard-actions .nav-action{flex:0 0 auto}
-#roomDashboard .room-dashboard-actions #deleteRoomBtn:not(.hidden){margin-left:auto;flex:0 0 auto}
-@media(max-width:480px){#roomDashboard .room-dashboard-actions #deleteRoomBtn:not(.hidden){margin-left:0}}
+#roomDashboard .room-dashboard-actions{display:grid;grid-template-columns:max-content max-content;grid-template-rows:auto auto;align-items:start;justify-content:end;gap:7px;width:auto;min-height:82px}
+#roomDashboard .room-dashboard-actions .nav-action{min-height:38px;padding:8px 9px;font-size:12px;white-space:nowrap}
+#roomDashboard .room-dashboard-actions #deleteRoomBtn{grid-column:2;grid-row:2;justify-self:end;margin:0!important;padding:6px 9px;min-height:32px;font-size:12px;white-space:nowrap}
+@media(max-width:390px){#roomDashboard .room-dashboard-header{gap:5px}#roomDashboard .room-dashboard-actions{gap:5px}#roomDashboard .room-dashboard-actions .nav-action{font-size:11px;padding:7px 6px;min-height:36px}#roomDashboard .room-dashboard-actions #deleteRoomBtn{font-size:11px;padding:5px 7px}}
 </style>
 
 
