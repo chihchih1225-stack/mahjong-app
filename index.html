@@ -8448,23 +8448,46 @@ async function finishDetailedGame(){
 
 
   gameEndedAt=new Date().toISOString()
-  saveCurrentSession('detailed')
+  const savedDetailedSession=saveCurrentSession('detailed') ||
+    (appData?.sessions||[]).find(s=>s.roomId===currentRoomId && s.mode==='detailed' && s.startedAt===gameStartedAt)
   v33StopGameClock()
 
 
-  // V53：先確實把「這一將」標成 completed，再開放下一將。
-  // 這樣按「繼續下一將」時不會因上一場仍短暫 active 而跳到錯的桌號，
-  // 也完全不會去結束同房間其他桌的 session。
+  // V162-savefix：不能在遠端建立尚未完成時，當成「已成功結束」。
+  // 既有 completeRemoteSession 會吞掉 PATCH 錯誤，因此必須另行讀回確認。
   remoteSessionClosingRequested=true
-  // V131：V129 起開打採背景建立；結束時必須把尚在建立中的遠端 session 接回來。
-  // 最多等 2.5 秒，不讓 UI 長時間卡住；若仍未完成，createRemoteGameSession 建好後會自行補關閉。
-  if(!remoteSessionId && remoteSessionCreatePromise){
-    try{ await Promise.race([remoteSessionCreatePromise,new Promise(resolve=>setTimeout(resolve,2500))]) }catch(e){}
-  }
-  const finishedRemoteId=remoteSessionId
-  if(finishedRemoteId){
-    await completeRemoteSession('normal')
-    v37RoomHistoryLoaded.delete(currentRoomId)
+  const pbRoom=!!(appData?.rooms||[]).find(r=>r.id===currentRoomId)?.pocketbase
+  if(pbRoom){
+    try{
+      // 背景建立必須確實結束；舊版 2.5 秒競速會讓結案後的歷史查不到。
+      if(remoteSessionCreatePromise) await remoteSessionCreatePromise
+      if(remoteSessionId){
+        await completeRemoteSession('normal')
+        let remote=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`)
+        if(remote.status!=='completed'){
+          const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
+          const finalBalances={}
+          P.forEach(name=>{const pid=map[name]?.id;if(pid)finalBalances[pid]=Number(balances[name]||0)-Number(sessionOpeningBalances[name]||0)})
+          await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
+            method:'PATCH',body:JSON.stringify({status:'completed',ended_reason:'normal',ended_at:gameEndedAt,final_balances:finalBalances})
+          })
+          remote=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`)
+          if(remote.status!=='completed') throw new Error('遠端牌局未成功結案')
+        }
+      }else{
+        // 只有「確定沒有遠端 session ID」才建立結算備援，避免重複入帳。
+        // 備援保留本將輸贏與四位玩家，但不偽稱已補回逐把明細。
+        if(!savedDetailedSession) throw new Error('找不到本將本機結算紀錄')
+        const fallback=await v69SyncFinalOnlySession(savedDetailedSession)
+        if(!fallback?.id) throw new Error('遠端備援結算未回傳紀錄 ID')
+        remoteSessionId=fallback.id
+      }
+      v37RoomHistoryLoaded.delete(currentRoomId)
+    }catch(e){
+      console.error('V162：本將遠端結算未確認',e)
+      alert('⚠️ 本將已嘗試保存在本機，但尚未確認同步到共同歷史與統計。\n請保持此頁，不要開始下一將；檢查網路後再次按「結束」重試。\n'+(e?.message||''))
+      return
+    }
   }
 
 
