@@ -9070,40 +9070,9 @@ async function setMyNickname(){
   persistAppData()
   renderHomeDashboard()
 }
-async function addMyGoal(){
-  ensureAppData()
-  const nameRaw=await uiPrompt('目標名稱','我的新目標',{placeholder:'例如：今年贏 15,000',icon:'🎯',okText:'下一步'})
-  if(nameRaw===null) return
-  const name=nameRaw.trim()
-  if(!name){ alert('請輸入目標名稱'); return }
-  const amountRaw=await uiPrompt('目標金額','15000',{message:'輸入你想達成的累積金額',placeholder:'15000',icon:'💰',okText:'建立目標'})
-  if(amountRaw===null) return
-  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
-  if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
-  const goal={id:makeId('goal'),name,amount:Math.round(amount),createdAt:new Date().toISOString()}
-  appData.profile.goals.push(goal)
-  if(!persistAppData()) appData.profile.goals=appData.profile.goals.filter(g=>g.id!==goal.id)
-  renderHomeDashboard()
-}
-async function editMyGoal(id){
-  ensureAppData()
-  const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
-  const nameRaw=await uiPrompt('修改目標名稱',g.name,{icon:'🎯',okText:'下一步'}); if(nameRaw===null) return
-  const name=nameRaw.trim(); if(!name){ alert('目標名稱不能空白'); return }
-  const amountRaw=await uiPrompt('修改目標金額',String(g.amount),{icon:'💰',okText:'儲存'}); if(amountRaw===null) return
-  const amount=Number(String(amountRaw).replace(/[$,，\s]/g,''))
-  if(!Number.isFinite(amount)||amount<=0){ alert('請輸入大於 0 的金額'); return }
-  g.name=name; g.amount=Math.round(amount)
-  persistAppData(); renderHomeDashboard()
-}
-async function deleteMyGoal(id){
-  ensureAppData()
-  const g=appData.profile.goals.find(x=>x.id===id); if(!g) return
-  if(!await uiConfirm(`刪除後無法復原。`,`刪除目標「${g.name}」？`,{danger:true,okText:'刪除'})) return
-  appData.profile.goals=appData.profile.goals.filter(x=>x.id!==id)
-  persistAppData(); renderHomeDashboard()
-}
-function setMyGoal(){ addMyGoal() }
+/* V165: 移除已由 V120 PocketBase user_goals 正式版本取代的
+   四個 localStorage 目標寫入函式。正式函式保留於 v120 goals script。
+   不修改 localStorage 既有資料、不修改 PocketBase。 */
 function escapeHtml(value){
   return String(value ?? '')
     .replace(/&/g,'&amp;')
