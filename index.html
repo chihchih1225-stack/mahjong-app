@@ -2102,6 +2102,20 @@ main{padding-bottom:74px}
 
 
 
+/* V170：手機自訂日期欄位不再橫向擠壓，顯示清楚的起訖標籤 */
+@media(max-width:700px){
+ #roomDashboard .room-period-card .room-filter-strip{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+ #roomDashboard .room-period-card .room-filter-strip .rule-btn{min-width:0!important;width:100%!important;flex:none!important;padding:9px 5px!important;white-space:nowrap!important;font-size:13px!important}
+ #roomDashboard .v149-custom-range{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important;width:100%!important;max-width:100%!important;margin-top:12px!important}
+ #roomDashboard .v149-custom-range input[type=date]{display:block!important;grid-column:1!important;width:100%!important;max-width:100%!important;min-width:0!important;min-height:48px!important;height:48px!important;padding:10px 14px!important;font-size:16px!important;line-height:1.3!important;color:#514b52!important;background:#fffdfa!important;box-sizing:border-box!important;-webkit-appearance:none;appearance:none}
+ #roomDashboard .v149-custom-range input[type=date]::-webkit-date-and-time-value{text-align:left!important;min-height:1.3em!important}
+ #roomDashboard .v149-custom-range .v149-date-sep{display:none!important}
+ #roomDashboard .v149-custom-range .nav-action{grid-column:1!important;min-height:44px!important;width:100%!important}
+}
+
+/* V170 日期標籤：桌面維持原本單列，手機改為完整兩列 */
+#roomDashboard .v149-custom-range .v170-date-label{display:none}
+@media(max-width:700px){#roomDashboard .v149-custom-range .v170-date-label{display:block!important;grid-column:1!important;font-size:13px!important;font-weight:800!important;margin:0!important;color:#665b60!important}}
 /* V169：房間操作固定右上角；有無房主刪除權限都不推移主按鈕 */
 #roomDashboard .room-dashboard-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px;width:100%}
 #roomDashboard .room-dashboard-identity{min-width:0;width:auto}
@@ -9364,7 +9378,7 @@ let v149CustomFrom=''
 let v149CustomTo=''
 let v149RankingExpanded=false
 let v152LastRankingRows=[]
-function v150SyncCustomRange(){ const host=document.getElementById('v149CustomRangeHost'); if(!host)return; if(roomTimeFilter!=='custom'){host.innerHTML='';return} host.innerHTML=`<div id="v149CustomRange" class="v149-custom-range"><input id="v149DateFrom" type="date" aria-label="開始日期" value="${escapeHtml(v149CustomFrom||'')}"><span class="v149-date-sep">～</span><input id="v149DateTo" type="date" aria-label="結束日期" value="${escapeHtml(v149CustomTo||'')}"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>` }
+function v150SyncCustomRange(){ const host=document.getElementById('v149CustomRangeHost'); if(!host)return; if(roomTimeFilter!=='custom'){host.innerHTML='';return} host.innerHTML=`<div id="v149CustomRange" class="v149-custom-range"><label class="v170-date-label" for="v149DateFrom">開始日期</label><input id="v149DateFrom" type="date" aria-label="開始日期" value="${escapeHtml(v149CustomFrom||'')}"><span class="v149-date-sep">～</span><label class="v170-date-label" for="v149DateTo">結束日期</label><input id="v149DateTo" type="date" aria-label="結束日期" value="${escapeHtml(v149CustomTo||'')}"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>` }
 function setRoomFilter(v){ roomTimeFilter=v; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ToggleCustomRange(){ roomTimeFilter='custom'; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ApplyCustomRange(){ const a=document.getElementById('v149DateFrom')?.value||'',b=document.getElementById('v149DateTo')?.value||''; if(!a||!b){alert('請選擇開始與結束日期');return} if(a>b){alert('開始日期不能晚於結束日期');return} v149CustomFrom=a;v149CustomTo=b;roomTimeFilter='custom';v149RankingExpanded=false;renderRoomDashboard() }
