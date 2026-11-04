@@ -2,7 +2,7 @@
 
 <!-- V161：投影圓餅圖移至右側提款機下方，中央計分獨占全高，修正確認按鈕遭遮擋；僅 CSS -->
 <!-- V160：投影計分操作加大、金額圓環移至中央下方、提款機右側全高、結束投屏內移；僅投影 CSS -->
-<!-- V163：記錄者固定下方；沿用 V162 結案同步修復 -->
+<!-- V164：排行榜包裝層整合；保留 V163 座位與 V162 結案同步修復 -->
 <!-- V159：投影三欄排版（左座位／中原計分／右上金額圓餅＋右下提款機），不更動計分邏輯 -->
 <!-- V158：六角戰力圖補小型說明、移除難懂的優勢/需留意列；無逐把資料者不產生假0分分析；公式不變 -->
 <!-- V157：僅修正自訂日期兩個日期框與「～」的水平／垂直對齊；不更動任何統計或既有功能 -->
@@ -13052,7 +13052,7 @@ function v125SeriesRowHtml(g){
 }
 function v125RenderRoomHistory(sessions){const box=document.getElementById('roomHistory');if(!box)return;const groups=v125HistoryGroups(sessions);box.innerHTML=groups.length?groups.map(g=>g.type==='series'?v125SeriesRowHtml(g):sessionRowHtml(g.ss)).join(''):'還沒有歷史牌局';const c=document.getElementById('roomSessionCount');if(c)c.textContent=`${sessions.length} 將・${groups.length} 筆歷史`;setTimeout(v132ApplyHistoryFold,0)}
 const v125OldRenderRoomDashboard=renderRoomDashboard
-renderRoomDashboard=function(loadShared=true){const r=v125OldRenderRoomDashboard.apply(this,arguments);try{const room=appData?.rooms?.find(x=>x.id===currentRoomId);if(room){const allSs=roomSessions(room.id);v125RenderRoomHistory(allSs)}}catch(e){console.warn('V125 history grouping',e)}return r}
+renderRoomDashboard=function(loadShared=true){const r=v125OldRenderRoomDashboard.apply(this,arguments);try{const room=appData?.rooms?.find(x=>x.id===currentRoomId);if(room){const allSs=roomSessions(room.id);v125RenderRoomHistory(allSs)}}catch(e){console.warn('V125 history grouping',e)}setTimeout(()=>{try{v152RenderRanking()}catch(e){console.warn('V156 ranking fold',e)}},30);return r}
 
 
 /* 剋星／福星：比較「他在場」與「他不在場」。第一名率為主、平均每將輸贏為輔。 */
@@ -13300,12 +13300,6 @@ const v156OldOpenRoom=openRoom
 openRoom=function(id){
   v149RankingExpanded=false
   return v156OldOpenRoom.apply(this,arguments)
-}
-const v156OldRenderRoomDashboard=renderRoomDashboard
-renderRoomDashboard=function(loadShared=true){
-  const r=v156OldRenderRoomDashboard.apply(this,arguments)
-  setTimeout(()=>{try{v152RenderRanking()}catch(e){console.warn('V156 ranking fold',e)}},30)
-  return r
 }
 </script>
 
