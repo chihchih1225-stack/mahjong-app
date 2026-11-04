@@ -1,14 +1,12 @@
-/* 誰與爭鋒 V159 Service Worker */
-const CACHE_NAME='mahjong-pwa-V159';
+/* 誰與爭鋒 V160 Service Worker */
+const CACHE_NAME='mahjong-pwa-V160';
 const APP_SHELL=['/','/manifest.webmanifest'];
-
 
 self.addEventListener('install',event=>{
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).catch(()=>{})
   );
 });
-
 
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
@@ -18,18 +16,15 @@ self.addEventListener('activate',event=>{
   })());
 });
 
-
 self.addEventListener('message',event=>{
   if(event.data && event.data.type==='SKIP_WAITING') self.skipWaiting();
 });
-
 
 self.addEventListener('fetch',event=>{
   const req=event.request;
   if(req.method!=='GET') return;
   const url=new URL(req.url);
   if(url.origin!==self.location.origin) return;
-
 
   // HTML / navigation：永遠先拿 Vercel 最新版，離線時才用快取。
   if(req.mode==='navigate'){
@@ -47,7 +42,6 @@ self.addEventListener('fetch',event=>{
     })());
     return;
   }
-
 
   // manifest / icons 等靜態檔：先回快取，同時背景更新。sw.js 本身不攔截。
   if(url.pathname==='/sw.js') return;
