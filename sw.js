@@ -1,5 +1,5 @@
-/* 誰與爭鋒 V165 Service Worker */
-const CACHE_NAME='mahjong-pwa-V165';
+/* 誰與爭鋒 V166 Service Worker */
+const CACHE_NAME='mahjong-pwa-V166';
 const APP_SHELL=['/','/manifest.webmanifest'];
 
 
