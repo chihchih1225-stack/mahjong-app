@@ -2,6 +2,7 @@
 
 <!-- V161：投影圓餅圖移至右側提款機下方，中央計分獨占全高，修正確認按鈕遭遮擋；僅 CSS -->
 <!-- V160：投影計分操作加大、金額圓環移至中央下方、提款機右側全高、結束投屏內移；僅投影 CSS -->
+<!-- V163：記錄者固定下方；沿用 V162 結案同步修復 -->
 <!-- V159：投影三欄排版（左座位／中原計分／右上金額圓餅＋右下提款機），不更動計分邏輯 -->
 <!-- V158：六角戰力圖補小型說明、移除難懂的優勢/需留意列；無逐把資料者不產生假0分分析；公式不變 -->
 <!-- V157：僅修正自訂日期兩個日期框與「～」的水平／垂直對齊；不更動任何統計或既有功能 -->
@@ -7204,11 +7205,13 @@ function getWaterHeight(amount){
 
 
 function getTablePosition(player){
-  // V107：座位是麻將桌的一個圓，不再以「記錄者」當視角旋轉。
-  // seats 永遠依 東、南、西、北 儲存，所以畫面固定為：東下、南右、西上、北左。
+  // V163：計分／投影座位以記錄者為視角，記錄者固定在正下方。
+  // 僅旋轉視覺位置；seats 原始東南西北順序、莊家、計分與資料均不變。
   const playerIndex=seats.indexOf(player)
   if(playerIndex<0) return 'top'
-  return ['bottom','right','top','left'][playerIndex]||'top'
+  const recorderIndex=seats.indexOf(recorderPlayer)
+  const origin=recorderIndex>=0?recorderIndex:0
+  return ['bottom','right','top','left'][(playerIndex-origin+4)%4]
 }
 
 
