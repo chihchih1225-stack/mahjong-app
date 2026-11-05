@@ -9424,10 +9424,28 @@ function renderPracticeRoomEntry(){
   const room=appData?.rooms?.find(r=>r.id===currentRoomId);
   entry.classList.toggle('hidden',!(PRACTICE_ROOM_STAGING_ENABLED && room && room.pocketbase && pbAuth?.token));
 }
-function openPracticeRoomStaging(){
-  // 安全閘門：未完成同源 HTTPS 路由與伺服器端權限驗證前不可開放。
-  if(!PRACTICE_ROOM_STAGING_ENABLED)return;
-  alert('線上練習局尚在測試，請稍後再試。');
+let practiceRoomEntryPending=false;
+async function openPracticeRoomStaging(){
+  // 此功能在完成 HTTPS 代理、真實後端會員驗證前保持關閉。
+  if(!PRACTICE_ROOM_STAGING_ENABLED || practiceRoomEntryPending)return;
+  const roomId=currentRoomId;
+  const room=appData?.rooms?.find(r=>r.id===roomId);
+  const token=pbAuth?.token;
+  const userId=pbAuth?.record?.id;
+  if(!room?.pocketbase || !token || !userId){alert('請先登入並進入你的房間');return;}
+  practiceRoomEntryPending=true;
+  try{
+    const filter=encodeURIComponent('room="'+roomId+'" && user="'+userId+'"');
+    const data=await pbRequest('/api/collections/room_members/records?perPage=1&filter='+filter);
+    if(!data?.items?.some(m=>m.room===roomId && m.user===userId))throw Error('你不是這個房間的成員');
+    if(currentRoomId!==roomId || pbAuth?.token!==token || pbAuth?.record?.id!==userId)throw Error('登入或房間已變更，請重新操作');
+    // 此資料僅存於目前分頁；不可把 token 放在 URL。
+    sessionStorage.setItem('mahjong-practice-room-context-v1',JSON.stringify({roomId,memberToken:token}));
+    location.assign(location.origin+'/practice');
+  }catch(e){
+    sessionStorage.removeItem('mahjong-practice-room-context-v1');
+    alert('目前無法進入練習局：'+(e?.message||'請稍後再試'));
+  }finally{practiceRoomEntryPending=false;}
 }
 
 function openRoom(id){ currentRoomId=id; roomTimeFilter='all'; show('roomDashboard'); renderPracticeRoomEntry() }
