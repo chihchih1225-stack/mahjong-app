@@ -2858,6 +2858,12 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
   </div>
 
 
+  <!-- 線上練習局測試入口：預設關閉；僅測試分支，正式版不啟用。 -->
+  <div id="practiceRoomEntry" class="card room-protected hidden" style="text-align:center">
+    <h2 style="margin:0 0 6px">🀄 手癢就來摸</h2>
+    <div class="muted" style="margin-bottom:12px">三缺一？揪人開摸！</div>
+    <button type="button" class="primary" onclick="openPracticeRoomStaging()">手癢了，開摸！</button>
+  </div>
   <button class="primary room-new-game-btn" onclick="startFromCurrentRoom()">＋ 在這個房間開新的牌局</button>
 </section>
 
@@ -9409,7 +9415,22 @@ async function refreshCurrentRoom(){
   await syncCurrentRoomMembers()
   renderRoomDashboard(false)
 }
-function openRoom(id){ currentRoomId=id; roomTimeFilter='all'; show('roomDashboard') }
+
+// 線上練習局：正式啟用前保持關閉，不觸及 PocketBase / 戰績資料。
+const PRACTICE_ROOM_STAGING_ENABLED=false;
+function renderPracticeRoomEntry(){
+  const entry=document.getElementById('practiceRoomEntry');
+  if(!entry)return;
+  const room=appData?.rooms?.find(r=>r.id===currentRoomId);
+  entry.classList.toggle('hidden',!(PRACTICE_ROOM_STAGING_ENABLED && room && room.pocketbase && pbAuth?.token));
+}
+function openPracticeRoomStaging(){
+  // 安全閘門：未完成同源 HTTPS 路由與伺服器端權限驗證前不可開放。
+  if(!PRACTICE_ROOM_STAGING_ENABLED)return;
+  alert('線上練習局尚在測試，請稍後再試。');
+}
+
+function openRoom(id){ currentRoomId=id; roomTimeFilter='all'; show('roomDashboard'); renderPracticeRoomEntry() }
 async function deleteCurrentRoom(){
   ensureAppData()
   if(!await applyRoomOwnerControls()){ alert('只有房主可以刪除房間。'); return }
