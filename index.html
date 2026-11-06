@@ -12101,6 +12101,34 @@ html body #game.projection-mode .cashflow-table td{
 }
 
 
+
+/* V171 preview-only projection correction: restore the existing 3-column
+   room-owner layout. V98 two-column rules above overrode the column tracks,
+   while the owner cards still targeted grid column 3. Viewer layout unchanged. */
+@media (orientation:landscape){
+  html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){
+    grid-template-columns:minmax(0,37fr) minmax(0,27fr) minmax(0,36fr)!important;
+    grid-template-rows:38px minmax(0,32fr) minmax(0,68fr)!important;
+    grid-template-areas:"ticker ticker ticker" "status score chart" "status score cash"!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .game-status-card{
+    grid-area:status!important;grid-column:1!important;grid-row:2/4!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .projection-score-panel{
+    grid-area:score!important;grid-column:2!important;grid-row:2/4!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card{
+    grid-area:chart!important;grid-column:3!important;grid-row:2!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .game-cashflow-card{
+    grid-area:cash!important;grid-column:3!important;grid-row:3!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) #playerStats{
+    grid-template-areas:"top top" "left right" "bottom bottom"!important;
+    grid-template-rows:repeat(3,minmax(0,1fr))!important;
+  }
+}
+
 </style>
 
 
