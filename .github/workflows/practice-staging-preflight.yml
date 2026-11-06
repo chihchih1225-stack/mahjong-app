@@ -9,6 +9,8 @@ on:
       - 'tests/practice-staging-preflight.test.mjs'
       - 'scripts/practice-source-manifest.mjs'
       - 'tests/practice-source-manifest.test.mjs'
+      - 'scripts/practice-release-gate.mjs'
+      - 'tests/practice-release-gate.test.mjs'
       - '.github/workflows/practice-staging-preflight.yml'
   pull_request:
     paths:
@@ -16,6 +18,8 @@ on:
       - 'tests/practice-staging-preflight.test.mjs'
       - 'scripts/practice-source-manifest.mjs'
       - 'tests/practice-source-manifest.test.mjs'
+      - 'scripts/practice-release-gate.mjs'
+      - 'tests/practice-release-gate.test.mjs'
       - '.github/workflows/practice-staging-preflight.yml'
   workflow_dispatch:
 
@@ -41,7 +45,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated unit tests
-        run: node --test tests/practice-staging-preflight.test.mjs tests/practice-source-manifest.test.mjs
+        run: node --test tests/practice-staging-preflight.test.mjs tests/practice-source-manifest.test.mjs tests/practice-release-gate.test.mjs
       - name: Record tested commit
         run: echo "Tested commit ${GITHUB_SHA}"
 
