@@ -1,0 +1,44 @@
+name: Practice staging preflight (tests only)
+
+on:
+  push:
+    branches:
+      - feature/practice-room-staging
+    paths:
+      - 'scripts/practice-staging-preflight.mjs'
+      - 'tests/practice-staging-preflight.test.mjs'
+      - '.github/workflows/practice-staging-preflight.yml'
+  pull_request:
+    paths:
+      - 'scripts/practice-staging-preflight.mjs'
+      - 'tests/practice-staging-preflight.test.mjs'
+      - '.github/workflows/practice-staging-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: practice-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight-unit-tests:
+    name: Verify practice preflight checks (no deploy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated unit tests
+        run: node --test tests/practice-staging-preflight.test.mjs
+      - name: Record tested commit
+        run: echo "Tested commit ${GITHUB_SHA}"
+
+# Intentionally no secrets, NAS access, Dropbox credentials, deployment, or release steps.
