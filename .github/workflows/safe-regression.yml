@@ -1,0 +1,22 @@
+name: Safe Mahjong Regression
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'tests/safe-regression.cjs'
+      - '.github/workflows/safe-regression.yml'
+  push:
+    branches:
+      - 'fix/projection-room-delete-20261106'
+jobs:
+  static-regression:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify non-destructive frontend invariants
+        run: node tests/safe-regression.cjs
