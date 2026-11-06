@@ -4941,7 +4941,7 @@ async function applyRoomOwnerControls(){
   // PocketBase 仍會在實際 DELETE 時執行伺服器權限檢查。
   const room=appData?.rooms?.find(r=>r.id===currentRoomId)
   const accountId=pbAuth?.record?.id
-  const isOwner=!!accountId && (room?.owner===accountId || membership?.role==='owner')
+  const isOwner=!!accountId && (room?.owner ? room.owner===accountId : membership?.role==='owner')
   btn.classList.toggle('hidden',!isOwner)
   return isOwner
 }
