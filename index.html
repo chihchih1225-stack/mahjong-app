@@ -4859,6 +4859,23 @@ function queueRemoteConfirmedHand(hand,snapshot){
   return pending
 }
 
+// Check for an existing hand before creating another record. Conflicts fail closed.
+function remoteHandMatches(record,payload){
+  return String(record?.session||'')===String(payload.session) &&
+    Number(record?.hand_number)===Number(payload.hand_number) &&
+    String(record?.result||'')===String(payload.result) &&
+    String(record?.winner||'')===String(payload.winner) &&
+    String(record?.discarder||'')===String(payload.discarder) &&
+    Number(record?.tai||0)===Number(payload.tai) &&
+    String(record?.dealer||'')===String(payload.dealer) &&
+    JSON.stringify(record?.payments||{})===JSON.stringify(payload.payments||{})
+}
+async function findRemoteHandForSlot(sessionId,handNo){
+  const filter=encodeURIComponent('session="'+pbFilterValue(sessionId)+'" && hand_number='+Number(handNo))
+  const data=await pbRequest('/api/collections/game_hands/records?perPage=3&filter='+filter)
+  return data.items||[]
+}
+
 async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
   const sessionId=committedSnapshot?.sessionId??remoteSessionId
   const recordedBy=committedSnapshot?.recordedBy??pbAuth?.record?.id
@@ -4877,7 +4894,20 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
       patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
       recorded_by:recordedBy,recorded_at:new Date().toISOString()
     }
-    await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+    const existing=await findRemoteHandForSlot(sessionId,handNo)
+    if(existing.length>1 || (existing.length===1 && !remoteHandMatches(existing[0],payload))){
+      return {ok:false,reason:'remote_hand_conflict',handNumber:handNo}
+    }
+    if(existing.length===0){
+      try{
+        await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+      }catch(writeError){
+        // The server may have committed a POST before the connection failed.
+        // Read back before deciding whether a retry is safe.
+        const afterError=await findRemoteHandForSlot(sessionId,handNo)
+        if(afterError.length!==1 || !remoteHandMatches(afterError[0],payload)) throw writeError
+      }
+    }
     handCreated=true
 
 
