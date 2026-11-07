@@ -13478,14 +13478,14 @@ html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-head{f
 
 <style id="projection-iphone-compact-20261107">
 /* Restore the approved 20:45 three-column composition; remove the unused upper-right area. */
-@media (orientation:landscape) and (max-height:500px) {
+@media (orientation:landscape) {
 html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){
  display:grid!important;box-sizing:border-box!important;
  width:100%!important;max-width:100%!important;
  height:100dvh!important;min-height:0!important;max-height:100dvh!important;
  padding:6px calc(8px + env(safe-area-inset-right)) 6px calc(8px + env(safe-area-inset-left))!important;
  grid-template-columns:minmax(0,37fr) minmax(0,30fr) minmax(0,33fr)!important;
- grid-template-rows:38px minmax(0,1fr)!important;
+ grid-template-rows:38px minmax(0,1fr)!important;grid-auto-rows:0!important;align-content:stretch!important;
  grid-template-areas:"ticker ticker ticker" "status score cash"!important;
  gap:7px!important;overflow:hidden!important;align-items:stretch!important;
 }
@@ -13494,7 +13494,7 @@ html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-ticker
  min-height:38px!important;height:38px!important;padding-right:170px!important;pointer-events:none!important;
 }
 html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card{
- grid-area:status!important;grid-column:1!important;grid-row:2!important;
+ grid-area:status!important;grid-column:1!important;grid-row:2!important;grid-row-end:3!important;
  display:flex!important;flex-direction:column!important;justify-content:flex-start!important;
  min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;
  padding:7px 10px!important;overflow:auto!important;
@@ -13503,13 +13503,13 @@ html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #playerStats
  min-height:0!important;max-height:none!important;overflow:visible!important;
 }
 html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{
- grid-area:score!important;grid-column:2!important;grid-row:2!important;
+ grid-area:score!important;grid-column:2!important;grid-row:2!important;grid-row-end:3!important;
  display:flex!important;flex-direction:column!important;justify-content:flex-start!important;
  min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;
  padding:7px 10px!important;overflow:auto!important;
 }
 html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{
- grid-area:cash!important;grid-column:3!important;grid-row:2!important;
+ grid-area:cash!important;grid-column:3!important;grid-row:2!important;grid-row-end:3!important;
  min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;
  padding:9px 11px!important;overflow:auto!important;align-self:stretch!important;
 }
@@ -13523,6 +13523,12 @@ html body #game.projection-mode:not(.hidden) #projectionExitBtn{
  padding:0 12px!important;margin:0!important;border-radius:14px!important;
  font-size:16px!important;line-height:1!important;white-space:nowrap!important;
  touch-action:manipulation!important;pointer-events:auto!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-chart-card{display:none!important;position:absolute!important;visibility:hidden!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card,
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel,
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{
+ grid-row-start:2!important;grid-row-end:3!important;align-self:stretch!important;
 }
 }
 </style>
