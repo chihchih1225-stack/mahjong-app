@@ -12203,7 +12203,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V177'
+  const APP_VERSION='V178'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13611,6 +13611,23 @@ html body #game.projection-mode:not(.hidden) .projection-result-row button{heigh
 html body #game.projection-mode:not(.hidden) .projection-tai-row button{height:clamp(34px,4vw,52px)!important;font-size:clamp(13px,1.4vw,20px)!important}
 html body #game.projection-mode:not(.hidden) .projection-save-hand{min-height:48px!important;font-size:clamp(16px,1.6vw,23px)!important}
 html body #game.projection-mode:not(.hidden) #projectionLatestHand{display:block!important;margin-top:14px!important;padding:12px!important;background:#fff9f2!important;border:1px solid #e9ded6!important;border-radius:12px!important;font-size:clamp(12px,1.1vw,17px)!important;line-height:1.5!important;overflow-wrap:anywhere!important}
+</style>
+<style id="projection-v178-time-and-readable-cross">
+html body #game.projection-mode:not(.hidden) #gameTimeBar{display:flex!important;position:absolute!important;top:49px!important;left:10px!important;right:110px!important;z-index:200!important;width:auto!important;height:30px!important;gap:6px!important;justify-content:flex-start!important;align-items:center!important;transform:none!important;margin:0!important;padding:0!important;overflow:visible!important}
+html body #game.projection-mode:not(.hidden) #gameTimeBar .game-time-chip{font-size:clamp(10px,1vw,15px)!important;padding:4px 8px!important;white-space:nowrap!important}
+html body #game.projection-mode:not(.hidden) .game-status-card,
+html body #game.projection-mode:not(.hidden) .projection-score-panel,
+html body #game.projection-mode:not(.hidden) .game-cashflow-card{top:87px!important;bottom:8px!important}
+html body #game.projection-mode:not(.hidden) .game-status-card{display:flex!important;flex-direction:column!important;gap:0!important;padding:8px!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden) .game-status-card .live-head{flex:0 0 auto!important;margin:0 0 4px!important;padding:0!important;min-height:0!important}
+html body #game.projection-mode:not(.hidden) #playerStats{display:grid!important;flex:1 1 auto!important;min-height:0!important;margin:0!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(3,minmax(0,1fr))!important;grid-template-areas:"top top" "left right" "bottom bottom"!important;gap:4px 7px!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card{position:relative!important;inset:auto!important;transform:none!important;min-height:0!important;max-height:100%!important;height:100%!important;box-sizing:border-box!important;padding:4px!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-top,
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-bottom{width:80%!important;max-width:80%!important;justify-self:center!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-content{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;justify-content:center!important;align-items:center!important;align-content:center!important;gap:2px 7px!important;position:relative!important;width:100%!important;min-width:0!important;padding:2px!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-wind{flex:0 0 100%!important;font-size:clamp(9px,.8vw,12px)!important;text-align:center!important;margin:0!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-name{flex:0 1 auto!important;font-size:clamp(12px,1.1vw,18px)!important;line-height:1.2!important;min-width:0!important;white-space:normal!important;word-break:keep-all!important}
+html body #game.projection-mode:not(.hidden) #playerStats .current-money{flex:0 0 auto!important;font-size:clamp(12px,1.15vw,19px)!important;white-space:nowrap!important;word-break:normal!important;overflow-wrap:normal!important;line-height:1.2!important}
 </style>
 </body>
 </html>
