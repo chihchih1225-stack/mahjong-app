@@ -12203,7 +12203,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V179'
+  const APP_VERSION='V180'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13647,6 +13647,38 @@ html body #game.projection-mode:not(.hidden) #cashflowMatrix{width:100%!importan
 html body #game.projection-mode:not(.hidden) .cashflow-table{width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;border-collapse:separate!important;border-spacing:2px!important;box-sizing:border-box!important}
 html body #game.projection-mode:not(.hidden) .cashflow-table th,
 html body #game.projection-mode:not(.hidden) .cashflow-table td{box-sizing:border-box!important;min-width:0!important;max-width:0!important;padding:3px 1px!important;overflow:hidden!important;overflow-wrap:anywhere!important;word-break:normal!important;font-size:clamp(9px,1vw,15px)!important;line-height:1.15!important}
+</style>
+<style id="projection-v180-one-row-and-fixed-controls">
+/* One top bar: time chips share the ticker line, without a second header row. */
+html body #game.projection-mode:not(.hidden) #gameTimeBar{display:flex!important;position:absolute!important;left:12px!important;top:12px!important;right:auto!important;width:auto!important;max-width:43%!important;height:30px!important;z-index:220!important;gap:4px!important;overflow:hidden!important;white-space:nowrap!important}
+html body #game.projection-mode:not(.hidden) #gameTimeBar .game-time-chip{font-size:clamp(9px,.85vw,13px)!important;padding:4px 5px!important;white-space:nowrap!important}
+html body #game.projection-mode:not(.hidden) .live-ticker-wrap{position:absolute!important;top:6px!important;left:8px!important;right:105px!important;height:42px!important;padding-left:44%!important;padding-right:0!important;overflow:hidden!important;box-sizing:border-box!important}
+html body #game.projection-mode:not(.hidden) .live-ticker-track{white-space:nowrap!important}
+html body #game.projection-mode:not(.hidden) .game-status-card,
+html body #game.projection-mode:not(.hidden) .projection-score-panel,
+html body #game.projection-mode:not(.hidden) .game-cashflow-card{top:57px!important;bottom:8px!important;height:auto!important;max-height:none!important}
+html body #game.projection-mode:not(.hidden) .projection-score-panel{display:flex!important;flex-direction:column!important;gap:clamp(4px,.7vh,9px)!important;padding:8px 10px!important;overflow:hidden!important;justify-content:flex-start!important;min-height:0!important}
+html body #game.projection-mode:not(.hidden) .projection-score-panel > *{flex-shrink:0!important;min-height:0!important;margin-top:0!important;margin-bottom:0!important}
+html body #game.projection-mode:not(.hidden) .projection-score-title{font-size:clamp(15px,1.45vw,22px)!important;line-height:1.2!important}
+html body #game.projection-mode:not(.hidden) .projection-result-row,
+html body #game.projection-mode:not(.hidden) .projection-tai-row{display:grid!important;align-items:stretch!important;gap:5px!important;min-height:0!important}
+html body #game.projection-mode:not(.hidden) .projection-result-row{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+html body #game.projection-mode:not(.hidden) .projection-tai-row{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+html body #game.projection-mode:not(.hidden) .projection-result-row button{height:clamp(34px,9vh,65px)!important;min-height:0!important;padding:2px!important;font-size:clamp(12px,1.35vw,20px)!important}
+html body #game.projection-mode:not(.hidden) .projection-tai-row button{height:clamp(32px,8vh,55px)!important;min-height:0!important;padding:2px!important;font-size:clamp(12px,1.3vw,19px)!important}
+html body #game.projection-mode:not(.hidden) .projection-tai-row b{display:flex!important;align-items:center!important;justify-content:center!important;font-size:clamp(12px,1.25vw,19px)!important}
+html body #game.projection-mode:not(.hidden) .projection-pattern-row{min-height:0!important}
+html body #game.projection-mode:not(.hidden) .projection-pattern-row button{min-height:30px!important;padding:4px 7px!important}
+html body #game.projection-mode:not(.hidden) .projection-calc-preview{flex:1 1 auto!important;min-height:28px!important;max-height:none!important;overflow:hidden!important;padding:7px!important;font-size:clamp(11px,1.15vw,17px)!important;line-height:1.25!important}
+html body #game.projection-mode:not(.hidden) .projection-save-hand{height:clamp(42px,10vh,70px)!important;min-height:0!important;padding:3px!important;font-size:clamp(16px,1.7vw,24px)!important}
+html body #game.projection-mode:not(.hidden) #projectionLatestHand{flex:0 1 auto!important;max-height:20%!important;min-height:0!important;overflow:hidden!important;margin-top:0!important;padding:6px 8px!important;font-size:clamp(10px,1vw,15px)!important;line-height:1.25!important}
+@media(max-height:520px){
+ html body #game.projection-mode:not(.hidden) .projection-score-panel{gap:3px!important;padding:5px 8px!important}
+ html body #game.projection-mode:not(.hidden) .projection-result-row button{height:34px!important}
+ html body #game.projection-mode:not(.hidden) .projection-tai-row button{height:32px!important}
+ html body #game.projection-mode:not(.hidden) .projection-save-hand{height:40px!important}
+ html body #game.projection-mode:not(.hidden) #projectionLatestHand{max-height:17%!important;padding:4px!important}
+}
 </style>
 </body>
 </html>
