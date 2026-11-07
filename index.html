@@ -6367,6 +6367,7 @@ function renderCashflowMatrix(){
   // A→B 與 B→A 各自保留，絕不互抵；只在連打總結算後才歸零。
   const order=(Array.isArray(seats)&&seats.length===P.length&&seats.every(n=>P.includes(n)))?[...seats]:[...P]
   const matrix=buildCashflowMatrix(hands,order)
+  // V183：提款機沿用完整帳本，但當將畫面只呈現目前四位玩家。
   // 列為玩家視角；正值＝從對方淨贏，負值＝淨輸。
   const net=Object.fromEntries(order.map(p=>[p,order.reduce((sum,other)=>sum+Number(matrix[other]?.[p]||0)-Number(matrix[p]?.[other]||0),0)]))
 
@@ -8704,7 +8705,7 @@ function showSeriesSettlement(){
   const modal=document.getElementById('seriesSettlementModal')
   const content=document.getElementById('seriesSettlementContent')
   if(!modal||!content) return
-  if(!Array.isArray(P)||P.length!==4){
+  if(!Object.keys(balances||{}).length){
     content.innerHTML='<div class="notice">目前沒有可結算的連打資料。</div>'
     modal.classList.remove('hidden')
     return
