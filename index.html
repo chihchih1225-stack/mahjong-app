@@ -8739,7 +8739,7 @@ function showSeriesSettlement(){
 function closeSeriesSettlement(){
   document.getElementById('seriesSettlementModal')?.classList.add('hidden')
 }
-async async function finishSeriesSettlement(){
+async function finishSeriesSettlement(){
   const total=Object.values(balances).reduce((sum,value)=>sum+Number(value||0),0)
   if(total!==0){
     alert('今晚所有玩家的累積金額加總不是 0，請先檢查，不能完成收付。')
