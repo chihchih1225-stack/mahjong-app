@@ -8624,7 +8624,14 @@ async function finishDetailedGame(){
 
 
   seriesGameCount=Math.max(0,Number(seriesGameCount||0))+1
-  clearActiveGame()
+  // V183：本將已成功結案，但整晚尚未結算；保留可恢復的「將間」檢查點。
+  // 只在遠端結案確認後建立，避免未同步成功的牌局被誤認為已完成。
+  try{
+    const checkpoint=activeGameSnapshot()
+    checkpoint.resumeStage='done'
+    localStorage.setItem(ACTIVE_GAME_KEY,JSON.stringify(checkpoint))
+    renderResumeGameCard()
+  }catch(e){ console.error('V183：將間結算檢查點保存失敗',e) }
   show('done')
 
 
@@ -9461,6 +9468,14 @@ function resumeActiveGame(){
   seriesId=g.seriesId||makeId('series'); seriesGameCount=Number(g.seriesGameCount||0); seriesStartedAt=g.seriesStartedAt||g.savedAt||new Date().toISOString()
   gameStartedAt=g.gameStartedAt||g.savedAt||new Date().toISOString(); gameEndedAt=g.gameEndedAt||''
   tai=0; winner=''; discarder=''; result='胡牌'; fraudTai={}; selectedPatterns=[]
+  if(g.resumeStage==='done'){
+    // V183：恢復已完成的一將，允許換人或今晚結算，不能重送結案。
+    sessionSaved=true
+    const summary=document.getElementById('doneSummary')
+    if(summary) summary.innerHTML=P.map(name=>`<div class="rank-row"><b>${escapeHtml(name)}</b><b>${money(Number(balances[name]||0)-Number(sessionOpeningBalances[name]||0))}</b></div>`).join('')
+    show('done')
+    return
+  }
   if(g.resumeStage==='seat'){
     // V183：換人後尚未抽位時，恢復到抽位頁而非錯誤地進入計分頁。
     dealer=''; seats=[]; drawPool=[]; drawTurn=0; drawAssignments={}; drawOrder=[]
