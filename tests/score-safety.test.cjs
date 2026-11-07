@@ -129,6 +129,12 @@ assert(html.includes('void queueRemoteConfirmedHand(hand,remoteHandSnapshot)'),'
 assert(html.includes('remoteHandSyncQueue.then(()=>syncRemoteConfirmedHand(hand,snapshot))'),'remote writes are serialized');
 assert(html.includes('remoteHandSyncQueue=pending.then(()=>undefined,()=>undefined)'),'failed remote writes do not block later queued writes');
 assert(sync.includes('committedSnapshot?.handNumber??hands.length'),'remote hand number uses frozen value');
+assert(sync.includes('committedSnapshot?.sessionId??remoteSessionId'),'queued write preserves original session');
+assert(sync.includes('committedSnapshot?.roomId??currentRoomId'),'queued write preserves original room');
+assert(sync.includes('committedSnapshot?.recordedBy??pbAuth?.record?.id'),'queued write preserves recorder');
+assert(sync.includes('session:sessionId,hand_number:handNo'),'hand payload uses captured session');
+assert(sync.includes('encodeURIComponent(sessionId)'),'session PATCH uses captured session');
+assert(html.includes('sessionId:remoteSessionId,'),'save captures session identity');
 assert(sync.includes('committedSnapshot?.balancesAfter||balances'),'remote balances use frozen value');
 assert(sync.includes('committedSnapshot?.cashflowSnapshot||buildCashflowMatrix'),'remote cashflow uses frozen value');
 assert(sync.includes('committedSnapshot?.nextHandNumber??(hands.length+1)'),'remote session hand number uses frozen value');
