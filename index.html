@@ -5626,7 +5626,7 @@ function v183MidgameEntry(){
   if(repeat===null)return
   if(!/^\\d+$/.test(repeat.trim())||Number(repeat)>99){alert('連莊次數不正確');return}
   v183MidgamePending={values:values.map(Number),roundIndex:index-1,repeats:Number(repeat)}
-  if(!window.confirm('確認帶入中途金額並開始記錄？之前未記錄的把數不會計入胡牌統計。'))return
+  if(!window.confirm('確認帶入中途金額並開始記錄？之前未記錄的把數不會計入胡牌統計。')){v183MidgamePending=null;return}
   confirmDealer()
 }
 async function confirmDealer(){
