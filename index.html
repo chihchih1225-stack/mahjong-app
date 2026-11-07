@@ -5509,7 +5509,7 @@ function changeManualSeat(index,player){
 function goDealer(){
 
 
-  if(seats.length!==4){
+  if(seats.length!==4 || seats.some(p=>!P.includes(p)) || new Set(seats).size!==4){
 
 
     alert('請先完成選位')
@@ -5535,7 +5535,7 @@ function goDealer(){
 
         <button
           class="dealer-choice"
-          onclick="selectDealer('${player}',${index},this)"
+          onclick="selectDealer(seats[${index}],${index},this)"
         >
 
 
@@ -5544,7 +5544,7 @@ function goDealer(){
           </b>
 
 
-          ・${player}
+          ・${escapeHtml(player)}
 
 
         </button>
@@ -5555,8 +5555,8 @@ function goDealer(){
 
   document.getElementById('recorderChoices').innerHTML=
     seats.map((player,index)=>`
-      <button class="dealer-choice recorder-choice" onclick="selectRecorder('${player}',this)">
-        <b>${winds[index]}位</b>・${player}
+      <button class="dealer-choice recorder-choice" onclick="selectRecorder(seats[${index}],this)">
+        <b>${winds[index]}位</b>・${escapeHtml(player)}
       </button>
     `).join('')
 
