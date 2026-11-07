@@ -84,6 +84,15 @@ assert.equal(cashScope.seriesCashflowLedger['甲']['乙'],0,'undo removes revers
 assert.equal(cashScope.seriesCashflowLedger['乙']['甲'],120,'undo preserves earlier payment');
 assert.equal(cashScope.seriesCashflowBase['甲']['乙'],0,'base stays synchronized');
 console.log('PASS: undo cashflow rollback preserves prior hands.');
+// Repeating the undo must not change the ledger when there is no matching transfer left.
+vm.runInContext('rollbackHandFromCashflowLedger(hands[1])',cashScope);
+assert.equal(cashScope.seriesCashflowLedger['甲']['乙'],0,'duplicate undo cannot create a negative transfer');
+// Undo the remaining hand and confirm the ledger is empty.
+vm.runInContext('rollbackHandFromCashflowLedger(hands[0])',cashScope);
+assert.equal(cashScope.seriesCashflowLedger['乙']['甲'],0,'undo first hand removes its transfer');
+assert.equal(cashScope.seriesCashflowBase['乙']['甲'],0,'base reflects full rollback');
+console.log('PASS: duplicate rollback guard and full local cashflow rollback.');
+
 
 
 console.log('PASS: static scoring safeguards; remote sync/undo requires integration testing.');
