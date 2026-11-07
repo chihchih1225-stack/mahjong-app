@@ -2124,6 +2124,13 @@ main{padding-bottom:74px}
 #roomDashboard .room-dashboard-actions .nav-action{min-height:38px;padding:8px 9px;font-size:12px;white-space:nowrap}
 #roomDashboard .room-dashboard-actions #deleteRoomBtn{grid-column:2;grid-row:2;justify-self:end;margin:0!important;padding:6px 9px;min-height:32px;font-size:12px;white-space:nowrap}
 @media(max-width:390px){#roomDashboard .room-dashboard-header{gap:5px}#roomDashboard .room-dashboard-actions{gap:5px}#roomDashboard .room-dashboard-actions .nav-action{font-size:11px;padding:7px 6px;min-height:36px}#roomDashboard .room-dashboard-actions #deleteRoomBtn{font-size:11px;padding:5px 7px}}
+
+/* 2026-11-07 投影操作易讀性：僅影響投影，正式計分資料不變 */
+html body #game.projection-mode .game-chart-card{display:none!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview{font-size:clamp(16px,1.7vw,25px)!important;line-height:1.55!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;min-height:74px!important;padding:12px!important;overflow-wrap:anywhere!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row button{min-height:48px!important;height:auto!important;font-size:clamp(15px,1.4vw,21px)!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row b{font-size:clamp(16px,1.5vw,23px)!important}
+html body #game.projection-mode .game-cashflow-card{min-width:0!important}
 </style>
 
 
