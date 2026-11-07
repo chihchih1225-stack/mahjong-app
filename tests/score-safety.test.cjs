@@ -19,4 +19,31 @@ const sync=between('async function syncRemoteConfirmedHand(hand){','async functi
 assert(sync.includes("method:'POST'"));
 assert(sync.includes("method:'PATCH'"));
 assert(sync.includes('catch(e)')); // Known risk: catch currently swallows sync failures.
+
+const vm=require('node:vm');
+const extract=(a,b)=>between(a,b).replace(/\\n$/,'');
+const scope={P:['甲','乙','丙','丁'],winner:'',discarder:'',result:'胡牌',tai:0,handTaiExplicitlySelected:false,liveViewerMode:false};
+vm.createContext(scope);
+vm.runInContext(extract('function canAutoRecordCurrentHand(){','function saveHand(){'),scope);
+const can=()=>vm.runInContext('canAutoRecordCurrentHand()',scope);
+assert.equal(can(),false,'no selected tai or winner');
+scope.handTaiExplicitlySelected=true;
+scope.winner='甲';
+scope.discarder='乙';
+assert.equal(can(),true,'complete discard win');
+scope.discarder='甲';
+assert.equal(can(),false,'winner cannot discard to self');
+scope.result='自摸';
+scope.discarder='';
+assert.equal(can(),true,'self draw needs no discarder');
+scope.handTaiExplicitlySelected=false;
+assert.equal(can(),false,'fresh tai selection required');
+scope.handTaiExplicitlySelected=true;
+scope.tai=-1;
+assert.equal(can(),false,'negative tai rejected');
+scope.tai=0;
+scope.liveViewerMode=true;
+assert.equal(can(),false,'viewer cannot auto record');
+console.log('PASS: auto-record completeness scenarios.');
+
 console.log('PASS: static scoring safeguards; remote sync/undo requires integration testing.');
