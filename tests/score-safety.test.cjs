@@ -9,6 +9,9 @@ assert(!html.includes('onclick="setStake(\'200/50\',this)"'));
 assert(html.includes('function startManualSeats()'));
 assert(html.includes('function changeManualSeat(index,player)'));
 assert(html.includes('function canAutoRecordCurrentHand()'));
+assert(html.includes("if(seats.length!==4 || seats.some(p=>!P.includes(p)) || new Set(seats).size!==4){"),'dealer setup rejects duplicate or invalid seats');
+assert(html.includes('selectDealer(seats['),'dealer choice uses seat index');
+
 const auto=between('function canAutoRecordCurrentHand(){','function saveHand(){');
 for(const token of ['handTaiExplicitlySelected','discarder!==winner','result===\'自摸\'']) assert(auto.includes(token));
 const cash=between('function renderCashflowMatrix(){','function cashflowReconciles(){');
