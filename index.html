@@ -2131,6 +2131,10 @@ html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview{
 html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row button{min-height:48px!important;height:auto!important;font-size:clamp(15px,1.4vw,21px)!important}
 html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row b{font-size:clamp(16px,1.5vw,23px)!important}
 html body #game.projection-mode .game-cashflow-card{min-width:0!important}
+
+/* 提款機正負數：僅變更顯示，沿用原始付款帳本 */
+html body #game .cashflow-table td.pos{color:#27845a!important;font-weight:800!important}
+html body #game .cashflow-table td.neg{color:#c64f62!important;font-weight:800!important}
 </style>
 
 
@@ -6283,12 +6287,11 @@ function renderCashflowMatrix(){
   // A→B 與 B→A 各自保留，絕不互抵；只在連打總結算後才歸零。
   const order=(Array.isArray(seats)&&seats.length===P.length&&seats.every(n=>P.includes(n)))?[...seats]:[...P]
   const matrix=buildCashflowMatrix(hands,order)
-  const paid=Object.fromEntries(order.map(a=>[a,order.reduce((sum,b)=>sum+Number(matrix[a]?.[b]||0),0)]))
-  const received=Object.fromEntries(order.map(b=>[b,order.reduce((sum,a)=>sum+Number(matrix[a]?.[b]||0),0)]))
-  const net=Object.fromEntries(order.map(p=>[p,Number(received[p]||0)-Number(paid[p]||0)]))
+  // 列為玩家視角；正值＝從對方淨贏，負值＝淨輸。
+  const net=Object.fromEntries(order.map(p=>[p,order.reduce((sum,other)=>sum+Number(matrix[other]?.[p]||0)-Number(matrix[p]?.[other]||0),0)]))
 
 
-  let html='<div class="cashflow-scroll"><table class="cashflow-table"><thead><tr><th>付款 ↓ / 收款 →</th>'
+  let html='<div class="cashflow-scroll"><table class="cashflow-table"><thead><tr><th>玩家 ↓ / 對手 →</th>'
   html+=order.map(p=>`<th>${escapeHtml(p)}</th>`).join('')
   html+='<th>合計</th></tr></thead><tbody>'
 
@@ -6297,8 +6300,8 @@ function renderCashflowMatrix(){
     html+=`<tr><th class="cashflow-rowname">${escapeHtml(from)}</th>`
     order.forEach(to=>{
       if(from===to){html+='<td class="cashflow-zero">—</td>';return}
-      const v=Number(matrix[from]?.[to]||0)
-      html+=`<td class="${v?'cashflow-pay':'cashflow-zero'}">${v?'$'+v.toLocaleString():'—'}</td>`
+      const v=Number(matrix[to]?.[from]||0)-Number(matrix[from]?.[to]||0)
+      html+=`<td class="${v>0?'pos':v<0?'neg':'cashflow-zero'}">${v>0?'+':''}${v.toLocaleString()}</td>`
     })
     const n=Number(net[from]||0)
     html+=`<td class="cashflow-total ${n>0?'pos':n<0?'neg':''}">${n>0?'+':''}$${n.toLocaleString()}</td></tr>`
@@ -6306,7 +6309,7 @@ function renderCashflowMatrix(){
 
 
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">提款機由計分端依每一把實際付款累積完整「誰付誰」矩陣，並同步給直播／投影；最右側合計＝收到－付出，與計分水位對帳。按「繼續下一將」不歸零，完成「連打總結算」才重新開始。</div>'
+  html+='<div class="cashflow-note">提款機由每一把實際付款計算兩人之間的淨輸贏：綠色正數為列玩家贏對手，紅色負數為列玩家輸對手；最右側合計與計分水位對帳。按「繼續下一將」不歸零，完成「連打總結算」才重新開始。</div>'
 
 
   const mismatch=order.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
