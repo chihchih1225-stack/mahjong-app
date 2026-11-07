@@ -12203,7 +12203,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V173'
+  const APP_VERSION='V174'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13520,31 +13520,42 @@ html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-cashflow-car
 <style id="projection-exit-touch-target-20261107">
 body #game.projection-mode #projectionExitBtn{position:fixed!important;top:calc(8px + env(safe-area-inset-top))!important;right:calc(12px + env(safe-area-inset-right))!important;left:auto!important;bottom:auto!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;min-width:148px!important;min-height:44px!important;padding:0 12px!important;border-radius:14px!important;font-size:16px!important;touch-action:manipulation!important;pointer-events:auto!important}
 </style>
-<script>
-/* projector layout runtime lock 20261107 - V173 */
-(function(){
- const style=document.createElement('style');style.id='projection-v173-final';style.textContent=`
- html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){display:grid!important;grid-template-columns:minmax(0,37fr) minmax(0,30fr) minmax(0,33fr)!important;grid-template-rows:38px minmax(0,1fr)!important;grid-template-areas:"ticker ticker ticker" "status score cash"!important;grid-auto-rows:0!important;align-content:stretch!important}
- html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #gameTimeBar{position:absolute!important;top:10px!important;left:16px!important;z-index:20!important;grid-area:auto!important}
- html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card{grid-area:status!important;grid-column:1!important;grid-row:2!important;overflow:auto!important;height:100%!important;min-height:0!important;max-height:100%!important}
- html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{grid-area:score!important;grid-column:2!important;grid-row:2!important;overflow:auto!important;height:100%!important;min-height:0!important;max-height:100%!important}
- html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{grid-area:cash!important;grid-column:3!important;grid-row:2!important;overflow:auto!important;height:100%!important;min-height:0!important;max-height:100%!important}
- html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-ticker-wrap{grid-area:ticker!important;grid-column:1/-1!important;grid-row:1!important}
- html body #game.projection-mode:not(.hidden) .game-chart-card{display:none!important}
- `;document.head.appendChild(style);
- function lock(){
- const g=document.getElementById('game');if(!g||!g.classList.contains('projection-mode')||g.classList.contains('live-viewer-mode'))return;
- const set=(el,obj)=>{if(!el)return;for(const [k,v] of Object.entries(obj))el.style.setProperty(k,v,'important')};
- set(g,{'display':'grid','grid-template-columns':'minmax(0,37fr) minmax(0,30fr) minmax(0,33fr)','grid-template-rows':'38px minmax(0,1fr)','grid-template-areas':'"ticker ticker ticker" "status score cash"','grid-auto-rows':'0px'});
- set(g.querySelector('#gameTimeBar'),{'position':'absolute','top':'10px','left':'16px','grid-area':'auto'});
- for(const [sel,col,area] of [['.game-status-card',1,'status'],['.projection-score-panel',2,'score'],['.game-cashflow-card',3,'cash']])set(g.querySelector(sel),{'grid-area':area,'grid-column':String(col),'grid-row':'2 / 3','height':'100%','max-height':'100%','min-height':'0','overflow':'auto'});
- set(g.querySelector('.live-ticker-wrap'),{'grid-area':'ticker','grid-column':'1 / -1','grid-row':'1'});
- set(g.querySelector('.game-chart-card'),{'display':'none'});
- }
- const original=window.toggleProjectionMode;if(typeof original==='function')window.toggleProjectionMode=function(){const x=original.apply(this,arguments);requestAnimationFrame(lock);return x};
- window.addEventListener('resize',lock);setTimeout(lock,0);
-})();
-</script>
+<style id="projection-v174-positioned-columns">
+/* Use direct positioning: legacy grid placement cannot move the three panels. */
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){
+ position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;
+ max-width:none!important;max-height:none!important;min-height:0!important;
+ padding:0!important;margin:0!important;display:block!important;overflow:hidden!important;
+ box-sizing:border-box!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card,
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel,
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{
+ position:absolute!important;top:54px!important;bottom:8px!important;
+ height:auto!important;max-height:none!important;min-height:0!important;
+ margin:0!important;box-sizing:border-box!important;overflow:auto!important;
+ transform:none!important;float:none!important;grid-area:auto!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card{left:8px!important;width:calc(37% - 12px)!important;right:auto!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{left:37%!important;width:calc(30% - 8px)!important;right:auto!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{left:67%!important;right:8px!important;width:auto!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-ticker-wrap{
+ position:absolute!important;top:6px!important;left:8px!important;right:8px!important;
+ width:auto!important;height:40px!important;min-height:40px!important;margin:0!important;
+ padding-right:165px!important;box-sizing:border-box!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #gameTimeBar{display:none!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-chart-card,
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-trend-card,
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-entry-card{display:none!important}
+html body #game.projection-mode:not(.hidden) #projectionExitBtn{
+ position:fixed!important;z-index:2147483647!important;top:5px!important;
+ right:calc(10px + env(safe-area-inset-right))!important;left:auto!important;
+ width:146px!important;height:46px!important;min-height:46px!important;
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ pointer-events:auto!important;touch-action:manipulation!important;
+}
+</style>
 </body>
 </html>
 
