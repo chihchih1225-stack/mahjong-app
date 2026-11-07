@@ -5491,7 +5491,7 @@ function renderManualSeats(){
   const el=document.getElementById('seatResult')
   if(!el)return
   const options=(windIndex)=>'<option value="">選擇玩家</option>'+P.map(p=>'<option value="'+escapeHtml(p)+'" '+(seats[windIndex]===p?'selected':'')+' '+(seats.includes(p)&&seats[windIndex]!==p?'disabled':'')+'>'+escapeHtml(p)+'</option>').join('')
-  el.innerHTML='<div class="notice">請為東、南、西、北各指定一位玩家。</div><div class="seat-list">'+winds.map((wind,i)=>'<div class="seat-line"><span class="wind">'+escapeHtml(wind)+'</span><select aria-label="'+escapeHtml(wind)+'風玩家" onchange="changeManualSeat('+i+',this.value)" style="flex:1;min-width:0;padding:10px;border-radius:10px">'+options(i)+'</select></div>').join('')+'</div>'
+  el.innerHTML='<div class="manual-seat-help">依照座位選擇玩家，每人只能選一次</div><div class="manual-seat-grid">'+winds.map((wind,i)=>'<label class="manual-seat-tile '+(seats[i]?'is-selected':'')+'"><span class="manual-seat-heading"><span class="manual-seat-wind">'+escapeHtml(wind)+'</span><span>'+escapeHtml(wind)+'風</span></span><select class="manual-seat-select" aria-label="'+escapeHtml(wind)+'風玩家" onchange="changeManualSeat('+i+',this.value)">'+options(i)+'</select></label>').join('')+'</div>'
 }
 function changeManualSeat(index,player){
   if(player && seats.some((p,i)=>i!==index&&p===player))return
@@ -13476,6 +13476,45 @@ html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-chart-card{
   visibility:hidden!important;
   grid-area:auto!important;
 }
+</style>
+<style id="projection-layout-and-seats-20261107">
+/* Preserve the three useful projector columns and give the ATM the full height. */
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){
+ grid-template-columns:minmax(0,37fr) minmax(0,30fr) minmax(0,33fr)!important;
+ grid-template-rows:38px minmax(0,1fr)!important;
+ grid-template-areas:"ticker ticker ticker" "status score cash"!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card{
+ grid-area:status!important;grid-column:1!important;grid-row:2!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{
+ grid-area:score!important;grid-column:2!important;grid-row:2!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{
+ grid-area:cash!important;grid-column:3!important;grid-row:2!important;
+ height:100%!important;max-height:100%!important;min-height:0!important;
+ overflow:auto!important;align-self:stretch!important;
+}
+html body #game.live-viewer-mode.projection-mode:not(.hidden){
+ grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+ grid-template-rows:38px minmax(0,1fr)!important;
+ grid-template-areas:"ticker ticker" "status cash"!important;
+}
+html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-cashflow-card{
+ grid-area:cash!important;grid-column:2!important;grid-row:2!important;height:100%!important;
+}
+/* Compact iPhone manual seating: directional colored chips and clean tap targets. */
+#seatResult .manual-seat-help{margin:10px 0 14px;color:#827781;font-size:13px;text-align:center}
+#seatResult .manual-seat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#seatResult .manual-seat-tile{min-width:0;border:1px solid #eadfe5;background:#fff;border-radius:18px;padding:12px;box-shadow:0 3px 12px #5544540b}
+#seatResult .manual-seat-heading{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-weight:850;color:#554e58}
+#seatResult .manual-seat-wind{display:inline-grid;place-items:center;width:33px;height:33px;border-radius:12px;background:#e0f2e9;color:#45876d;font-size:18px}
+#seatResult .manual-seat-tile:nth-child(2) .manual-seat-wind{background:#ffe8dd;color:#bc785a}
+#seatResult .manual-seat-tile:nth-child(3) .manual-seat-wind{background:#e6edff;color:#6a86b5}
+#seatResult .manual-seat-tile:nth-child(4) .manual-seat-wind{background:#f1e6fb;color:#9a78b2}
+#seatResult .manual-seat-select{width:100%;max-width:100%;min-width:0;height:45px;padding:0 8px;border:1px solid #e8e0e7;border-radius:12px;background:#f9f7f9;color:#4d4650;font-size:15px;font-weight:700}
+#seatResult .manual-seat-tile.is-selected{border-color:#a4d7c1;background:#f7fffb}
+@media(max-width:370px){#seatResult .manual-seat-grid{gap:7px}#seatResult .manual-seat-tile{padding:9px}#seatResult .manual-seat-select{font-size:13px}}
 </style>
 </body>
 </html>
