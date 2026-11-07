@@ -1,0 +1,168 @@
+// Run locally: node tests/score-safety.test.cjs
+// Static regression checks only; does not touch PocketBase or production.
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+const between=(a,b)=>{const i=html.indexOf(a),j=html.indexOf(b,i+a.length);assert(i>=0&&j>i,`missing section: ${a}`);return html.slice(i,j)};
+assert(!html.includes('onclick="setStake(\'100/50\',this)"'));
+assert(!html.includes('onclick="setStake(\'200/50\',this)"'));
+assert(html.includes('function startManualSeats()'));
+assert(html.includes('id="projection-no-chart-final-20261107"'),'final projection chart override exists');
+assert(html.includes('id="projection-layout-and-seats-20261107"'),'projector three-column layout override exists');
+assert(html.includes('grid-template-areas:"ticker ticker ticker" "status score cash"!important'),'ATM gets full projector column');
+assert(html.includes('class="manual-seat-grid"'),'manual seats use compact tile grid');
+assert(html.includes('#game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-chart-card'),'final chart selector overrides legacy specificity');
+assert(html.includes('function changeManualSeat(index,player)'));
+assert(html.includes('function canAutoRecordCurrentHand()'));
+assert(html.includes("if(seats.length!==4 || seats.some(p=>!P.includes(p)) || new Set(seats).size!==4){"),'dealer setup rejects duplicate or invalid seats');
+assert(html.includes('selectDealer(seats['),'dealer choice uses seat index');
+
+const auto=between('function canAutoRecordCurrentHand(){','function saveHand(){');
+for(const token of ['handTaiExplicitlySelected','discarder!==winner','result===\'自摸\'']) assert(auto.includes(token));
+const cash=between('function renderCashflowMatrix(){','function cashflowReconciles(){');
+assert(cash.includes('matrix[to]?.[from]'));
+assert(cash.includes('matrix[from]?.[to]'));
+assert(cash.includes('對帳異常'));
+const sync=between('async function syncRemoteConfirmedHand(hand,committedSnapshot=null){','async function completeRemoteSession(');
+assert(sync.includes("method:'POST'"));
+assert(html.includes('async function findRemoteHandForSlot(sessionId,handNo)'),'remote hand slot readback exists');
+assert(sync.includes('const existing=await findRemoteHandForSlot(sessionId,handNo)'),'preflight checks duplicate slot');
+assert(sync.includes("reason:'remote_hand_conflict'"),'conflicting remote hands fail closed');
+assert(sync.includes('const afterError=await findRemoteHandForSlot(sessionId,handNo)'),'ambiguous POST checks server before retry');
+assert(sync.includes('remoteHandMatches(afterError[0],payload)'),'POST reconciliation validates content');
+assert(sync.includes("method:'PATCH'"));
+assert(sync.includes('catch(e)')); // Known risk: catch currently swallows sync failures.
+
+const remoteMatchSource=between('function remoteHandMatches(record,payload){','async function findRemoteHandForSlot(')
+const remoteMatchScope={};
+require('node:vm').createContext(remoteMatchScope);
+require('node:vm').runInContext(remoteMatchSource,remoteMatchScope);
+const remotePayload={session:'session1',hand_number:2,result:'win',winner:'p1',discarder:'p2',tai:3,dealer:'p3',payments:{p1:100,p2:-100}};
+const matchRemote=(record)=>require('node:vm').runInContext('remoteHandMatches(record,payload)',Object.assign(remoteMatchScope,{record,payload:remotePayload}));
+assert.equal(matchRemote({...remotePayload}),true,'same remote hand may be reused');
+assert.equal(matchRemote({...remotePayload,hand_number:3}),false,'different hand number is conflict');
+assert.equal(matchRemote({...remotePayload,winner:'p4'}),false,'different winner is conflict');
+assert.equal(matchRemote({...remotePayload,payments:{p1:90,p2:-90}}),false,'different payments is conflict');
+console.log('PASS: remote hand matching rejects conflicting data.');
+
+const vm=require('node:vm');
+const extract=(a,b)=>between(a,b).replace(/\\n$/,'');
+const scope={P:['甲','乙','丙','丁'],winner:'',discarder:'',result:'胡牌',tai:0,handTaiExplicitlySelected:false,liveViewerMode:false};
+vm.createContext(scope);
+vm.runInContext(extract('function canAutoRecordCurrentHand(){','function saveHand(){'),scope);
+const can=()=>vm.runInContext('canAutoRecordCurrentHand()',scope);
+assert.equal(can(),false,'no selected tai or winner');
+scope.handTaiExplicitlySelected=true;
+scope.winner='甲';
+scope.discarder='乙';
+assert.equal(can(),true,'complete discard win');
+scope.discarder='甲';
+assert.equal(can(),false,'winner cannot discard to self');
+scope.result='自摸';
+scope.discarder='';
+assert.equal(can(),true,'self draw needs no discarder');
+scope.handTaiExplicitlySelected=false;
+assert.equal(can(),false,'fresh tai selection required');
+scope.handTaiExplicitlySelected=true;
+scope.tai=-1;
+assert.equal(can(),false,'negative tai rejected');
+scope.tai=0;
+scope.liveViewerMode=true;
+assert.equal(can(),false,'viewer cannot auto record');
+console.log('PASS: auto-record completeness scenarios.');
+
+
+const cashScope={
+  P:['甲','乙','丙','丁'],hands:[],balances:{甲:0,乙:0,丙:0,丁:0},
+  seats:['甲','乙','丙','丁'],seriesCashflowBase:{},seriesCashflowLedger:null,
+  liveViewerMode:false,liveCashflowSnapshot:null
+};
+vm.createContext(cashScope);
+const cashFunctions=between('function handCashflowTransfers(hand){','function renderCashflowMatrix(){');
+const emptyStart=html.indexOf('function emptyCashflow(');
+assert(emptyStart>=0,'cashflow matrix initializer exists');
+const emptyEnd=html.indexOf('function handCashflowTransfers(',emptyStart);
+vm.runInContext(html.slice(emptyStart,emptyEnd)+cashFunctions,cashScope);
+cashScope.hands=[
+  {result:'胡牌',winner:'甲',discarder:'乙',changes:{甲:120,乙:-120,丙:0,丁:0}},
+  {result:'胡牌',winner:'乙',discarder:'甲',changes:{甲:-40,乙:40,丙:0,丁:0}}
+];
+const ledger=vm.runInContext('buildCashflowMatrix(hands,P)',cashScope);
+assert.equal(ledger['乙']['甲'],120,'乙 paid 甲');
+assert.equal(ledger['甲']['乙'],40,'甲 paid 乙');
+const signed=(from,to)=>Number(ledger[to]?.[from]||0)-Number(ledger[from]?.[to]||0);
+assert.equal(signed('甲','乙'),80,'甲 against 乙 is +80');
+assert.equal(signed('乙','甲'),-80,'乙 against 甲 is -80');
+assert.equal(signed('甲','乙')+signed('乙','甲'),0,'bilateral net zero sum');
+console.log('PASS: bilateral cashflow netting scenario.');
+assert(html.includes('rollbackHandFromCashflowLedger(last)'), 'undo updates ATM ledger');
+const rollback=between('function rollbackHandFromCashflowLedger(hand){','function renderCashflowMatrix(){');
+assert(rollback.includes('seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))'),'undo synchronizes ledger base');
+vm.runInContext(rollback,cashScope);
+cashScope.seriesCashflowLedger=JSON.parse(JSON.stringify(ledger));
+cashScope.seriesCashflowBase=JSON.parse(JSON.stringify(ledger));
+vm.runInContext('rollbackHandFromCashflowLedger(hands[1])',cashScope);
+assert.equal(cashScope.seriesCashflowLedger['甲']['乙'],0,'undo removes reversed payment');
+assert.equal(cashScope.seriesCashflowLedger['乙']['甲'],120,'undo preserves earlier payment');
+assert.equal(cashScope.seriesCashflowBase['甲']['乙'],0,'base stays synchronized');
+console.log('PASS: undo cashflow rollback preserves prior hands.');
+// Repeating the undo must not change the ledger when there is no matching transfer left.
+vm.runInContext('rollbackHandFromCashflowLedger(hands[1])',cashScope);
+assert.equal(cashScope.seriesCashflowLedger['甲']['乙'],0,'duplicate undo cannot create a negative transfer');
+// Undo the remaining hand and confirm the ledger is empty.
+vm.runInContext('rollbackHandFromCashflowLedger(hands[0])',cashScope);
+assert.equal(cashScope.seriesCashflowLedger['乙']['甲'],0,'undo first hand removes its transfer');
+assert.equal(cashScope.seriesCashflowBase['乙']['甲'],0,'base reflects full rollback');
+console.log('PASS: duplicate rollback guard and full local cashflow rollback.');
+
+
+
+
+const paymentScope={
+ P:['甲','乙','丙','丁'],currentRule:{base:100,tai:20},
+ tai:3,repeats:0,dealer:'甲',winner:'乙',discarder:'丙',
+ result:'胡牌',fraudTai:{}
+};
+vm.createContext(paymentScope);
+vm.runInContext(between('function getDealerBonusTai(){','function setFraudTai('),paymentScope);
+vm.runInContext(between('function calculateHandPayments(){','function gamePlayerColors('),paymentScope);
+const payments=()=>JSON.parse(JSON.stringify(vm.runInContext('calculateHandPayments()',paymentScope)));
+const checkZeroSum=(v)=>assert.equal(Object.values(v).reduce((sum,n)=>sum+n,0),0,'payments must sum to zero');
+let pay=payments();assert.deepEqual(pay,{甲:0,乙:160,丙:-160,丁:0},'discard win amount');checkZeroSum(pay);
+paymentScope.result='自摸';paymentScope.winner='乙';pay=payments();
+assert.deepEqual(pay,{甲:-180,乙:500,丙:-160,丁:-160},'selfdraw dealer premium applies only to dealer transfer');checkZeroSum(pay);
+paymentScope.repeats=2;pay=payments();
+assert.deepEqual(pay,{甲:-260,乙:580,丙:-160,丁:-160},'dealer repeat adds five dealer tai');checkZeroSum(pay);
+paymentScope.result='詐胡';paymentScope.winner='甲';paymentScope.fraudTai={乙:1,丙:2,丁:0};paymentScope.repeats=0;pay=payments();
+assert.deepEqual(pay,{甲:-420,乙:140,丙:160,丁:120},'fraud penalties use individual tai plus dealer premium');checkZeroSum(pay);
+paymentScope.result='流局';pay=payments();
+assert.deepEqual(pay,{甲:0,乙:0,丙:0,丁:0},'draw has zero payment');
+console.log('PASS: discard, selfdraw, repeat dealer, fraud and draw payment calculations.');
+
+
+// A saved hand must capture its remote identity and money before an async lookup.
+assert(html.includes('const remoteHandSnapshot={'),'committed hand captures remote snapshot');
+assert(html.includes('void queueRemoteConfirmedHand(hand,remoteHandSnapshot)'),'remote sync queue receives committed snapshot');
+assert(html.includes('remoteHandSyncQueue.then(async()=>{'),'remote writes are serialized');
+assert(html.includes('remoteHandSyncQueue=pending.then(()=>undefined,()=>undefined)'),'failed remote writes do not block later queued writes');
+assert(html.includes('if(!snapshot.sessionId && remoteSessionCreatePromise)'),'first hand waits for session creation');
+assert(html.includes('snapshot.sessionId=created.id'),'first hand receives resolved session id');
+assert(html.includes("remoteHandSyncState.set(hand,outcome.ok?'synced':'failed')"),'remote status is tracked');
+assert(html.includes('hasUnverifiedRemoteHandForRoom(currentRoomId)'),'undo guards unresolved remote status after reload');
+assert(html.includes("const REMOTE_HAND_STATUS_KEY='mahjongRemoteHandStatusV1'"),'remote status diagnostics have dedicated storage');
+assert(html.includes("syncKey:makeId('remote-hand')"),'each hand has stable diagnostic key');
+assert(html.includes("rememberRemoteHandStatus(hand,snapshot,'pending')"),'pending sync persisted');
+assert(html.includes("rememberRemoteHandStatus(hand,snapshot,outcome.ok?'synced':'failed'"),'completed sync persisted');
+assert(html.includes('for(const stale of keys.slice(100))'),'diagnostic storage bounded');
+assert(sync.includes('committedSnapshot?.handNumber??hands.length'),'remote hand number uses frozen value');
+assert(sync.includes('committedSnapshot?.sessionId??remoteSessionId'),'queued write preserves original session');
+assert(sync.includes('committedSnapshot?.roomId??currentRoomId'),'queued write preserves original room');
+assert(sync.includes('committedSnapshot?.recordedBy??pbAuth?.record?.id'),'queued write preserves recorder');
+assert(sync.includes('session:sessionId,hand_number:handNo'),'hand payload uses captured session');
+assert(sync.includes('encodeURIComponent(sessionId)'),'session PATCH uses captured session');
+assert(html.includes('sessionId:remoteSessionId,'),'save captures session identity');
+assert(sync.includes('committedSnapshot?.balancesAfter||balances'),'remote balances use frozen value');
+assert(sync.includes('committedSnapshot?.cashflowSnapshot||buildCashflowMatrix'),'remote cashflow uses frozen value');
+assert(sync.includes('committedSnapshot?.nextHandNumber??(hands.length+1)'),'remote session hand number uses frozen value');
+
+console.log('PASS: static scoring safeguards; remote sync/undo requires integration testing.');

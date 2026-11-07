@@ -1,0 +1,22 @@
+name: Mahjong scoring safeguards
+on:
+  push:
+    branches:
+      - feature/score-projection-seats-20261107
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'tests/score-safety.test.cjs'
+      - '.github/workflows/score-safety.yml'
+jobs:
+  scoring-safety:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run scoring regression checks
+        run: node tests/score-safety.test.cjs
