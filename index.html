@@ -4860,19 +4860,22 @@ function queueRemoteConfirmedHand(hand,snapshot){
 }
 
 async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
-  if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
+  const sessionId=committedSnapshot?.sessionId??remoteSessionId
+  const recordedBy=committedSnapshot?.recordedBy??pbAuth?.record?.id
+  const roomId=committedSnapshot?.roomId??currentRoomId
+  if(!sessionId || !recordedBy || !hand) return {ok:false,reason:'remote_session_unavailable'}
   let handCreated=false
   try{
-    const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
+    const map=committedSnapshot?.playerMap || await loadRoomPlayerMap(roomId)
     const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
     const handNo=committedSnapshot?.handNumber??hands.length
     const payload={
-      session:remoteSessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
+      session:sessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
       dealer:map[hand.dealer]?.id||'',dealer_repeats:Number(hand.repeats||0),
       result:resultMap[hand.result]||'draw',winner:map[hand.winner]?.id||'',
       discarder:map[hand.discarder]?.id||'',tai:Number(hand.tai||0),
       patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
-      recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
+      recorded_by:recordedBy,recorded_at:new Date().toISOString()
     }
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
     handCreated=true
@@ -4885,7 +4888,7 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
     syncedSeatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(exactCashflowSnapshot||{}))
 
 
-    await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
+    await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`,{
       method:'PATCH',
       body:JSON.stringify({
         dealer:map[committedSnapshot?.nextDealer||dealer]?.id||payload.dealer,round:committedSnapshot?.nextRound||getRoundName(roundIndex),
@@ -7831,6 +7834,10 @@ function saveHand(){
   // Freeze the committed hand's identity and balances before any asynchronous room lookup.
   // Do not let a later hand overwrite this hand's remote snapshot.
   const remoteHandSnapshot={
+    sessionId:remoteSessionId,
+    roomId:currentRoomId,
+    recordedBy:pbAuth?.record?.id||'',
+    playerMap:Object.keys(remoteRoomPlayerMap||{}).length?{...remoteRoomPlayerMap}:null,
     handNumber:hands.length,
     balancesAfter:{...balances},
     nextDealer:dealer,
