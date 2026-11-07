@@ -13191,6 +13191,9 @@ function v132OpenSeries(ids){
     })
   })
   const aggregate={players,nets:totals,hands:combinedHands}
+  const handTotalsMatch=combinedHands.length>0 && players.every(p=>Number(running[p]||0)===Number(totals[p]||0))
+  const handCheckNote=combinedHands.length&&!handTotalsMatch?
+    '<div class="career-note" style="margin-top:12px">⚠️ 逐把加總與最終結算不一致：以下逐把統計與走勢僅供核對，合計金額仍以各將正式結算為準。</div>':''
   const aggregateStats=combinedHands.length?sessionDetailStatsHtml(aggregate):
     '<div class="career-note" style="margin-top:12px">沒有逐把計分資料，僅顯示整次連打的結算金額。</div>'
   const aggregateChart=combinedHands.length?
@@ -13201,7 +13204,7 @@ function v132OpenSeries(ids){
     return `<div style="padding:9px 0;border-bottom:1px dashed var(--line)"><b>第 ${i+1} 把</b><span class="muted">（第 ${hand.seriesGameNumber} 將第 ${hand.seriesHandNumber} 把）</span>・${escapeHtml(hand.result||'紀錄')}<div class="muted">${changes||'無金額變動'}</div></div>`
   }).join('')
   const detailHtml=sessions.map((ss,i)=>`<button class="secondary" style="margin-top:7px;text-align:left;width:100%;font-size:13px" onclick="document.getElementById('v132SeriesModal')?.remove();showSessionDetail('${ss.id}')">第 ${i+1} 將・${escapeHtml(ss.stake||'')}・查看／修改 ›</button>`).join('')
-  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">連打 ${sessions.length} 將・合計</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><div class="career-note" style="margin:10px 0 12px">${sameStake?escapeHtml(stake)+'・':''}合併顯示一次打牌的總輸贏</div><div style="padding:2px 12px 10px;background:var(--card,#fff);border-radius:14px">${totalsHtml}</div>${totalSum!==0?`<div class="career-note" style="margin-top:8px">⚠️ 合計不平衡：${money(totalSum)}，請檢查原始牌局</div>`:''}${aggregateStats}${aggregateChart}<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:800;padding:10px 0">查看連打逐把紀錄（共 ${combinedHands.length} 把）</summary>${handRows||'沒有逐把紀錄'}</details><details style="margin-top:8px"><summary style="cursor:pointer;font-weight:800;padding:10px 0">原始資料維護（${sessions.length} 將）</summary><div class="career-note">僅供修正個別原始牌局；一般查看以合計結果為準。</div>${detailHtml}</details></div>`
+  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">連打 ${sessions.length} 將・合計</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><div class="career-note" style="margin:10px 0 12px">${sameStake?escapeHtml(stake)+'・':''}合併顯示一次打牌的總輸贏</div><div style="padding:2px 12px 10px;background:var(--card,#fff);border-radius:14px">${totalsHtml}</div>${totalSum!==0?`<div class="career-note" style="margin-top:8px">⚠️ 合計不平衡：${money(totalSum)}，請檢查原始牌局</div>`:''}${handCheckNote}${aggregateStats}${aggregateChart}<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:800;padding:10px 0">查看連打逐把紀錄（共 ${combinedHands.length} 把）</summary>${handRows||'沒有逐把紀錄'}</details><details style="margin-top:8px"><summary style="cursor:pointer;font-weight:800;padding:10px 0">原始資料維護（${sessions.length} 將）</summary><div class="career-note">僅供修正個別原始牌局；一般查看以合計結果為準。</div>${detailHtml}</details></div>`
   document.body.appendChild(div)
 }
 function v132EditSession(id){
