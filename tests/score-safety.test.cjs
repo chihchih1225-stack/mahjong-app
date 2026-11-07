@@ -7,6 +7,8 @@ const between=(a,b)=>{const i=html.indexOf(a),j=html.indexOf(b,i+a.length);asser
 assert(!html.includes('onclick="setStake(\'100/50\',this)"'));
 assert(!html.includes('onclick="setStake(\'200/50\',this)"'));
 assert(html.includes('function startManualSeats()'));
+assert(html.includes('id="projection-no-chart-final-20261107"'),'final projection chart override exists');
+assert(html.includes('#game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-chart-card'),'final chart selector overrides legacy specificity');
 assert(html.includes('function changeManualSeat(index,player)'));
 assert(html.includes('function canAutoRecordCurrentHand()'));
 assert(html.includes("if(seats.length!==4 || seats.some(p=>!P.includes(p)) || new Set(seats).size!==4){"),'dealer setup rejects duplicate or invalid seats');
