@@ -3122,6 +3122,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
       >
         隨機選位
       </button>
+      <button class="rule-btn" onclick="startManualSeats()">登記座位</button>
 
 
     </div>
@@ -5472,6 +5473,26 @@ function randomSeats(){
 
 
 
+
+/* 手動登記東南西北：只設定座位，不修改計分與歷史資料。 */
+function startManualSeats(){
+  seats=[]
+  document.getElementById('confirmSeatBtn').classList.add('hidden')
+  renderManualSeats()
+}
+function renderManualSeats(){
+  const el=document.getElementById('seatResult')
+  if(!el)return
+  const options=(windIndex)=>'<option value="">選擇玩家</option>'+P.map(p=>'<option value="'+escapeHtml(p)+'" '+(seats[windIndex]===p?'selected':'')+' '+(seats.includes(p)&&seats[windIndex]!==p?'disabled':'')+'>'+escapeHtml(p)+'</option>').join('')
+  el.innerHTML='<div class="notice">請為東、南、西、北各指定一位玩家。</div><div class="seat-list">'+winds.map((wind,i)=>'<div class="seat-line"><span class="wind">'+escapeHtml(wind)+'</span><select aria-label="'+escapeHtml(wind)+'風玩家" onchange="changeManualSeat('+i+',this.value)" style="flex:1;min-width:0;padding:10px;border-radius:10px">'+options(i)+'</select></div>').join('')+'</div>'
+}
+function changeManualSeat(index,player){
+  if(player && seats.some((p,i)=>i!==index&&p===player))return
+  seats[index]=player||''
+  renderManualSeats()
+  const valid=seats.length===4&&seats.every(Boolean)&&new Set(seats).size===4&&seats.every(p=>P.includes(p))
+  document.getElementById('confirmSeatBtn').classList.toggle('hidden',!valid)
+}
 
 /* =========================
    第一位莊家
