@@ -12203,7 +12203,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V175'
+  const APP_VERSION='V176'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13559,6 +13559,29 @@ html body #game.live-viewer-mode.projection-mode:not(.hidden) .projection-score-
 html body #game.projection-mode:not(.hidden) .game-status-card,
 html body #game.projection-mode:not(.hidden) .projection-score-panel,
 html body #game.projection-mode:not(.hidden) .game-cashflow-card{grid-column:auto!important;grid-row:auto!important}
+<style id="projection-v176-content-fit">
+/* Four independent player tiles, no legacy cross/overlap positioning. */
+html body #game.projection-mode:not(.hidden) .game-status-card{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;padding:9px!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden) .live-head{flex:0 0 auto!important;min-height:0!important;margin-bottom:8px!important}
+html body #game.projection-mode:not(.hidden) #playerStats{display:grid!important;position:relative!important;flex:1 1 auto!important;width:100%!important;max-width:none!important;min-height:0!important;height:auto!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(0,1fr))!important;grid-template-areas:"top right" "left bottom"!important;gap:8px!important;overflow:hidden!important;align-items:stretch!important;justify-items:stretch!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card,
+html body #game.projection-mode:not(.hidden) #playerStats .viewer-player-card{position:relative!important;inset:auto!important;top:auto!important;left:auto!important;right:auto!important;bottom:auto!important;transform:none!important;float:none!important;display:flex!important;flex-direction:column!important;justify-content:center!important;width:100%!important;max-width:none!important;min-width:0!important;height:100%!important;max-height:none!important;margin:0!important;padding:6px!important;box-sizing:border-box!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden) #playerStats .pos-top{grid-area:top!important}
+html body #game.projection-mode:not(.hidden) #playerStats .pos-right{grid-area:right!important}
+html body #game.projection-mode:not(.hidden) #playerStats .pos-left{grid-area:left!important}
+html body #game.projection-mode:not(.hidden) #playerStats .pos-bottom{grid-area:bottom!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-content{min-width:0!important;width:100%!important;padding:0!important;text-align:center!important}
+html body #game.projection-mode:not(.hidden) #playerStats .current-money,
+html body #game.projection-mode:not(.hidden) #playerStats .viewer-player-money{font-size:clamp(13px,1.65vw,23px)!important;white-space:normal!important;overflow-wrap:anywhere!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-name{font-size:clamp(12px,1.35vw,18px)!important;white-space:normal!important}
+html body #game.projection-mode:not(.hidden) .game-cashflow-card{padding:9px!important;overflow:auto!important}
+html body #game.projection-mode:not(.hidden) #cashflowMatrix{width:100%!important;min-width:0!important;overflow:visible!important}
+html body #game.projection-mode:not(.hidden) .cashflow-table{width:100%!important;table-layout:fixed!important;border-spacing:2px!important}
+html body #game.projection-mode:not(.hidden) .cashflow-table th,
+html body #game.projection-mode:not(.hidden) .cashflow-table td{font-size:clamp(9px,1.05vw,15px)!important;letter-spacing:-.35px!important;padding:4px 1px!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important;min-width:0!important;line-height:1.2!important}
+html body #game.projection-mode:not(.hidden) .live-ticker-wrap{right:105px!important;padding-right:0!important}
+html body #game.projection-mode:not(.hidden) #projectionExitBtn{top:9px!important;right:10px!important;width:94px!important;min-width:94px!important;height:34px!important;min-height:34px!important;padding:2px 6px!important;font-size:13px!important;border-radius:10px!important}
+</style>
 </style>
 </body>
 </html>
