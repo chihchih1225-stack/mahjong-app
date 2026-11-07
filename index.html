@@ -4937,7 +4937,11 @@ async function applyRoomOwnerControls(){
   if(!btn) return false
   btn.classList.add('hidden')
   const membership=await getCurrentRoomMembership()
-  const isOwner=membership?.role==='owner'
+  // 房間建立者以 rooms.owner 為準；room_members 可能缺漏或同步延遲。
+  // PocketBase 仍會在實際 DELETE 時執行伺服器權限檢查。
+  const room=appData?.rooms?.find(r=>r.id===currentRoomId)
+  const accountId=pbAuth?.record?.id
+  const isOwner=!!accountId && (room?.owner ? room.owner===accountId : membership?.role==='owner')
   btn.classList.toggle('hidden',!isOwner)
   return isOwner
 }
@@ -9415,8 +9419,29 @@ async function deleteCurrentRoom(){
   if(!await applyRoomOwnerControls()){ alert('只有房主可以刪除房間。'); return }
   const room=appData.rooms.find(r=>r.id===currentRoomId)
   if(!room) return
-  const count=appData.sessions.filter(s=>s.roomId===room.id).length
-  if(!await uiConfirm(`這個房間的 ${count} 場本機歷史牌局也會一起刪除，而且無法復原。`,`刪除「${room.name}」？`,{danger:true,okText:'刪除房間'})) return
+  const localCount=appData.sessions.filter(s=>s.roomId===room.id).length
+  let remoteCount=0
+  if(room.pocketbase){
+    // 不能用本機快取當作全體玩家的歷史場數。查詢失敗時禁止繼續刪除。
+    try{
+      const filter=encodeURIComponent(`room="${pbFilterValue(room.id)}"`)
+      const result=await pbRequest(`/api/collections/game_sessions/records?perPage=1&filter=${filter}`)
+      remoteCount=Number(result.totalItems||0)
+    }catch(e){
+      alert('無法確認這個房間的共同戰績數量，為避免誤刪，已停止刪除。'+(e?.message?'\\n'+e.message:''))
+      return
+    }
+  }
+  const warning=room.pocketbase
+    ? `這個房間有 ${remoteCount} 場伺服器牌局紀錄（包含進行中或未完成），本機另有 ${localCount} 筆快取。刪除房間必須一併刪除其全部相關戰績，所有成員的統計將重新計算。此操作無法復原，請確認已完成資料備份。`
+    : `這個本機房間的 ${localCount} 場歷史牌局也會一起永久刪除，而且無法復原。`
+  // 安全閘：尚未驗證 PocketBase 的關聯級聯刪除與資料庫備份前，
+  // 預覽分支不可對可能共用的正式 PocketBase 執行任何遠端刪除。
+  if(room.pocketbase){
+    alert('已確認房間及戰績數量，但後端的完整刪除與備份尚未驗證。為保護正式戰績，預覽版暫停遠端刪除；請勿改用其他方式刪除。')
+    return
+  }
+  if(!await uiConfirm(warning,`刪除「${room.name}」？`,{danger:true,okText:'刪除房間及戰績'})) return
   try{
     if(room.pocketbase){
       await pbRequest(`/api/collections/rooms/records/${encodeURIComponent(room.id)}`,{method:'DELETE'})
@@ -12097,6 +12122,34 @@ html body #game.projection-mode .cashflow-table td{
 }
 
 
+
+/* V171 preview-only projection correction: restore the existing 3-column
+   room-owner layout. V98 two-column rules above overrode the column tracks,
+   while the owner cards still targeted grid column 3. Viewer layout unchanged. */
+@media (orientation:landscape){
+  html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){
+    grid-template-columns:minmax(0,37fr) minmax(0,27fr) minmax(0,36fr)!important;
+    grid-template-rows:38px minmax(0,32fr) minmax(0,68fr)!important;
+    grid-template-areas:"ticker ticker ticker" "status score chart" "status score cash"!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .game-status-card{
+    grid-area:status!important;grid-column:1!important;grid-row:2/4!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .projection-score-panel{
+    grid-area:score!important;grid-column:2!important;grid-row:2/4!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card{
+    grid-area:chart!important;grid-column:3!important;grid-row:2!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) .game-cashflow-card{
+    grid-area:cash!important;grid-column:3!important;grid-row:3!important;
+  }
+  html body #game.projection-mode:not(.live-viewer-mode) #playerStats{
+    grid-template-areas:"top top" "left right" "bottom bottom"!important;
+    grid-template-rows:repeat(3,minmax(0,1fr))!important;
+  }
+}
+
 </style>
 
 
@@ -13002,7 +13055,7 @@ function v124OpenMemberSessionDetail(sessionId,userId,nickname){
 <style id="v125-style">
 .v125-final-money-row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center}.v125-sign-toggle{height:48px;border-radius:14px;background:#eef3ff;color:#536b98;font-weight:950;border:1px solid #d4def2}
 .v125-latest-hand{margin-top:7px!important;padding:7px 10px!important;font-size:11px!important;line-height:1.35!important;background:#eef7ff!important;border:1px solid #d8e8f5!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
-.v125-series-row{border:1px solid #dbe5f1;border-radius:16px;padding:12px 13px;margin-bottom:9px;background:#f8fbff}.v125-series-title{font-weight:950;color:#536b98}.v125-series-result{margin-top:5px;font-weight:850;line-height:1.6}.v125-series-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.v125-series-row{border:0;border-bottom:1px dashed var(--line);border-radius:0;padding:12px 0;margin-bottom:0;background:transparent;box-shadow:none}.v125-series-title{font-weight:950;color:#536b98}.v125-series-result{margin-top:5px;font-weight:850;line-height:1.6}.v125-series-sub{font-size:11px;color:var(--muted);margin-top:4px}
 .v125-nemesis-row{padding:10px 0;border-bottom:1px dashed var(--line)}.v125-nemesis-row:last-child{border-bottom:0}.v125-delta{font-weight:950}.v125-good{color:var(--green)}.v125-bad{color:var(--red)}
 </style>
 <script id="v125-runtime">
@@ -13040,7 +13093,7 @@ function v125SeriesRowHtml(g){
   const first=sessions[0]||{},date=new Date(first.seriesStartedAt||first.startedAt||first.createdAt).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})
   const result=Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${escapeHtml(n)} ${money(v)}`).join('・')
   const ids=sessions.map(x=>x.id)
-  return `<div class="v125-series-row v132-history-row" onclick='v132OpenSeries(${JSON.stringify(ids)})' style="cursor:pointer"><div class="toprow"><span>${date}・${escapeHtml(first.roomName||'牌局')}</span><span class="v125-series-title">連打 ${sessions.length} 將・合計顯示 ›</span></div><div class="v125-series-result">${result}</div><div class="v125-series-sub">${escapeHtml(first.stake||'')}・點擊查看／修改每一將</div></div>`
+  return `<div class="v125-series-row v132-history-row session-row" onclick='v132OpenSeries(${JSON.stringify(ids)})' style="cursor:pointer"><div class="session-head"><span>${date}・${escapeHtml(first.roomName||'牌局')}</span><span>${escapeHtml(first.stake||'')}・${sessions.length} 將 ›</span></div><div class="session-result">${result}</div><div class="session-time-row">連打 ${sessions.length} 將・點擊查看每一將</div></div>`
 }
 function v125RenderRoomHistory(sessions){const box=document.getElementById('roomHistory');if(!box)return;const groups=v125HistoryGroups(sessions);box.innerHTML=groups.length?groups.map(g=>g.type==='series'?v125SeriesRowHtml(g):sessionRowHtml(g.ss)).join(''):'還沒有歷史牌局';const c=document.getElementById('roomSessionCount');if(c)c.textContent=`${sessions.length} 將・${groups.length} 筆歷史`;setTimeout(v132ApplyHistoryFold,0)}
 const v125OldRenderRoomDashboard=renderRoomDashboard
