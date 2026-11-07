@@ -7538,6 +7538,8 @@ function canAutoRecordCurrentHand(){
   return !!discarder && P.includes(discarder) && discarder!==winner
 }
 
+// 防止重入提交；遠端冪等性仍需獨立驗證。
+let handSaveInProgress=false
 function saveHand(){
 
 
@@ -7597,6 +7599,9 @@ function saveHand(){
 
 
 
+  if(handSaveInProgress) return
+  handSaveInProgress=true
+  try{
   const beforeBalances=
     {...balances}
 
@@ -7851,12 +7856,10 @@ function saveHand(){
 
   renderGame()
   persistActiveGame()
-
-
+  } finally {
+    handSaveInProgress=false
+  }
 }
-
-
-
 
 /* =========================
    同步結果按鈕
