@@ -3329,7 +3329,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
     </div>
     <div class="projection-pattern-row"><button type="button" onclick="togglePatterns()">＋ 特殊牌型</button><span id="projectionPatternSummary">未選</span></div>
     <div id="projectionCalcPreview" class="projection-calc-preview">選好結果與玩家後會顯示金額</div>
-    <button type="button" class="projection-save-hand" onclick="saveHand()">記錄這一把</button>
+    <button type="button" class="projection-save-hand" onclick="saveHand()">記錄這一把</button><div id="projectionLatestHand" aria-live="polite">最新一筆：尚未記錄</div>
   </div>
 
 
@@ -12203,7 +12203,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V176'
+  const APP_VERSION='V177'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13114,10 +13114,11 @@ function v125RenderLatestHand(){
   let box=document.getElementById('v125LatestHand');const anchor=document.getElementById('calculationPreview');if(!anchor)return
   if(!box){box=document.createElement('div');box.id='v125LatestHand';box.className='notice v125-latest-hand';anchor.insertAdjacentElement('afterend',box)}
   const h=Array.isArray(hands)&&hands.length?hands[hands.length-1]:null
-  if(!h){box.textContent='最新一筆：尚未記錄';return}
+  if(!h){box.textContent='最新一筆：尚未記錄';const projectionLatest=document.getElementById('projectionLatestHand');if(projectionLatest)projectionLatest.textContent=box.textContent;return}
   const rule=stakeRules[selectedStake];const bracket=(h.result==='胡牌'||h.result==='自摸')&&rule&&Number(rule.tai)>0&&Number.isFinite(Number(h.tai))?`（${Number(rule.base)/Number(rule.tai)+Number(h.tai)}）`:''
   const changes=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([n,v])=>`${n} ${Number(v)>0?'+':''}${Number(v).toLocaleString()}${bracket}`).join('・')
   box.textContent=`最新一筆｜${h.round||''} ${h.winner?`${h.winner} ${h.result||''}`:(h.result||'')}｜${changes||'—'}`
+  const projectionLatest=document.getElementById('projectionLatestHand');if(projectionLatest)projectionLatest.textContent=box.textContent
 }
 const v125OldRenderHistory=renderHistory
 renderHistory=function(){const r=v125OldRenderHistory.apply(this,arguments);v125RenderLatestHand();return r}
@@ -13582,6 +13583,34 @@ html body #game.projection-mode:not(.hidden) .cashflow-table th,
 html body #game.projection-mode:not(.hidden) .cashflow-table td{font-size:clamp(9px,1.05vw,15px)!important;letter-spacing:-.35px!important;padding:4px 1px!important;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important;min-width:0!important;line-height:1.2!important}
 html body #game.projection-mode:not(.hidden) .live-ticker-wrap{right:105px!important;padding-right:0!important}
 html body #game.projection-mode:not(.hidden) #projectionExitBtn{top:9px!important;right:10px!important;width:94px!important;min-width:94px!important;height:34px!important;min-height:34px!important;padding:2px 6px!important;font-size:13px!important;border-radius:10px!important}
+<style id="projection-v177-cross-and-last-hand">
+/* Same seat cross as the scoring page: north, west/east, south. */
+html body #game.projection-mode:not(.hidden) #playerStats{
+ display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+ grid-template-rows:repeat(3,minmax(0,1fr))!important;
+ grid-template-areas:"top top" "left right" "bottom bottom"!important;
+ gap:4px 7px!important;min-height:0!important;
+}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-top,
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-bottom{
+ width:min(75%,280px)!important;max-width:75%!important;justify-self:center!important;
+}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-left,
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-right{
+ width:100%!important;justify-self:stretch!important;
+}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card{padding:3px 5px!important;min-height:0!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-content{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:2px!important}
+html body #game.projection-mode:not(.hidden) #playerStats .current-money{font-size:clamp(13px,1.35vw,21px)!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-name{font-size:clamp(11px,1.2vw,18px)!important}
+html body #game.projection-mode:not(.hidden) .projection-score-panel{padding:12px!important}
+html body #game.projection-mode:not(.hidden) .projection-score-title{font-size:clamp(17px,1.8vw,25px)!important;margin-bottom:12px!important}
+html body #game.projection-mode:not(.hidden) .projection-result-row{gap:6px!important}
+html body #game.projection-mode:not(.hidden) .projection-result-row button{height:clamp(38px,5vw,60px)!important;min-height:38px!important;font-size:clamp(13px,1.35vw,20px)!important}
+html body #game.projection-mode:not(.hidden) .projection-tai-row button{height:clamp(34px,4vw,52px)!important;font-size:clamp(13px,1.4vw,20px)!important}
+html body #game.projection-mode:not(.hidden) .projection-save-hand{min-height:48px!important;font-size:clamp(16px,1.6vw,23px)!important}
+html body #game.projection-mode:not(.hidden) #projectionLatestHand{display:block!important;margin-top:14px!important;padding:12px!important;background:#fff9f2!important;border:1px solid #e9ded6!important;border-radius:12px!important;font-size:clamp(12px,1.1vw,17px)!important;line-height:1.5!important;overflow-wrap:anywhere!important}
+</style>
 </style>
 </body>
 </html>
