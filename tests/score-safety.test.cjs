@@ -25,6 +25,11 @@ assert(cash.includes('matrix[from]?.[to]'));
 assert(cash.includes('對帳異常'));
 const sync=between('async function syncRemoteConfirmedHand(hand,committedSnapshot=null){','async function completeRemoteSession(');
 assert(sync.includes("method:'POST'"));
+assert(html.includes('async function findRemoteHandForSlot(sessionId,handNo)'),'remote hand slot readback exists');
+assert(sync.includes('const existing=await findRemoteHandForSlot(sessionId,handNo)'),'preflight checks duplicate slot');
+assert(sync.includes("reason:'remote_hand_conflict'"),'conflicting remote hands fail closed');
+assert(sync.includes('const afterError=await findRemoteHandForSlot(sessionId,handNo)'),'ambiguous POST checks server before retry');
+assert(sync.includes('remoteHandMatches(afterError[0],payload)'),'POST reconciliation validates content');
 assert(sync.includes("method:'PATCH'"));
 assert(sync.includes('catch(e)')); // Known risk: catch currently swallows sync failures.
 
