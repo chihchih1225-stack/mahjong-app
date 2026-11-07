@@ -13165,9 +13165,20 @@ function v132ApplyHistoryFold(){
 function v132OpenSeries(ids){
   const sessions=(ids||[]).map(id=>appData.sessions.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>String(a.startedAt||a.createdAt).localeCompare(String(b.startedAt||b.createdAt)))
   if(sessions.length===1){showSessionDetail(sessions[0].id);return}
+  if(!sessions.length)return
+  const totals={}
+  sessions.forEach(ss=>Object.entries(sessionNets(ss)).forEach(([name,value])=>{
+    totals[name]=(totals[name]||0)+Number(value||0)
+  }))
+  const sorted=Object.entries(totals).sort((a,b)=>b[1]-a[1])
+  const totalSum=sorted.reduce((sum,[,amount])=>sum+amount,0)
+  const first=sessions[0],stake=first.stake||''
+  const sameStake=sessions.every(ss=>(ss.stake||'')===stake)
   const old=document.getElementById('v132SeriesModal');if(old)old.remove()
   const div=document.createElement('div');div.id='v132SeriesModal';div.className='modal'
-  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">連打 ${sessions.length} 將</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><div class="career-note" style="margin:10px 0 12px">選擇要查看或修改的牌局</div>${sessions.map((ss,i)=>`<button class="secondary" style="margin-top:8px;text-align:left" onclick="document.getElementById('v132SeriesModal')?.remove();showSessionDetail('${ss.id}')">第 ${i+1} 將　${escapeHtml(ss.stake||'')}　${Object.entries(sessionNets(ss)).map(([n,v])=>`${escapeHtml(n)} ${money(v)}`).join('・')}</button>`).join('')}</div>`
+  const totalsHtml=sorted.map(([name,amount])=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line)"><span>${escapeHtml(name)}</span><b style="white-space:nowrap">${money(amount)}</b></div>`).join('')
+  const detailHtml=sessions.map((ss,i)=>`<button class="secondary" style="margin-top:7px;text-align:left;width:100%;font-size:13px" onclick="document.getElementById('v132SeriesModal')?.remove();showSessionDetail('${ss.id}')">第 ${i+1} 將・${escapeHtml(ss.stake||'')}・查看／修改 ›</button>`).join('')
+  div.innerHTML=`<div class="modal-box" style="max-width:620px"><div class="toprow"><h2 style="margin:0">連打 ${sessions.length} 將・合計</h2><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><div class="career-note" style="margin:10px 0 12px">${sameStake?escapeHtml(stake)+'・':''}合併顯示一次打牌的總輸贏</div><div style="padding:2px 12px 10px;background:var(--card,#fff);border-radius:14px">${totalsHtml}</div>${totalSum!==0?`<div class="career-note" style="margin-top:8px">⚠️ 合計不平衡：${money(totalSum)}，請檢查原始牌局</div>`:''}<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:800;padding:10px 0">查看／修改各將原始紀錄（${sessions.length} 將）</summary>${detailHtml}</details></div>`
   document.body.appendChild(div)
 }
 function v132EditSession(id){
