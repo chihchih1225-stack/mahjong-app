@@ -13467,6 +13467,16 @@ html body #game.projection-mode .game-cashflow-card{min-width:0!important}
 </style>
 
 
+<style id="projection-no-chart-final-20261107">
+/* Final high-specificity override: legacy projector CSS re-enables the chart. */
+html body #game.projection-mode:not(.hidden) .game-chart-card,
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-chart-card,
+html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-chart-card{
+  display:none!important;
+  visibility:hidden!important;
+  grid-area:auto!important;
+}
+</style>
 </body>
 </html>
 
