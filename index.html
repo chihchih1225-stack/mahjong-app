@@ -5072,6 +5072,7 @@ function startGame(){
   currentRoomId=activeRoom.id
 
 
+  handTaiExplicitlySelected=false
   P=getPlayers()
 
 
@@ -6972,9 +6973,12 @@ function pickResult(
 ========================= */
 
 
+// 每把必須明確按過台數，避免沿用上一把的 0 台或殘留數值。
+let handTaiExplicitlySelected=false
 function addTai(value){
 
 
+  handTaiExplicitlySelected=true
   tai+=value
 
 
@@ -6992,6 +6996,7 @@ function addTai(value){
 function resetTai(){
 
 
+  handTaiExplicitlySelected=true
   tai=0
 
 
@@ -7796,6 +7801,7 @@ function saveHand(){
   /* 下一將 */
 
 
+  handTaiExplicitlySelected=false
   tai=0
 
 
