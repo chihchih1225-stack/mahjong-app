@@ -148,7 +148,12 @@ assert(html.includes('remoteHandSyncQueue=pending.then(()=>undefined,()=>undefin
 assert(html.includes('if(!snapshot.sessionId && remoteSessionCreatePromise)'),'first hand waits for session creation');
 assert(html.includes('snapshot.sessionId=created.id'),'first hand receives resolved session id');
 assert(html.includes("remoteHandSyncState.set(hand,outcome.ok?'synced':'failed')"),'remote status is tracked');
-assert(html.includes('if(lastRecordedHand && remoteHandSyncState.has(lastRecordedHand))'),'undo blocks local-only removal of remote-queued hand');
+assert(html.includes('hasUnverifiedRemoteHandForRoom(currentRoomId)'),'undo guards unresolved remote status after reload');
+assert(html.includes("const REMOTE_HAND_STATUS_KEY='mahjongRemoteHandStatusV1'"),'remote status diagnostics have dedicated storage');
+assert(html.includes("syncKey:makeId('remote-hand')"),'each hand has stable diagnostic key');
+assert(html.includes("rememberRemoteHandStatus(hand,snapshot,'pending')"),'pending sync persisted');
+assert(html.includes("rememberRemoteHandStatus(hand,snapshot,outcome.ok?'synced':'failed'"),'completed sync persisted');
+assert(html.includes('for(const stale of keys.slice(100))'),'diagnostic storage bounded');
 assert(sync.includes('committedSnapshot?.handNumber??hands.length'),'remote hand number uses frozen value');
 assert(sync.includes('committedSnapshot?.sessionId??remoteSessionId'),'queued write preserves original session');
 assert(sync.includes('committedSnapshot?.roomId??currentRoomId'),'queued write preserves original room');
