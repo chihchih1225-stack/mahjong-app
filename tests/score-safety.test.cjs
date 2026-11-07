@@ -117,4 +117,13 @@ paymentScope.result='流局';pay=payments();
 assert.deepEqual(pay,{甲:0,乙:0,丙:0,丁:0},'draw has zero payment');
 console.log('PASS: discard, selfdraw, repeat dealer, fraud and draw payment calculations.');
 
+
+// A saved hand must capture its remote identity and money before an async lookup.
+assert(html.includes('const remoteHandSnapshot={'),'committed hand captures remote snapshot');
+assert(html.includes('void syncRemoteConfirmedHand(hand,remoteHandSnapshot)'),'remote sync receives committed snapshot');
+assert(sync.includes('committedSnapshot?.handNumber??hands.length'),'remote hand number uses frozen value');
+assert(sync.includes('committedSnapshot?.balancesAfter||balances'),'remote balances use frozen value');
+assert(sync.includes('committedSnapshot?.cashflowSnapshot||buildCashflowMatrix'),'remote cashflow uses frozen value');
+assert(sync.includes('committedSnapshot?.nextHandNumber??(hands.length+1)'),'remote session hand number uses frozen value');
+
 console.log('PASS: static scoring safeguards; remote sync/undo requires integration testing.');
