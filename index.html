@@ -6305,6 +6305,18 @@ function commitHandToCashflowLedger(hand){
 }
 
 
+function rollbackHandFromCashflowLedger(hand){
+  if(!hand || !seriesCashflowLedger || typeof seriesCashflowLedger!=='object') return
+  const transfers=handCashflowTransfers(hand)
+  // Verify all entries before mutating; do not partially corrupt the ledger.
+  if(transfers.some(t=>!seriesCashflowLedger[t.from] || !Object.prototype.hasOwnProperty.call(seriesCashflowLedger[t.from],t.to) || Number(seriesCashflowLedger[t.from][t.to]||0)<Number(t.amount||0))){
+    console.warn('提款機帳本無法安全回退，保留原始帳本供核對')
+    return
+  }
+  transfers.forEach(t=>{seriesCashflowLedger[t.from][t.to]-=Number(t.amount||0)})
+  seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))
+}
+
 function renderCashflowMatrix(){
   const el=document.getElementById('cashflowMatrix')
   if(!el) return
@@ -7922,6 +7934,8 @@ function undoHand(){
 
   const last=
     hands.pop()
+
+  rollbackHandFromCashflowLedger(last)
 
 
 
