@@ -10686,7 +10686,10 @@ function renderPaymentPreview(){
   const changes=calculateHandPayments()
   const dealerTai=getDealerBonusTai();const dealerText=repeats>0?`連${repeats}拉${repeats}・莊家 ${dealerTai} 台`:`莊家 ${dealerTai} 台`
   const baseTaiText=result==='詐胡'?'詐胡各家依設定台數':`本場 ${tai} 台`
-  const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;const dealerBadge=p===dealer?`<span class="v38-dealer-tai">${dealerText}</span>`:'';return `<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:16px"><span style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><b>${escapeHtml(p)}</b>${t?`<span class="v32-preview-sub">${t}</span>`:''}${dealerBadge}</span><b style="font-size:17px;color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}$${a.toLocaleString()}</b></div>`}).join('')
+  // 核對數字只附在本把胡牌／自摸的金額旁，不影響實際金流或詐胡計算。
+  const stakeRule=stakeRules[selectedStake]
+  const confirmationNumber=(result==='胡牌'||result==='自摸')&&stakeRule&&Number(stakeRule.tai)>0?`（${Number(stakeRule.base)/Number(stakeRule.tai)+Number(tai)}）`:''
+  const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;const dealerBadge=p===dealer?`<span class="v38-dealer-tai">${dealerText}</span>`:'';return `<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:16px"><span style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><b>${escapeHtml(p)}</b>${t?`<span class="v32-preview-sub">${t}</span>`:''}${dealerBadge}</span><b style="font-size:17px;color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}${a.toLocaleString()}${confirmationNumber}</b></div>`}).join('')
   box.innerHTML=`<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一將目前沒有金額變動。'}`
 }
 
