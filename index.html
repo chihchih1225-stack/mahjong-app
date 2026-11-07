@@ -13516,6 +13516,28 @@ html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-cashflow-car
 #seatResult .manual-seat-tile.is-selected{border-color:#a4d7c1;background:#f7fffb}
 @media(max-width:370px){#seatResult .manual-seat-grid{gap:7px}#seatResult .manual-seat-tile{padding:9px}#seatResult .manual-seat-select{font-size:13px}}
 </style>
+<style id="final-date-mobile-overflow-fix">
+/* iOS Safari datetime-local has a wide intrinsic control; contain it inside the settlement card. */
+#final,#final .card,#final .card>div{min-width:0;max-width:100%}
+#final #finalPlayedAt{
+ display:block!important;
+ box-sizing:border-box!important;
+ width:100%!important;
+ min-width:0!important;
+ max-width:100%!important;
+ font-size:16px!important;
+ padding:12px 10px!important;
+ overflow:hidden!important;
+}
+#final #finalPlayedAt::-webkit-datetime-edit{
+ min-width:0!important;
+ max-width:100%!important;
+ overflow:hidden!important;
+}
+#final #finalPlayedAt::-webkit-calendar-picker-indicator{
+ flex:0 0 auto;
+}
+</style>
 </body>
 </html>
 
