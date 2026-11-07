@@ -103,7 +103,7 @@ const paymentScope={
 };
 vm.createContext(paymentScope);
 vm.runInContext(between('function getDealerBonusTai(){','function setFraudTai('),paymentScope);
-vm.runInContext(between('function calculateHandPayments(){','/* =========================\\n   金額預覽'),paymentScope);
+vm.runInContext(between('function calculateHandPayments(){','function gamePlayerColors('),paymentScope);
 const payments=()=>JSON.parse(JSON.stringify(vm.runInContext('calculateHandPayments()',paymentScope)));
 const checkZeroSum=(v)=>assert.equal(Object.values(v).reduce((sum,n)=>sum+n,0),0,'payments must sum to zero');
 let pay=payments();assert.deepEqual(pay,{甲:0,乙:160,丙:-160,丁:0},'discard win amount');checkZeroSum(pay);
