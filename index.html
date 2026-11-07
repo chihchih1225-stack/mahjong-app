@@ -4851,7 +4851,7 @@ async function createRemoteGameSession(){
 
 
 async function syncRemoteConfirmedHand(hand){
-  if(!remoteSessionId || !pbAuth?.record?.id || !hand) return
+  if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
   try{
     const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
     const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
@@ -4882,7 +4882,11 @@ async function syncRemoteConfirmedHand(hand){
         seat_map:syncedSeatMap
       })
     })
-  }catch(e){ console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e) }
+    return {ok:true,handNumber:handNo}
+  }catch(e){
+    console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e)
+    return {ok:false,reason:'remote_sync_failed',message:String(e?.message||e)}
+  }
 }
 
 
