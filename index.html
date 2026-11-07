@@ -8602,6 +8602,7 @@ function continueNextMatch(){
   // V81：連打時不把桌上水位歸零；下一將以目前水位作為起點。
   // sessionOpeningBalances 只用來算「這一將」的輸贏，避免長期戰績重複累加。
   // V183：離場者的累積金額仍保留在 balances；新玩家從 0 開始。
+  const previousPlayers=[...P]
   const proposed=window.prompt('下一將的四位玩家（用頓號或逗號分隔，可換人）',P.join('、'))
   if(proposed===null) return
   const nextPlayers=proposed.split(/[、,，\n]+/).map(x=>x.trim()).filter(Boolean)
@@ -8617,7 +8618,7 @@ function continueNextMatch(){
   P.forEach(player=>sessionOpeningBalances[player]=Number(balances[player]||0))
   // V108：提款機帳本已在每一把確認時即時累積；跨場只原封不動帶過去，不再重算。
   if(seriesCashflowLedger && typeof seriesCashflowLedger==='object') seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))
-  else seriesCashflowBase=buildCashflowMatrix(hands,P)
+  else seriesCashflowBase=buildCashflowMatrix(hands,previousPlayers)
   seriesCashflowLedger=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
   liveCashflowSnapshot=null
   hands=[]
