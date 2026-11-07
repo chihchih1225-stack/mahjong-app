@@ -4853,8 +4853,24 @@ async function createRemoteGameSession(){
 // Serialize remote hand writes: the next hand must not overtake the previous one.
 // This does not provide transactional undo or guarantee remote persistence.
 let remoteHandSyncQueue=Promise.resolve()
+const remoteHandSyncState=new WeakMap()
 function queueRemoteConfirmedHand(hand,snapshot){
-  const pending=remoteHandSyncQueue.then(()=>syncRemoteConfirmedHand(hand,snapshot))
+  remoteHandSyncState.set(hand,'pending')
+  const pending=remoteHandSyncQueue.then(async()=>{
+    // A new session may still be opening while the first hand is scored.
+    if(!snapshot.sessionId && remoteSessionCreatePromise){
+      const created=await remoteSessionCreatePromise
+      if(created?.id) snapshot.sessionId=created.id
+    }
+    const outcome=await syncRemoteConfirmedHand(hand,snapshot)
+    remoteHandSyncState.set(hand,outcome.ok?'synced':'failed')
+    if(!outcome.ok) console.warn('牌局遠端同步未完成，需核對後再補存',outcome)
+    return outcome
+  }).catch(error=>{
+    remoteHandSyncState.set(hand,'failed')
+    console.warn('牌局遠端同步佇列失敗',error)
+    return {ok:false,reason:'remote_queue_error'}
+  })
   remoteHandSyncQueue=pending.then(()=>undefined,()=>undefined)
   return pending
 }
@@ -7971,6 +7987,13 @@ function syncResultButtons(){
 
 
 function undoHand(){
+  // Do not silently remove a locally recorded hand while it may exist in PB.
+  // Remote reversal needs a verified, separately tested transaction flow.
+  const lastRecordedHand=hands[hands.length-1]
+  if(lastRecordedHand && remoteHandSyncState.has(lastRecordedHand)){
+    alert('這把牌局已進入遠端同步流程，暫時不能直接復原，以免 PocketBase 戰績與手機不同。請先保留紀錄，待遠端復原功能完成。')
+    return
+  }
 
 
   if(!hands.length){
