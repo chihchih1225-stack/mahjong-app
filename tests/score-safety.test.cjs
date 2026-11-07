@@ -125,7 +125,9 @@ console.log('PASS: discard, selfdraw, repeat dealer, fraud and draw payment calc
 
 // A saved hand must capture its remote identity and money before an async lookup.
 assert(html.includes('const remoteHandSnapshot={'),'committed hand captures remote snapshot');
-assert(html.includes('void syncRemoteConfirmedHand(hand,remoteHandSnapshot)'),'remote sync receives committed snapshot');
+assert(html.includes('void queueRemoteConfirmedHand(hand,remoteHandSnapshot)'),'remote sync queue receives committed snapshot');
+assert(html.includes('remoteHandSyncQueue.then(()=>syncRemoteConfirmedHand(hand,snapshot))'),'remote writes are serialized');
+assert(html.includes('remoteHandSyncQueue=pending.then(()=>undefined,()=>undefined)'),'failed remote writes do not block later queued writes');
 assert(sync.includes('committedSnapshot?.handNumber??hands.length'),'remote hand number uses frozen value');
 assert(sync.includes('committedSnapshot?.balancesAfter||balances'),'remote balances use frozen value');
 assert(sync.includes('committedSnapshot?.cashflowSnapshot||buildCashflowMatrix'),'remote cashflow uses frozen value');
