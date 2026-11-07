@@ -18,7 +18,7 @@ const cash=between('function renderCashflowMatrix(){','function cashflowReconcil
 assert(cash.includes('matrix[to]?.[from]'));
 assert(cash.includes('matrix[from]?.[to]'));
 assert(cash.includes('對帳異常'));
-const sync=between('async function syncRemoteConfirmedHand(hand){','async function completeRemoteSession(');
+const sync=between('async function syncRemoteConfirmedHand(hand,committedSnapshot=null){','async function completeRemoteSession(');
 assert(sync.includes("method:'POST'"));
 assert(sync.includes("method:'PATCH'"));
 assert(sync.includes('catch(e)')); // Known risk: catch currently swallows sync failures.
