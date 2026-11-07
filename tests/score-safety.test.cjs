@@ -73,5 +73,17 @@ assert.equal(signed('甲','乙'),80,'甲 against 乙 is +80');
 assert.equal(signed('乙','甲'),-80,'乙 against 甲 is -80');
 assert.equal(signed('甲','乙')+signed('乙','甲'),0,'bilateral net zero sum');
 console.log('PASS: bilateral cashflow netting scenario.');
+assert(html.includes('rollbackHandFromCashflowLedger(last)'), 'undo updates ATM ledger');
+const rollback=between('function rollbackHandFromCashflowLedger(hand){','function renderCashflowMatrix(){');
+assert(rollback.includes('seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))'),'undo synchronizes ledger base');
+vm.runInContext(rollback,cashScope);
+cashScope.seriesCashflowLedger=JSON.parse(JSON.stringify(ledger));
+cashScope.seriesCashflowBase=JSON.parse(JSON.stringify(ledger));
+vm.runInContext('rollbackHandFromCashflowLedger(hands[1])',cashScope);
+assert.equal(cashScope.seriesCashflowLedger['甲']['乙'],0,'undo removes reversed payment');
+assert.equal(cashScope.seriesCashflowLedger['乙']['甲'],120,'undo preserves earlier payment');
+assert.equal(cashScope.seriesCashflowBase['甲']['乙'],0,'base stays synchronized');
+console.log('PASS: undo cashflow rollback preserves prior hands.');
+
 
 console.log('PASS: static scoring safeguards; remote sync/undo requires integration testing.');
