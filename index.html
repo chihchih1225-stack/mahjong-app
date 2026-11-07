@@ -4859,7 +4859,7 @@ const REMOTE_HAND_STATUS_KEY='mahjongRemoteHandStatusV1'
 function rememberRemoteHandStatus(hand,snapshot,status,reason=''){
   if(!snapshot?.roomId || !snapshot?.handNumber) return
   try{
-    const key=[snapshot.roomId,snapshot.sessionId||'pending',snapshot.handNumber].join(':')
+    const key=snapshot.syncKey||[snapshot.roomId,snapshot.sessionId||'pending',snapshot.handNumber].join(':')
     const existing=JSON.parse(localStorage.getItem(REMOTE_HAND_STATUS_KEY)||'{}')
     existing[key]={roomId:snapshot.roomId,sessionId:snapshot.sessionId||'',handNumber:snapshot.handNumber,status,reason,updatedAt:new Date().toISOString()}
     const keys=Object.keys(existing).sort((a,b)=>String(existing[b]?.updatedAt||'').localeCompare(String(existing[a]?.updatedAt||'')))
@@ -7904,6 +7904,7 @@ function saveHand(){
   // Freeze the committed hand's identity and balances before any asynchronous room lookup.
   // Do not let a later hand overwrite this hand's remote snapshot.
   const remoteHandSnapshot={
+    syncKey:makeId('remote-hand'),
     sessionId:remoteSessionId,
     roomId:currentRoomId,
     recordedBy:pbAuth?.record?.id||'',
