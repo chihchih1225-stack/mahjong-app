@@ -4850,19 +4850,19 @@ async function createRemoteGameSession(){
 }
 
 
-async function syncRemoteConfirmedHand(hand){
+async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
   if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
   let handCreated=false
   try{
     const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
     const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
-    const handNo=hands.length
+    const handNo=committedSnapshot?.handNumber??hands.length
     const payload={
       session:remoteSessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
       dealer:map[hand.dealer]?.id||'',dealer_repeats:Number(hand.repeats||0),
       result:resultMap[hand.result]||'draw',winner:map[hand.winner]?.id||'',
       discarder:map[hand.discarder]?.id||'',tai:Number(hand.tai||0),
-      patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...balances},
+      patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
     }
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
@@ -4871,7 +4871,7 @@ async function syncRemoteConfirmedHand(hand){
 
     // V105：每存一把，計分端把「目前整輪連打」完整提款機矩陣一起同步。
     // 直播端只讀這份快照，不再猜上一場誰付誰。
-    const exactCashflowSnapshot=buildCashflowMatrix(hands,P)
+    const exactCashflowSnapshot=committedSnapshot?.cashflowSnapshot||buildCashflowMatrix(hands,P)
     const syncedSeatMap=buildSeatMap(map)
     syncedSeatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(exactCashflowSnapshot||{}))
 
@@ -4879,8 +4879,8 @@ async function syncRemoteConfirmedHand(hand){
     await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
       method:'PATCH',
       body:JSON.stringify({
-        dealer:map[dealer]?.id||payload.dealer,round:getRoundName(roundIndex),
-        dealer_repeats:repeats,hand_number:hands.length+1,
+        dealer:map[committedSnapshot?.nextDealer||dealer]?.id||payload.dealer,round:committedSnapshot?.nextRound||getRoundName(roundIndex),
+        dealer_repeats:committedSnapshot?.nextRepeats??repeats,hand_number:committedSnapshot?.nextHandNumber??(hands.length+1),
         seat_map:syncedSeatMap
       })
     })
@@ -7819,7 +7819,18 @@ function saveHand(){
 
 
 
-  void syncRemoteConfirmedHand(hand)
+  // Freeze the committed hand's identity and balances before any asynchronous room lookup.
+  // Do not let a later hand overwrite this hand's remote snapshot.
+  const remoteHandSnapshot={
+    handNumber:hands.length,
+    balancesAfter:{...balances},
+    nextDealer:dealer,
+    nextRound:getRoundName(roundIndex),
+    nextRepeats:repeats,
+    nextHandNumber:hands.length+1,
+    cashflowSnapshot:JSON.parse(JSON.stringify(buildCashflowMatrix(hands,P)||{}))
+  }
+  void syncRemoteConfirmedHand(hand,remoteHandSnapshot)
 
 
   if(autoEndAfterHand){
