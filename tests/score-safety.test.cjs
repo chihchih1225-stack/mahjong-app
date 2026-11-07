@@ -95,4 +95,26 @@ console.log('PASS: duplicate rollback guard and full local cashflow rollback.');
 
 
 
+
+const paymentScope={
+ P:['甲','乙','丙','丁'],currentRule:{base:100,tai:20},
+ tai:3,repeats:0,dealer:'甲',winner:'乙',discarder:'丙',
+ result:'胡牌',fraudTai:{}
+};
+vm.createContext(paymentScope);
+vm.runInContext(between('function getDealerBonusTai(){','function setFraudTai('),paymentScope);
+vm.runInContext(between('function calculateHandPayments(){','/* =========================\\n   金額預覽'),paymentScope);
+const payments=()=>JSON.parse(JSON.stringify(vm.runInContext('calculateHandPayments()',paymentScope)));
+const checkZeroSum=(v)=>assert.equal(Object.values(v).reduce((sum,n)=>sum+n,0),0,'payments must sum to zero');
+let pay=payments();assert.deepEqual(pay,{甲:0,乙:160,丙:-160,丁:0},'discard win amount');checkZeroSum(pay);
+paymentScope.result='自摸';paymentScope.winner='乙';pay=payments();
+assert.deepEqual(pay,{甲:-180,乙:500,丙:-160,丁:-160},'selfdraw dealer premium applies only to dealer transfer');checkZeroSum(pay);
+paymentScope.repeats=2;pay=payments();
+assert.deepEqual(pay,{甲:-260,乙:580,丙:-160,丁:-160},'dealer repeat adds five dealer tai');checkZeroSum(pay);
+paymentScope.result='詐胡';paymentScope.winner='甲';paymentScope.fraudTai={乙:1,丙:2,丁:0};paymentScope.repeats=0;pay=payments();
+assert.deepEqual(pay,{甲:-420,乙:140,丙:160,丁:120},'fraud penalties use individual tai plus dealer premium');checkZeroSum(pay);
+paymentScope.result='流局';pay=payments();
+assert.deepEqual(pay,{甲:0,乙:0,丙:0,丁:0},'draw has zero payment');
+console.log('PASS: discard, selfdraw, repeat dealer, fraud and draw payment calculations.');
+
 console.log('PASS: static scoring safeguards; remote sync/undo requires integration testing.');
