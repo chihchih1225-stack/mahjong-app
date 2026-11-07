@@ -8692,7 +8692,19 @@ function continueNextMatch(){
   const seatResult=document.getElementById('seatResult')
   if(seatResult) seatResult.innerHTML=''
   document.getElementById('confirmSeatBtn')?.classList.add('hidden')
-  clearActiveGame()
+  // V183：換人後立即保存「等待重新抽位」狀態，避免 iPhone 在選位前關閉而遺失整晚金額。
+  // 此時尚未有新莊家，不可依賴 persistActiveGame() 的 dealer 條件。
+  try{
+    const pending=activeGameSnapshot()
+    pending.resumeStage='seat'
+    pending.dealer=''
+    pending.seats=[]
+    localStorage.setItem(ACTIVE_GAME_KEY,JSON.stringify(pending))
+    renderResumeGameCard()
+  }catch(e){
+    console.error('V183：換人狀態無法儲存',e)
+    alert('目前無法安全儲存換人進度，請勿關閉 App；請檢查裝置儲存空間。')
+  }
   show('seat')
 }
 
@@ -9421,7 +9433,9 @@ function activeGameSnapshot(){
 }
 function persistActiveGame(){
   if(mode!=='detailed' || !P || P.length!==4 || !dealer) return
-  localStorage.setItem(ACTIVE_GAME_KEY,JSON.stringify(activeGameSnapshot()))
+  const snapshot=activeGameSnapshot()
+  snapshot.resumeStage='game'
+  localStorage.setItem(ACTIVE_GAME_KEY,JSON.stringify(snapshot))
   renderResumeGameCard()
 }
 function getActiveGame(){
@@ -9447,6 +9461,15 @@ function resumeActiveGame(){
   seriesId=g.seriesId||makeId('series'); seriesGameCount=Number(g.seriesGameCount||0); seriesStartedAt=g.seriesStartedAt||g.savedAt||new Date().toISOString()
   gameStartedAt=g.gameStartedAt||g.savedAt||new Date().toISOString(); gameEndedAt=g.gameEndedAt||''
   tai=0; winner=''; discarder=''; result='胡牌'; fraudTai={}; selectedPatterns=[]
+  if(g.resumeStage==='seat'){
+    // V183：換人後尚未抽位時，恢復到抽位頁而非錯誤地進入計分頁。
+    dealer=''; seats=[]; drawPool=[]; drawTurn=0; drawAssignments={}; drawOrder=[]
+    const seatResult=document.getElementById('seatResult')
+    if(seatResult) seatResult.innerHTML=''
+    document.getElementById('confirmSeatBtn')?.classList.add('hidden')
+    show('seat')
+    return
+  }
   renderGame(); v33StartGameClock(); show('game')
 }
 async function discardActiveGame(){
