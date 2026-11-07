@@ -4850,6 +4850,15 @@ async function createRemoteGameSession(){
 }
 
 
+// Serialize remote hand writes: the next hand must not overtake the previous one.
+// This does not provide transactional undo or guarantee remote persistence.
+let remoteHandSyncQueue=Promise.resolve()
+function queueRemoteConfirmedHand(hand,snapshot){
+  const pending=remoteHandSyncQueue.then(()=>syncRemoteConfirmedHand(hand,snapshot))
+  remoteHandSyncQueue=pending.then(()=>undefined,()=>undefined)
+  return pending
+}
+
 async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
   if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
   let handCreated=false
@@ -7830,7 +7839,7 @@ function saveHand(){
     nextHandNumber:hands.length+1,
     cashflowSnapshot:JSON.parse(JSON.stringify(buildCashflowMatrix(hands,P)||{}))
   }
-  void syncRemoteConfirmedHand(hand,remoteHandSnapshot)
+  void queueRemoteConfirmedHand(hand,remoteHandSnapshot)
 
 
   if(autoEndAfterHand){
