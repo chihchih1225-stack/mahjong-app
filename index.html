@@ -2124,6 +2124,17 @@ main{padding-bottom:74px}
 #roomDashboard .room-dashboard-actions .nav-action{min-height:38px;padding:8px 9px;font-size:12px;white-space:nowrap}
 #roomDashboard .room-dashboard-actions #deleteRoomBtn{grid-column:2;grid-row:2;justify-self:end;margin:0!important;padding:6px 9px;min-height:32px;font-size:12px;white-space:nowrap}
 @media(max-width:390px){#roomDashboard .room-dashboard-header{gap:5px}#roomDashboard .room-dashboard-actions{gap:5px}#roomDashboard .room-dashboard-actions .nav-action{font-size:11px;padding:7px 6px;min-height:36px}#roomDashboard .room-dashboard-actions #deleteRoomBtn{font-size:11px;padding:5px 7px}}
+
+/* 2026-11-07 投影操作易讀性：僅影響投影，正式計分資料不變 */
+html body #game.projection-mode .game-chart-card{display:none!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview{font-size:clamp(16px,1.7vw,25px)!important;line-height:1.55!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;min-height:74px!important;padding:12px!important;overflow-wrap:anywhere!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row button{min-height:48px!important;height:auto!important;font-size:clamp(15px,1.4vw,21px)!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row b{font-size:clamp(16px,1.5vw,23px)!important}
+html body #game.projection-mode .game-cashflow-card{min-width:0!important}
+
+/* 提款機正負數：僅變更顯示，沿用原始付款帳本 */
+html body #game .cashflow-table td.pos{color:#27845a!important;font-weight:800!important}
+html body #game .cashflow-table td.neg{color:#c64f62!important;font-weight:800!important}
 </style>
 
 
@@ -4839,26 +4850,28 @@ async function createRemoteGameSession(){
 }
 
 
-async function syncRemoteConfirmedHand(hand){
-  if(!remoteSessionId || !pbAuth?.record?.id || !hand) return
+async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
+  if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
+  let handCreated=false
   try{
     const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
     const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
-    const handNo=hands.length
+    const handNo=committedSnapshot?.handNumber??hands.length
     const payload={
       session:remoteSessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
       dealer:map[hand.dealer]?.id||'',dealer_repeats:Number(hand.repeats||0),
       result:resultMap[hand.result]||'draw',winner:map[hand.winner]?.id||'',
       discarder:map[hand.discarder]?.id||'',tai:Number(hand.tai||0),
-      patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...balances},
+      patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
     }
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+    handCreated=true
 
 
     // V105：每存一把，計分端把「目前整輪連打」完整提款機矩陣一起同步。
     // 直播端只讀這份快照，不再猜上一場誰付誰。
-    const exactCashflowSnapshot=buildCashflowMatrix(hands,P)
+    const exactCashflowSnapshot=committedSnapshot?.cashflowSnapshot||buildCashflowMatrix(hands,P)
     const syncedSeatMap=buildSeatMap(map)
     syncedSeatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(exactCashflowSnapshot||{}))
 
@@ -4866,12 +4879,16 @@ async function syncRemoteConfirmedHand(hand){
     await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
       method:'PATCH',
       body:JSON.stringify({
-        dealer:map[dealer]?.id||payload.dealer,round:getRoundName(roundIndex),
-        dealer_repeats:repeats,hand_number:hands.length+1,
+        dealer:map[committedSnapshot?.nextDealer||dealer]?.id||payload.dealer,round:committedSnapshot?.nextRound||getRoundName(roundIndex),
+        dealer_repeats:committedSnapshot?.nextRepeats??repeats,hand_number:committedSnapshot?.nextHandNumber??(hands.length+1),
         seat_map:syncedSeatMap
       })
     })
-  }catch(e){ console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e) }
+    return {ok:true,handNumber:handNo}
+  }catch(e){
+    console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e)
+    return {ok:false,reason:handCreated?'session_snapshot_failed':'hand_write_failed',handCreated,message:String(e?.message||e)}
+  }
 }
 
 
@@ -5061,6 +5078,7 @@ function startGame(){
   currentRoomId=activeRoom.id
 
 
+  handTaiExplicitlySelected=false
   P=getPlayers()
 
 
@@ -6287,6 +6305,18 @@ function commitHandToCashflowLedger(hand){
 }
 
 
+function rollbackHandFromCashflowLedger(hand){
+  if(!hand || !seriesCashflowLedger || typeof seriesCashflowLedger!=='object') return
+  const transfers=handCashflowTransfers(hand)
+  // Verify all entries before mutating; do not partially corrupt the ledger.
+  if(transfers.some(t=>!seriesCashflowLedger[t.from] || !Object.prototype.hasOwnProperty.call(seriesCashflowLedger[t.from],t.to) || Number(seriesCashflowLedger[t.from][t.to]||0)<Number(t.amount||0))){
+    console.warn('提款機帳本無法安全回退，保留原始帳本供核對')
+    return
+  }
+  transfers.forEach(t=>{seriesCashflowLedger[t.from][t.to]-=Number(t.amount||0)})
+  seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))
+}
+
 function renderCashflowMatrix(){
   const el=document.getElementById('cashflowMatrix')
   if(!el) return
@@ -6297,12 +6327,11 @@ function renderCashflowMatrix(){
   // A→B 與 B→A 各自保留，絕不互抵；只在連打總結算後才歸零。
   const order=(Array.isArray(seats)&&seats.length===P.length&&seats.every(n=>P.includes(n)))?[...seats]:[...P]
   const matrix=buildCashflowMatrix(hands,order)
-  const paid=Object.fromEntries(order.map(a=>[a,order.reduce((sum,b)=>sum+Number(matrix[a]?.[b]||0),0)]))
-  const received=Object.fromEntries(order.map(b=>[b,order.reduce((sum,a)=>sum+Number(matrix[a]?.[b]||0),0)]))
-  const net=Object.fromEntries(order.map(p=>[p,Number(received[p]||0)-Number(paid[p]||0)]))
+  // 列為玩家視角；正值＝從對方淨贏，負值＝淨輸。
+  const net=Object.fromEntries(order.map(p=>[p,order.reduce((sum,other)=>sum+Number(matrix[other]?.[p]||0)-Number(matrix[p]?.[other]||0),0)]))
 
 
-  let html='<div class="cashflow-scroll"><table class="cashflow-table"><thead><tr><th>付款 ↓ / 收款 →</th>'
+  let html='<div class="cashflow-scroll"><table class="cashflow-table"><thead><tr><th>玩家 ↓ / 對手 →</th>'
   html+=order.map(p=>`<th>${escapeHtml(p)}</th>`).join('')
   html+='<th>合計</th></tr></thead><tbody>'
 
@@ -6311,8 +6340,8 @@ function renderCashflowMatrix(){
     html+=`<tr><th class="cashflow-rowname">${escapeHtml(from)}</th>`
     order.forEach(to=>{
       if(from===to){html+='<td class="cashflow-zero">—</td>';return}
-      const v=Number(matrix[from]?.[to]||0)
-      html+=`<td class="${v?'cashflow-pay':'cashflow-zero'}">${v?'$'+v.toLocaleString():'—'}</td>`
+      const v=Number(matrix[to]?.[from]||0)-Number(matrix[from]?.[to]||0)
+      html+=`<td class="${v>0?'pos':v<0?'neg':'cashflow-zero'}">${v>0?'+':''}${v.toLocaleString()}</td>`
     })
     const n=Number(net[from]||0)
     html+=`<td class="cashflow-total ${n>0?'pos':n<0?'neg':''}">${n>0?'+':''}$${n.toLocaleString()}</td></tr>`
@@ -6320,7 +6349,7 @@ function renderCashflowMatrix(){
 
 
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">提款機由計分端依每一把實際付款累積完整「誰付誰」矩陣，並同步給直播／投影；最右側合計＝收到－付出，與計分水位對帳。按「繼續下一將」不歸零，完成「連打總結算」才重新開始。</div>'
+  html+='<div class="cashflow-note">提款機由每一把實際付款計算兩人之間的淨輸贏：綠色正數為列玩家贏對手，紅色負數為列玩家輸對手；最右側合計與計分水位對帳。按「繼續下一將」不歸零，完成「連打總結算」才重新開始。</div>'
 
 
   const mismatch=order.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
@@ -6962,9 +6991,12 @@ function pickResult(
 ========================= */
 
 
+// 每把必須明確按過台數，避免沿用上一把的 0 台或殘留數值。
+let handTaiExplicitlySelected=false
 function addTai(value){
 
 
+  handTaiExplicitlySelected=true
   tai+=value
 
 
@@ -6982,6 +7014,7 @@ function addTai(value){
 function resetTai(){
 
 
+  handTaiExplicitlySelected=true
   tai=0
 
 
@@ -7513,6 +7546,18 @@ function continueDealer(){
 ========================= */
 
 
+/* 自動記錄的純檢查：未啟用觸發，待遠端確認及防重送測試完成後使用。 */
+function canAutoRecordCurrentHand(){
+  if(liveViewerMode || !Array.isArray(P) || P.length!==4) return false
+  if(result!=='胡牌' && result!=='自摸') return false
+  if(!handTaiExplicitlySelected || !Number.isFinite(Number(tai)) || Number(tai)<0) return false
+  if(!winner || !P.includes(winner)) return false
+  if(result==='自摸') return true
+  return !!discarder && P.includes(discarder) && discarder!==winner
+}
+
+// 防止重入提交；遠端冪等性仍需獨立驗證。
+let handSaveInProgress=false
 function saveHand(){
 
 
@@ -7572,6 +7617,9 @@ function saveHand(){
 
 
 
+  if(handSaveInProgress) return
+  handSaveInProgress=true
+  try{
   const beforeBalances=
     {...balances}
 
@@ -7771,7 +7819,18 @@ function saveHand(){
 
 
 
-  void syncRemoteConfirmedHand(hand)
+  // Freeze the committed hand's identity and balances before any asynchronous room lookup.
+  // Do not let a later hand overwrite this hand's remote snapshot.
+  const remoteHandSnapshot={
+    handNumber:hands.length,
+    balancesAfter:{...balances},
+    nextDealer:dealer,
+    nextRound:getRoundName(roundIndex),
+    nextRepeats:repeats,
+    nextHandNumber:hands.length+1,
+    cashflowSnapshot:JSON.parse(JSON.stringify(buildCashflowMatrix(hands,P)||{}))
+  }
+  void syncRemoteConfirmedHand(hand,remoteHandSnapshot)
 
 
   if(autoEndAfterHand){
@@ -7786,6 +7845,7 @@ function saveHand(){
   /* 下一將 */
 
 
+  handTaiExplicitlySelected=false
   tai=0
 
 
@@ -7825,12 +7885,10 @@ function saveHand(){
 
   renderGame()
   persistActiveGame()
-
-
+  } finally {
+    handSaveInProgress=false
+  }
 }
-
-
-
 
 /* =========================
    同步結果按鈕
@@ -7887,6 +7945,8 @@ function undoHand(){
 
   const last=
     hands.pop()
+
+  rollbackHandFromCashflowLedger(last)
 
 
 
@@ -10441,7 +10501,11 @@ function syncProjectionScorePanel(){
   if(hint) hint.textContent=result==='流局'?'流局不用選玩家':result==='詐胡'?(winner?`${winner} 詐胡`:'點左上座位選詐胡者'):result==='自摸'?(winner?`${winner} 自摸`:'點左上座位選自摸者'):!winner?'點左上座位選胡牌者':!discarder?`${winner} 胡・再點放槍者`:`${winner} 胡・${discarder} 放槍`
   const ps=document.getElementById('projectionPatternSummary'); if(ps) ps.textContent=selectedPatterns?.length?selectedPatterns.join('、'):'未選'
   const cp=document.getElementById('projectionCalcPreview'), src=document.getElementById('calculationPreview')
-  if(cp&&src) cp.textContent=src.textContent||'選好結果與玩家後會顯示金額'
+  if(cp&&src){
+    // 複製計分預覽 DOM，保留每位玩家的獨立行列與金額顏色；不重新解析字串。
+    cp.replaceChildren(...Array.from(src.childNodes,node=>node.cloneNode(true)))
+    if(!cp.textContent.trim()) cp.textContent='選好結果與玩家後會顯示金額'
+  }
 }
 
 
@@ -13051,7 +13115,8 @@ function v125RenderLatestHand(){
   if(!box){box=document.createElement('div');box.id='v125LatestHand';box.className='notice v125-latest-hand';anchor.insertAdjacentElement('afterend',box)}
   const h=Array.isArray(hands)&&hands.length?hands[hands.length-1]:null
   if(!h){box.textContent='最新一筆：尚未記錄';return}
-  const changes=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([n,v])=>`${n} ${Number(v)>0?'+':''}$${Number(v).toLocaleString()}`).join('・')
+  const rule=stakeRules[selectedStake];const bracket=(h.result==='胡牌'||h.result==='自摸')&&rule&&Number(rule.tai)>0&&Number.isFinite(Number(h.tai))?`（${Number(rule.base)/Number(rule.tai)+Number(h.tai)}）`:''
+  const changes=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([n,v])=>`${n} ${Number(v)>0?'+':''}${Number(v).toLocaleString()}${bracket}`).join('・')
   box.textContent=`最新一筆｜${h.round||''} ${h.winner?`${h.winner} ${h.result||''}`:(h.result||'')}｜${changes||'—'}`
 }
 const v125OldRenderHistory=renderHistory
@@ -13390,6 +13455,15 @@ html body #homeScreen .goal-item .goal-actions > button {
   line-height:1!important; white-space:nowrap!important;
   background:#efedf9!important; color:#55516e!important; border:1px solid #e7e3f2!important;
 }
+
+/* 投影覆寫放最後，避免舊版 20 段樣式以相同權重蓋回。 */
+html body #game.projection-mode .game-chart-card{display:none!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview{font-size:clamp(16px,1.7vw,25px)!important;line-height:1.55!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;min-height:74px!important;padding:12px!important;overflow-wrap:anywhere!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview>div{max-width:100%!important;gap:8px!important;flex-wrap:wrap!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview>div b{font-size:inherit!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row button{min-height:48px!important;height:auto!important;font-size:clamp(15px,1.4vw,21px)!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row b{font-size:clamp(16px,1.5vw,23px)!important}
+html body #game.projection-mode .game-cashflow-card{min-width:0!important}
 </style>
 
 
@@ -13442,96 +13516,13 @@ html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-cashflow-car
 #seatResult .manual-seat-tile.is-selected{border-color:#a4d7c1;background:#f7fffb}
 @media(max-width:370px){#seatResult .manual-seat-grid{gap:7px}#seatResult .manual-seat-tile{padding:9px}#seatResult .manual-seat-select{font-size:13px}}
 </style>
-<style id="final-date-mobile-overflow-fix">
-/* iOS Safari datetime-local has a wide intrinsic control; contain it inside the settlement card. */
-#final,#final .card,#final .card>div{min-width:0;max-width:100%}
-#final #finalPlayedAt{
- display:block!important;
- box-sizing:border-box!important;
- width:100%!important;
- min-width:0!important;
- max-width:100%!important;
- font-size:16px!important;
- padding:12px 10px!important;
- overflow:hidden!important;
-}
-#final #finalPlayedAt::-webkit-datetime-edit{
- min-width:0!important;
- max-width:100%!important;
- overflow:hidden!important;
-}
-#final #finalPlayedAt::-webkit-calendar-picker-indicator{
- flex:0 0 auto;
-}
-</style>
-<style id="projection-emergency-iphone-landscape-20261107">
-/* Emergency projection-only layout: fixed 3 tracks and one content row, no chart. */
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){display:grid!important;grid-template-columns:minmax(0,37fr) minmax(0,30fr) minmax(0,33fr)!important;grid-template-rows:38px minmax(0,1fr)!important;grid-template-areas:"ticker ticker ticker" "status score cash"!important;gap:7px!important;align-content:stretch!important;overflow:hidden!important}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-ticker-wrap{grid-area:ticker!important;grid-column:1/-1!important;grid-row:1!important;min-height:0!important}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card{grid-area:status!important;grid-column:1!important;grid-row:2!important;min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;overflow:auto!important}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{grid-area:score!important;grid-column:2!important;grid-row:2!important;min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;overflow:auto!important}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{grid-area:cash!important;grid-column:3!important;grid-row:2!important;min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;overflow:auto!important}
-html body #game.projection-mode:not(.hidden) .game-chart-card{display:none!important;visibility:hidden!important}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #playerStats{min-height:0!important;max-height:calc(100% - 75px)!important;overflow:auto!important}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-head{flex:0 0 auto!important;min-height:0!important}
-</style>
 
-<style id="projection-iphone-compact-20261107">
-/* Restore the approved 20:45 three-column composition; remove the unused upper-right area. */
-@media (orientation:landscape) {
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){
- display:grid!important;box-sizing:border-box!important;
- width:100%!important;max-width:100%!important;
- height:100dvh!important;min-height:0!important;max-height:100dvh!important;
- padding:6px calc(8px + env(safe-area-inset-right)) 6px calc(8px + env(safe-area-inset-left))!important;
- grid-template-columns:minmax(0,37fr) minmax(0,30fr) minmax(0,33fr)!important;
- grid-template-rows:38px minmax(0,1fr)!important;grid-auto-rows:0!important;align-content:stretch!important;
- grid-template-areas:"ticker ticker ticker" "status score cash"!important;
- gap:7px!important;overflow:hidden!important;align-items:stretch!important;
-}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-ticker-wrap{
- grid-area:ticker!important;grid-column:1/-1!important;grid-row:1!important;
- min-height:38px!important;height:38px!important;padding-right:170px!important;pointer-events:none!important;
-}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card{
- grid-area:status!important;grid-column:1!important;grid-row:2!important;grid-row-end:3!important;
- display:flex!important;flex-direction:column!important;justify-content:flex-start!important;
- min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;
- padding:7px 10px!important;overflow:auto!important;
-}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #playerStats{
- min-height:0!important;max-height:none!important;overflow:visible!important;
-}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{
- grid-area:score!important;grid-column:2!important;grid-row:2!important;grid-row-end:3!important;
- display:flex!important;flex-direction:column!important;justify-content:flex-start!important;
- min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;
- padding:7px 10px!important;overflow:auto!important;
-}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{
- grid-area:cash!important;grid-column:3!important;grid-row:2!important;grid-row-end:3!important;
- min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;
- padding:9px 11px!important;overflow:auto!important;align-self:stretch!important;
-}
-html body #game.projection-mode:not(.hidden) #projectionExitBtn{
- display:flex!important;align-items:center!important;justify-content:center!important;
- position:fixed!important;z-index:2147483647!important;
- top:calc(7px + env(safe-area-inset-top))!important;
- right:calc(12px + env(safe-area-inset-right))!important;
- left:auto!important;bottom:auto!important;
- width:148px!important;min-width:148px!important;height:44px!important;min-height:44px!important;
- padding:0 12px!important;margin:0!important;border-radius:14px!important;
- font-size:16px!important;line-height:1!important;white-space:nowrap!important;
- touch-action:manipulation!important;pointer-events:auto!important;
-}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-chart-card{display:none!important;position:absolute!important;visibility:hidden!important}
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card,
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel,
-html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{
- grid-row-start:2!important;grid-row-end:3!important;align-self:stretch!important;
-}
-}
+<style id="projection-exit-touch-target-20261107">
+body #game.projection-mode #projectionExitBtn{position:fixed!important;top:calc(8px + env(safe-area-inset-top))!important;right:calc(12px + env(safe-area-inset-right))!important;left:auto!important;bottom:auto!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;min-width:148px!important;min-height:44px!important;padding:0 12px!important;border-radius:14px!important;font-size:16px!important;touch-action:manipulation!important;pointer-events:auto!important}
 </style>
 </body>
-
 </html>
+
+
+
+
