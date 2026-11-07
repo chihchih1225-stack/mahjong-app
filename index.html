@@ -3200,6 +3200,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 
 
+  <button type="button" class="rule-btn" onclick="v183MidgameEntry()" style="width:100%;margin:8px 0 12px">中途接手計分・帶入目前金額及進度</button>
   <button
     class="primary"
     onclick="confirmDealer()"
@@ -5078,6 +5079,7 @@ function startGame(){
   currentRoomId=activeRoom.id
 
 
+  v183MidgamePending=null
   handTaiExplicitlySelected=false
   P=getPlayers()
 
@@ -5606,6 +5608,27 @@ function selectRecorder(player,element){
 
 
 
+// V183：接手前已打的把數只計入金額，不虛構逐把勝負紀錄。
+let v183MidgamePending=null
+function v183MidgameEntry(){
+  if(!dealer || !recorderPlayer){alert('請先選擇莊家和記錄者');return}
+  const entered=window.prompt('依照座位四位玩家的目前輸贏金額，依序輸入四個整數（用逗號分隔，合計必須為 0）\\n'+P.join('、'),'0,0,0,0')
+  if(entered===null)return
+  const values=entered.split(/[,，、]+/).map(x=>x.trim())
+  if(values.length!==4 || values.some(x=>!/^[-+]?\\d+$/.test(x)) || values.reduce((n,x)=>n+Number(x),0)!==0){
+    alert('請輸入四筆整數，且四人合計必須是 0。');return
+  }
+  const round=window.prompt('目前要記錄的下一把是第幾圈第幾局？輸入 1～16（1=東一、5=南一、9=西一、13=北一）','1')
+  if(round===null)return
+  const index=Number(round)
+  if(!Number.isInteger(index)||index<1||index>16){alert('局數請輸入 1～16');return}
+  const repeat=window.prompt('目前莊家已連莊幾次？（0 表示初莊）','0')
+  if(repeat===null)return
+  if(!/^\\d+$/.test(repeat.trim())||Number(repeat)>99){alert('連莊次數不正確');return}
+  v183MidgamePending={values:values.map(Number),roundIndex:index-1,repeats:Number(repeat)}
+  if(!window.confirm('確認帶入中途金額並開始記錄？之前未記錄的把數不會計入胡牌統計。'))return
+  confirmDealer()
+}
 async function confirmDealer(){
 
 
@@ -5627,6 +5650,15 @@ async function confirmDealer(){
   }
 
 
+  if(v183MidgamePending){
+    const entry=v183MidgamePending
+    P.forEach((name,i)=>balances[name]=entry.values[i])
+    // 此將的 opening 仍為 0，確保接手前金額只計一次；
+    // 未記錄的把數不會新增到 hands。
+    roundIndex=entry.roundIndex
+    repeats=entry.repeats
+    v183MidgamePending=null
+  }
   gameStartedAt=new Date().toISOString()
   gameEndedAt=''
   renderGame()
@@ -8593,7 +8625,6 @@ async function finishDetailedGame(){
 // V51：同一個房間打完一場後，可直接開始下一將；沿用房間與四位玩家，但座位一定重新抽。
 function continueNextMatch(){
   if(P.length!==4){ returnToCurrentRoom(); return }
-  sessionSaved=false
   // V53：同一桌接著打下一將，保留桌號；牌局本身仍建立全新的 game_session。
   preferredNextTableNumber=Number(currentTableNumber||0)
   remoteSessionId=''
@@ -8610,6 +8641,7 @@ function continueNextMatch(){
     alert('請輸入四位不重複的玩家，已取消換人。')
     return
   }
+  sessionSaved=false
   const room=(appData?.rooms||[]).find(x=>x.id===currentRoomId)
   if(room) ensureRoomMembers(room,nextPlayers)
   P=nextPlayers
@@ -8694,7 +8726,7 @@ function closeSeriesSettlement(){
 async function finishSeriesSettlement(){
   const total=Object.values(balances).reduce((sum,value)=>sum+Number(value||0),0)
   if(total!==0){
-    alert('目前四人的累積金額加總不是 0，請先檢查，不能完成收付。')
+    alert('今晚所有玩家的累積金額加總不是 0，請先檢查，不能完成收付。')
     return
   }
   if(!await uiConfirm('確認後會結束這一輪連打並返回房間；每一將歷史戰績都會保留。','已經完成收付了嗎？',{okText:'完成收付'})) return
