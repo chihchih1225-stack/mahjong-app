@@ -4852,6 +4852,7 @@ async function createRemoteGameSession(){
 
 async function syncRemoteConfirmedHand(hand){
   if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
+  let handCreated=false
   try{
     const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
     const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
@@ -4865,6 +4866,7 @@ async function syncRemoteConfirmedHand(hand){
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
     }
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+    handCreated=true
 
 
     // V105：每存一把，計分端把「目前整輪連打」完整提款機矩陣一起同步。
@@ -4885,7 +4887,7 @@ async function syncRemoteConfirmedHand(hand){
     return {ok:true,handNumber:handNo}
   }catch(e){
     console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e)
-    return {ok:false,reason:'remote_sync_failed',message:String(e?.message||e)}
+    return {ok:false,reason:handCreated?'session_snapshot_failed':'hand_write_failed',handCreated,message:String(e?.message||e)}
   }
 }
 
