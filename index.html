@@ -5615,7 +5615,7 @@ function v183MidgameEntry(){
   const entered=window.prompt('依照座位四位玩家的目前輸贏金額，依序輸入四個整數（用逗號分隔，合計必須為 0）\\n'+P.join('、'),'0,0,0,0')
   if(entered===null)return
   const values=entered.split(/[,，、]+/).map(x=>x.trim())
-  if(values.length!==4 || values.some(x=>!/^[-+]?\\d+$/.test(x)) || values.reduce((n,x)=>n+Number(x),0)!==0){
+  if(values.length!==4 || values.some(x=>!/^[-+]?\d+$/.test(x)) || values.reduce((n,x)=>n+Number(x),0)!==0){
     alert('請輸入四筆整數，且四人合計必須是 0。');return
   }
   const round=window.prompt('目前要記錄的下一把是第幾圈第幾局？輸入 1～16（1=東一、5=南一、9=西一、13=北一）','1')
@@ -5624,7 +5624,7 @@ function v183MidgameEntry(){
   if(!Number.isInteger(index)||index<1||index>16){alert('局數請輸入 1～16');return}
   const repeat=window.prompt('目前莊家已連莊幾次？（0 表示初莊）','0')
   if(repeat===null)return
-  if(!/^\\d+$/.test(repeat.trim())||Number(repeat)>99){alert('連莊次數不正確');return}
+  if(!/^\d+$/.test(repeat.trim())||Number(repeat)>99){alert('連莊次數不正確');return}
   v183MidgamePending={values:values.map(Number),roundIndex:index-1,repeats:Number(repeat)}
   if(!window.confirm('確認帶入中途金額並開始記錄？之前未記錄的把數不會計入胡牌統計。')){v183MidgamePending=null;return}
   confirmDealer()
