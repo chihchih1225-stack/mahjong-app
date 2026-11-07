@@ -12203,7 +12203,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V178'
+  const APP_VERSION='V179'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13628,6 +13628,25 @@ html body #game.projection-mode:not(.hidden) #playerStats .player-content{displa
 html body #game.projection-mode:not(.hidden) #playerStats .player-wind{flex:0 0 100%!important;font-size:clamp(9px,.8vw,12px)!important;text-align:center!important;margin:0!important}
 html body #game.projection-mode:not(.hidden) #playerStats .player-name{flex:0 1 auto!important;font-size:clamp(12px,1.1vw,18px)!important;line-height:1.2!important;min-width:0!important;white-space:normal!important;word-break:keep-all!important}
 html body #game.projection-mode:not(.hidden) #playerStats .current-money{flex:0 0 auto!important;font-size:clamp(12px,1.15vw,19px)!important;white-space:nowrap!important;word-break:normal!important;overflow-wrap:normal!important;line-height:1.2!important}
+</style>
+<style id="projection-v179-no-overlap-no-scroll">
+/* Fixed cross: four bounded seats, independent of inherited grid rows and card minimums. */
+html body #game.projection-mode:not(.hidden) #playerStats{display:block!important;position:relative!important;flex:1 1 auto!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:hidden!important;margin:0!important;padding:0!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card{position:absolute!important;min-height:0!important;max-height:none!important;height:31%!important;max-width:none!important;min-width:0!important;width:49%!important;inset:auto!important;margin:0!important;padding:2px 4px!important;transform:none!important;overflow:hidden!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:12px!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-top{top:0!important;left:15%!important;width:70%!important;height:31%!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-left{top:34%!important;left:0!important;width:49%!important;height:31%!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-right{top:34%!important;right:0!important;left:auto!important;width:49%!important;height:31%!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-card.pos-bottom{top:68%!important;left:15%!important;width:70%!important;height:31%!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-content{display:flex!important;flex-direction:column!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;gap:2px!important;min-height:0!important;width:100%!important;height:100%!important;padding:0!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-wind{display:none!important}
+html body #game.projection-mode:not(.hidden) #playerStats .player-name{font-size:clamp(12px,1.15vw,18px)!important;line-height:1.1!important;text-align:center!important;white-space:normal!important}
+html body #game.projection-mode:not(.hidden) #playerStats .current-money{font-size:clamp(13px,1.3vw,21px)!important;line-height:1.15!important;white-space:nowrap!important;word-break:normal!important;overflow-wrap:normal!important;text-align:center!important}
+html body #game.projection-mode:not(.hidden) .projection-score-panel{overflow:hidden!important;overscroll-behavior:none!important}
+html body #game.projection-mode:not(.hidden) .game-cashflow-card{overflow:hidden!important;padding:8px!important;box-sizing:border-box!important}
+html body #game.projection-mode:not(.hidden) #cashflowMatrix{width:100%!important;max-width:100%!important;min-width:0!important;overflow:hidden!important;box-sizing:border-box!important}
+html body #game.projection-mode:not(.hidden) .cashflow-table{width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;border-collapse:separate!important;border-spacing:2px!important;box-sizing:border-box!important}
+html body #game.projection-mode:not(.hidden) .cashflow-table th,
+html body #game.projection-mode:not(.hidden) .cashflow-table td{box-sizing:border-box!important;min-width:0!important;max-width:0!important;padding:3px 1px!important;overflow:hidden!important;overflow-wrap:anywhere!important;word-break:normal!important;font-size:clamp(9px,1vw,15px)!important;line-height:1.15!important}
 </style>
 </body>
 </html>
