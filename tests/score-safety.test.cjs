@@ -33,6 +33,18 @@ assert(sync.includes('remoteHandMatches(afterError[0],payload)'),'POST reconcili
 assert(sync.includes("method:'PATCH'"));
 assert(sync.includes('catch(e)')); // Known risk: catch currently swallows sync failures.
 
+const remoteMatchSource=between('function remoteHandMatches(record,payload){','async function findRemoteHandForSlot(')
+const remoteMatchScope={};
+require('node:vm').createContext(remoteMatchScope);
+require('node:vm').runInContext(remoteMatchSource,remoteMatchScope);
+const remotePayload={session:'session1',hand_number:2,result:'win',winner:'p1',discarder:'p2',tai:3,dealer:'p3',payments:{p1:100,p2:-100}};
+const matchRemote=(record)=>require('node:vm').runInContext('remoteHandMatches(record,payload)',Object.assign(remoteMatchScope,{record,payload:remotePayload}));
+assert.equal(matchRemote({...remotePayload}),true,'same remote hand may be reused');
+assert.equal(matchRemote({...remotePayload,hand_number:3}),false,'different hand number is conflict');
+assert.equal(matchRemote({...remotePayload,winner:'p4'}),false,'different winner is conflict');
+assert.equal(matchRemote({...remotePayload,payments:{p1:90,p2:-90}}),false,'different payments is conflict');
+console.log('PASS: remote hand matching rejects conflicting data.');
+
 const vm=require('node:vm');
 const extract=(a,b)=>between(a,b).replace(/\\n$/,'');
 const scope={P:['甲','乙','丙','丁'],winner:'',discarder:'',result:'胡牌',tai:0,handTaiExplicitlySelected:false,liveViewerMode:false};
