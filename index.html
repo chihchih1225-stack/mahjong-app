@@ -13027,7 +13027,8 @@ function v125RenderLatestHand(){
   if(!box){box=document.createElement('div');box.id='v125LatestHand';box.className='notice v125-latest-hand';anchor.insertAdjacentElement('afterend',box)}
   const h=Array.isArray(hands)&&hands.length?hands[hands.length-1]:null
   if(!h){box.textContent='最新一筆：尚未記錄';return}
-  const changes=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([n,v])=>`${n} ${Number(v)>0?'+':''}$${Number(v).toLocaleString()}`).join('・')
+  const rule=stakeRules[selectedStake];const bracket=(h.result==='胡牌'||h.result==='自摸')&&rule&&Number(rule.tai)>0&&Number.isFinite(Number(h.tai))?`（${Number(rule.base)/Number(rule.tai)+Number(h.tai)}）`:''
+  const changes=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([n,v])=>`${n} ${Number(v)>0?'+':''}${Number(v).toLocaleString()}${bracket}`).join('・')
   box.textContent=`最新一筆｜${h.round||''} ${h.winner?`${h.winner} ${h.result||''}`:(h.result||'')}｜${changes||'—'}`
 }
 const v125OldRenderHistory=renderHistory
