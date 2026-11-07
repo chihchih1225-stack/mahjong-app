@@ -143,8 +143,12 @@ console.log('PASS: discard, selfdraw, repeat dealer, fraud and draw payment calc
 // A saved hand must capture its remote identity and money before an async lookup.
 assert(html.includes('const remoteHandSnapshot={'),'committed hand captures remote snapshot');
 assert(html.includes('void queueRemoteConfirmedHand(hand,remoteHandSnapshot)'),'remote sync queue receives committed snapshot');
-assert(html.includes('remoteHandSyncQueue.then(()=>syncRemoteConfirmedHand(hand,snapshot))'),'remote writes are serialized');
+assert(html.includes('remoteHandSyncQueue.then(async()=>{'),'remote writes are serialized');
 assert(html.includes('remoteHandSyncQueue=pending.then(()=>undefined,()=>undefined)'),'failed remote writes do not block later queued writes');
+assert(html.includes('if(!snapshot.sessionId && remoteSessionCreatePromise)'),'first hand waits for session creation');
+assert(html.includes('snapshot.sessionId=created.id'),'first hand receives resolved session id');
+assert(html.includes("remoteHandSyncState.set(hand,outcome.ok?'synced':'failed')"),'remote status is tracked');
+assert(html.includes('if(lastRecordedHand && remoteHandSyncState.has(lastRecordedHand))'),'undo blocks local-only removal of remote-queued hand');
 assert(sync.includes('committedSnapshot?.handNumber??hands.length'),'remote hand number uses frozen value');
 assert(sync.includes('committedSnapshot?.sessionId??remoteSessionId'),'queued write preserves original session');
 assert(sync.includes('committedSnapshot?.roomId??currentRoomId'),'queued write preserves original room');
