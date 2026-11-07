@@ -12203,7 +12203,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V180'
+  const APP_VERSION='V181'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13427,6 +13427,36 @@ openRoom=function(id){
   v149RankingExpanded=false
   return v156OldOpenRoom.apply(this,arguments)
 }
+
+/* V181: show the same base-plus-tai confirmation for recorded wins in live and projection. */
+function v181PointText(hand){
+  if(!hand || (hand.result!=='胡牌' && hand.result!=='自摸')) return '';
+  const rule=stakeRules[selectedStake];
+  if(!rule || !(Number(rule.tai)>0)) return '';
+  return '（'+(Number(rule.base)/Number(rule.tai)+Number(hand.tai||0))+'）';
+}
+function v181RefreshLatestPoint(){
+  const last=hands&&hands.length?hands[hands.length-1]:null;
+  const point=v181PointText(last);
+  const label=last?('最新一筆：'+(last.winner||'')+' '+last.result+' '+Number(last.tai||0)+'台'+point):'最新一筆：尚未記錄';
+  const el=document.getElementById('projectionLatestHand');
+  if(el) el.textContent=label;
+  let live=document.getElementById('v181LiveLatestPoint');
+  const host=document.querySelector('#game .game-status-card .live-head');
+  if(host){
+    if(!live){live=document.createElement('div');live.id='v181LiveLatestPoint';host.appendChild(live)}
+    live.textContent=last&&point?('最新：'+(last.winner||'')+' '+last.result+' '+point):'';
+  }
+}
+(function(){
+  const originalRender=renderGame;
+  renderGame=function(){const out=originalRender.apply(this,arguments);v181RefreshLatestPoint();return out};
+  const originalViewer=v32RenderViewerDashboard;
+  v32RenderViewerDashboard=function(){const out=originalViewer.apply(this,arguments);v181RefreshLatestPoint();return out};
+  const originalProjection=syncProjectionScorePanel;
+  syncProjectionScorePanel=function(){const out=originalProjection.apply(this,arguments);v181RefreshLatestPoint();return out};
+})();
+
 </script>
 
 
@@ -13680,7 +13710,7 @@ html body #game.projection-mode:not(.hidden) #projectionLatestHand{flex:0 1 auto
  html body #game.projection-mode:not(.hidden) #projectionLatestHand{max-height:17%!important;padding:4px!important}
 }
 </style>
-</body>
+<style id="v181-point-style">#v181LiveLatestPoint{font-weight:800;font-size:clamp(12px,1.2vw,18px);color:#315d7b;white-space:nowrap}#game.projection-mode .game-status-card .live-head{position:relative}#game.projection-mode #v181LiveLatestPoint{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font-size:clamp(11px,1vw,16px)}#game.live-viewer-mode:not(.projection-mode) #v181LiveLatestPoint{padding:4px 7px}</style></body>
 </html>
 
 
