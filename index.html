@@ -10467,7 +10467,11 @@ function syncProjectionScorePanel(){
   if(hint) hint.textContent=result==='流局'?'流局不用選玩家':result==='詐胡'?(winner?`${winner} 詐胡`:'點左上座位選詐胡者'):result==='自摸'?(winner?`${winner} 自摸`:'點左上座位選自摸者'):!winner?'點左上座位選胡牌者':!discarder?`${winner} 胡・再點放槍者`:`${winner} 胡・${discarder} 放槍`
   const ps=document.getElementById('projectionPatternSummary'); if(ps) ps.textContent=selectedPatterns?.length?selectedPatterns.join('、'):'未選'
   const cp=document.getElementById('projectionCalcPreview'), src=document.getElementById('calculationPreview')
-  if(cp&&src) cp.textContent=src.textContent||'選好結果與玩家後會顯示金額'
+  if(cp&&src){
+    // 複製計分預覽 DOM，保留每位玩家的獨立行列與金額顏色；不重新解析字串。
+    cp.replaceChildren(...Array.from(src.childNodes,node=>node.cloneNode(true)))
+    if(!cp.textContent.trim()) cp.textContent='選好結果與玩家後會顯示金額'
+  }
 }
 
 
@@ -13417,6 +13421,15 @@ html body #homeScreen .goal-item .goal-actions > button {
   line-height:1!important; white-space:nowrap!important;
   background:#efedf9!important; color:#55516e!important; border:1px solid #e7e3f2!important;
 }
+
+/* 投影覆寫放最後，避免舊版 20 段樣式以相同權重蓋回。 */
+html body #game.projection-mode .game-chart-card{display:none!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview{font-size:clamp(16px,1.7vw,25px)!important;line-height:1.55!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;min-height:74px!important;padding:12px!important;overflow-wrap:anywhere!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview>div{max-width:100%!important;gap:8px!important;flex-wrap:wrap!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-calc-preview>div b{font-size:inherit!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row button{min-height:48px!important;height:auto!important;font-size:clamp(15px,1.4vw,21px)!important}
+html body #game.projection-mode:not(.live-viewer-mode) .projection-tai-row b{font-size:clamp(16px,1.5vw,23px)!important}
+html body #game.projection-mode .game-cashflow-card{min-width:0!important}
 </style>
 
 
