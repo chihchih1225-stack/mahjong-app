@@ -6327,6 +6327,14 @@ function commitHandToCashflowLedger(hand){
     })
     seriesCashflowLedger=matrix
   }
+  // V183：新增玩家第一次打牌時先擴充矩陣，避免金流被忽略。
+  const names=Object.keys(balances||{})
+  names.forEach(from=>{
+    if(!seriesCashflowLedger[from])seriesCashflowLedger[from]={}
+    names.forEach(to=>{
+      if(from!==to && !Object.prototype.hasOwnProperty.call(seriesCashflowLedger[from],to))seriesCashflowLedger[from][to]=0
+    })
+  })
   handCashflowTransfers(hand).forEach(t=>{
     if(seriesCashflowLedger[t.from] && Object.prototype.hasOwnProperty.call(seriesCashflowLedger[t.from],t.to)){
       seriesCashflowLedger[t.from][t.to]+=Number(t.amount||0)
@@ -8651,7 +8659,14 @@ function continueNextMatch(){
   // V108：提款機帳本已在每一把確認時即時累積；跨場只原封不動帶過去，不再重算。
   if(seriesCashflowLedger && typeof seriesCashflowLedger==='object') seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))
   else seriesCashflowBase=buildCashflowMatrix(hands,previousPlayers)
-  seriesCashflowLedger=JSON.parse(JSON.stringify(seriesCashflowBase||{}))
+  // V183：跨將換人後，提款機帳本擴充至所有曾參與玩家，不能丟掉離場者金流。
+  const allNames=Object.keys(balances)
+  const expanded=emptyCashflow(allNames)
+  allNames.forEach(from=>allNames.forEach(to=>{
+    if(from!==to) expanded[from][to]=Number(seriesCashflowBase?.[from]?.[to]||0)
+  }))
+  seriesCashflowBase=expanded
+  seriesCashflowLedger=JSON.parse(JSON.stringify(expanded))
   liveCashflowSnapshot=null
   hands=[]
   roundIndex=0
