@@ -13465,8 +13465,16 @@ html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-cashflow-car
 }
 </style>
 </body>
+
+<style id="projection-emergency-iphone-landscape-20261107">
+/* Emergency projection-only layout: fixed 3 tracks and one content row, no chart. */
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode){display:grid!important;grid-template-columns:minmax(0,37fr) minmax(0,30fr) minmax(0,33fr)!important;grid-template-rows:38px minmax(0,1fr)!important;grid-template-areas:"ticker ticker ticker" "status score cash"!important;gap:7px!important;align-content:stretch!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-ticker-wrap{grid-area:ticker!important;grid-column:1/-1!important;grid-row:1!important;min-height:0!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-status-card{grid-area:status!important;grid-column:1!important;grid-row:2!important;min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;overflow:auto!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{grid-area:score!important;grid-column:2!important;grid-row:2!important;min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;overflow:auto!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{grid-area:cash!important;grid-column:3!important;grid-row:2!important;min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;overflow:auto!important}
+html body #game.projection-mode:not(.hidden) .game-chart-card{display:none!important;visibility:hidden!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #playerStats{min-height:0!important;max-height:calc(100% - 75px)!important;overflow:auto!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .live-head{flex:0 0 auto!important;min-height:0!important}
+</style>
 </html>
-
-
-
-
