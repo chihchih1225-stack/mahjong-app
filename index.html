@@ -8640,6 +8640,11 @@ async function finishDetailedGame(){
 
 // V51：同一個房間打完一場後，可直接開始下一將；沿用房間與四位玩家，但座位一定重新抽。
 function continueNextMatch(){
+  // V183：只有本將已結案，才能進入換人流程；避免跳過尚未同步的牌局。
+  if(!sessionSaved){
+    alert('本將尚未完成結案，請先確認儲存成功後再換人。')
+    return
+  }
   if(P.length!==4){ returnToCurrentRoom(); return }
   // V53：同一桌接著打下一將，保留桌號；牌局本身仍建立全新的 game_session。
   // V81：連打時不把桌上水位歸零；下一將以目前水位作為起點。
