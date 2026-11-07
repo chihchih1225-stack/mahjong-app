@@ -7528,6 +7528,16 @@ function continueDealer(){
 ========================= */
 
 
+/* 自動記錄的純檢查：未啟用觸發，待遠端確認及防重送測試完成後使用。 */
+function canAutoRecordCurrentHand(){
+  if(liveViewerMode || !Array.isArray(P) || P.length!==4) return false
+  if(result!=='胡牌' && result!=='自摸') return false
+  if(!handTaiExplicitlySelected || !Number.isFinite(Number(tai)) || Number(tai)<0) return false
+  if(!winner || !P.includes(winner)) return false
+  if(result==='自摸') return true
+  return !!discarder && P.includes(discarder) && discarder!==winner
+}
+
 function saveHand(){
 
 
