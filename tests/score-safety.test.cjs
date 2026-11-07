@@ -46,4 +46,29 @@ scope.liveViewerMode=true;
 assert.equal(can(),false,'viewer cannot auto record');
 console.log('PASS: auto-record completeness scenarios.');
 
+
+const cashScope={
+  P:['甲','乙','丙','丁'],hands:[],balances:{甲:0,乙:0,丙:0,丁:0},
+  seats:['甲','乙','丙','丁'],seriesCashflowBase:{},seriesCashflowLedger:null,
+  liveViewerMode:false,liveCashflowSnapshot:null
+};
+vm.createContext(cashScope);
+const cashFunctions=between('function handCashflowTransfers(hand){','function renderCashflowMatrix(){');
+const emptyStart=html.indexOf('function emptyCashflow(');
+assert(emptyStart>=0,'cashflow matrix initializer exists');
+const emptyEnd=html.indexOf('function handCashflowTransfers(',emptyStart);
+vm.runInContext(html.slice(emptyStart,emptyEnd)+cashFunctions,cashScope);
+cashScope.hands=[
+  {result:'胡牌',winner:'甲',discarder:'乙',changes:{甲:120,乙:-120,丙:0,丁:0}},
+  {result:'胡牌',winner:'乙',discarder:'甲',changes:{甲:-40,乙:40,丙:0,丁:0}}
+];
+const ledger=vm.runInContext('buildCashflowMatrix(hands,P)',cashScope);
+assert.equal(ledger['乙']['甲'],120,'乙 paid 甲');
+assert.equal(ledger['甲']['乙'],40,'甲 paid 乙');
+const signed=(from,to)=>Number(ledger[to]?.[from]||0)-Number(ledger[from]?.[to]||0);
+assert.equal(signed('甲','乙'),80,'甲 against 乙 is +80');
+assert.equal(signed('乙','甲'),-80,'乙 against 甲 is -80');
+assert.equal(signed('甲','乙')+signed('乙','甲'),0,'bilateral net zero sum');
+console.log('PASS: bilateral cashflow netting scenario.');
+
 console.log('PASS: static scoring safeguards; remote sync/undo requires integration testing.');
