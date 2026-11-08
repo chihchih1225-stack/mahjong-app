@@ -3086,24 +3086,46 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 <!-- V183 中途接手專用：不抽位、不使用系統 prompt -->
 <section id="midgameSetup" class="hidden">
+  <style>
+    #midgameSetup .card{padding:20px 16px;border-radius:26px}
+    #midgameSetup .toprow{align-items:center;gap:8px}
+    #midgameSetup .toprow h2{font-size:21px;letter-spacing:-.5px}
+    #midgameSetup .mid-help{font-size:13px;line-height:1.6;color:#827c87;margin:9px 0 17px}
+    #midgameSetup .mid-label{font-weight:800;font-size:16px;margin:18px 0 10px;color:#49444e}
+    #midgameSetup .mid-seat-grid,#midgameSetup .mid-field-grid,#midgameSetup .mid-money-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+    #midgameSetup .mid-seat-card{min-width:0;background:#f4faf6;border:1.5px solid #d5e8dc;border-radius:17px;padding:12px}
+    #midgameSetup .mid-seat-card:nth-child(2){background:#fff7f5;border-color:#f0dedb}
+    #midgameSetup .mid-seat-card:nth-child(3){background:#f7f5ff;border-color:#e7e1f5}
+    #midgameSetup .mid-seat-card:nth-child(4){background:#fef9eb;border-color:#f0e5c7}
+    #midgameSetup .mid-seat-card .mid-wind{display:block;font-size:13px;font-weight:800;color:#77717b;margin-bottom:8px}
+    #midgameSetup .mid-field{min-width:0;display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:700;color:#756e7b}
+    #midgameSetup select,#midgameSetup input{box-sizing:border-box;display:block;width:100%;min-width:0;min-height:45px;padding:9px 10px;font-size:16px;color:#48434d;background:white;border:1.5px solid #e4dfe4;border-radius:12px;appearance:auto}
+    #midgameSetup .mid-seat-card select{font-weight:750;border-color:#dce5de}
+    #midgameSetup .mid-money-card{min-width:0;background:#faf8fb;border:1px solid #ebe5ed;border-radius:16px;padding:11px}
+    #midgameSetup .mid-money-card b{display:block;margin-bottom:8px;font-size:15px}
+    #midgameSetup .mid-money-card input{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+    #midgameSetup #midgameNetTotal{margin-top:12px;border-radius:14px;padding:13px;font-weight:800;text-align:center}
+    #midgameSetup .mid-start{margin-top:14px}
+    @media(max-width:370px){#midgameSetup .card{padding:16px 12px}#midgameSetup .mid-seat-grid,#midgameSetup .mid-field-grid,#midgameSetup .mid-money-grid{gap:8px}}
+  </style>
   <div class="card">
-    <div class="toprow"><h2>🀄 打到一半・接手記錄</h2><button class="nav-action" onclick="show('setup')">← 返回</button></div>
-    <p class="muted">依照現在實際坐的位置登記，從下一把開始記錄。之前的輸贏只計金額，不補造胡牌紀錄。</p>
-    <h3>目前座位</h3>
-    <div class="manual-seat-grid" id="midgameSeatGrid"></div>
-    <h3>目前進度</h3>
-    <div class="grid2">
-      <label>下一把的局數<select id="midgameRound" class="manual-seat-select"></select></label>
-      <label>已連莊次數<input id="midgameRepeats" type="number" min="0" max="99" step="1" value="0" inputmode="numeric"></label>
-      <label>目前莊家<select id="midgameDealer" class="manual-seat-select"></select></label>
-      <label>拿手機記錄的人<select id="midgameRecorder" class="manual-seat-select"></select></label>
+    <div class="toprow"><h2>🀄 中途接手</h2><button class="nav-action" onclick="show('setup')">← 返回</button></div>
+    <p class="mid-help">照現在的位置填好四個人，帶入目前戰況，下一把直接繼續打。</p>
+    <div class="mid-label">① 現在誰坐哪裡？</div>
+    <div class="mid-seat-grid" id="midgameSeatGrid"></div>
+    <div class="mid-label">② 打到哪裡了？</div>
+    <div class="mid-field-grid">
+      <label class="mid-field">下一把局數<select id="midgameRound"></select></label>
+      <label class="mid-field">連莊次數<input id="midgameRepeats" type="number" min="0" max="99" step="1" value="0" inputmode="numeric"></label>
+      <label class="mid-field">目前莊家<select id="midgameDealer"></select></label>
+      <label class="mid-field">記錄的人<select id="midgameRecorder"></select></label>
     </div>
-    <h3>目前累計輸贏</h3>
-    <p class="muted">贏填正數、輸填負數；四人加總必須為 0。</p>
-    <div id="midgameMoneyGrid" class="grid2"></div>
+    <div class="mid-label">③ 目前輸贏多少？</div>
+    <p class="mid-help">贏填正數、輸填負數，四人合計必須是 $0。</p>
+    <div id="midgameMoneyGrid" class="mid-money-grid"></div>
     <div id="midgameNetTotal" class="notice" aria-live="polite">四人合計 $0</div>
   </div>
-  <button class="primary" onclick="v183StartMidgame()">確認座位與金額・繼續計分</button>
+  <button class="primary mid-start" onclick="v183StartMidgame()">確認・繼續記錄下一把</button>
 </section>
 
 <!-- 座位 -->
@@ -5648,13 +5670,13 @@ function selectRecorder(player,element){
 function v183RenderMidgameSetup(){
   const options='<option value="">請選擇玩家</option>'+P.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join('')
   document.getElementById('midgameSeatGrid').innerHTML=winds.map((wind,i)=>
-    '<label class="manual-seat-tile"><span class="manual-seat-heading"><span class="manual-seat-wind">'+wind+'</span><span>'+wind+'風</span></span><select class="manual-seat-select" id="midgameSeat'+i+'" onchange="v183RefreshMidgameNames()">'+options+'</select></label>'
+    '<label class="mid-seat-card"><span class="mid-wind">'+wind+'位</span><select id="midgameSeat'+i+'" onchange="v183RefreshMidgameNames()">'+options+'</select></label>'
   ).join('')
   document.getElementById('midgameRound').innerHTML=Array.from({length:16},(_,i)=>'<option value="'+i+'">'+getRoundName(i)+'</option>').join('')
   document.getElementById('midgameDealer').innerHTML=options
   document.getElementById('midgameRecorder').innerHTML=options
   document.getElementById('midgameMoneyGrid').innerHTML=P.map((name,i)=>
-    '<label class="manual-seat-tile"><b>'+escapeHtml(name)+'</b><input type="number" step="1" inputmode="numeric" id="midgameMoney'+i+'" value="0" oninput="v183RefreshMidgameTotal()" style="width:100%;margin-top:8px" aria-label="'+escapeHtml(name)+'目前輸贏"></label>'
+    '<label class="mid-money-card"><b>'+escapeHtml(name)+'</b><input type="number" step="1" inputmode="numeric" id="midgameMoney'+i+'" value="0" oninput="v183RefreshMidgameTotal()" aria-label="'+escapeHtml(name)+'目前輸贏"></label>'
   ).join('')
   v183RefreshMidgameTotal()
 }
