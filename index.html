@@ -12993,6 +12993,8 @@ function v117SessionWinnerNames(ss){
   const nets=sessionNets(ss),entries=Object.entries(nets).filter(([,v])=>Number.isFinite(Number(v)))
   if(!entries.length)return []
   const max=Math.max(...entries.map(([,v])=>Number(v)))
+  // V183：全員打平（最高淨額 0）不能算第一名，亦不能延續連勝。
+  if(max<=0)return []
   return entries.filter(([,v])=>Number(v)===max).map(([n])=>canonicalPlayerName(n)).filter(Boolean)
 }
 function v117DateKey(ss){
@@ -13004,11 +13006,16 @@ function v117BuildXpMap(sessions){
   const touch=n=>out[n]||(out[n]={name:n,xp:0,baseXp:0,multiplierBonus:0,taskXp:0,sessions:0,firsts:0,wins:0,selfdraws:0,patterns:0,maxFirstStreak:0})
   const ordered=[...(sessions||[])].sort((a,b)=>new Date(a.startedAt||a.createdAt||0)-new Date(b.startedAt||b.createdAt||0)||String(a.id||'').localeCompare(String(b.id||'')))
   ordered.forEach(ss=>{
+    // V183：空白逐把牌局（沒有任何一把）不發 XP，也不增加每日任務進度。
+    // 最終結算模式沒有逐把紀錄：只有確實填入非零輸贏時，才保留既有參與 XP。
+    const recordedHands=Array.isArray(ss.hands)?ss.hands:[]
+    const hasFinalResult=ss.mode==='final'&&Object.values(sessionNets(ss)).some(v=>Number(v)!==0)
+    if(recordedHands.length===0&&!hasFinalResult)return
     const participants=[...new Set((ss.players?.length?ss.players:Object.keys(sessionNets(ss))).map(canonicalPlayerName).filter(Boolean))]
     const firsts=new Set(v117SessionWinnerNames(ss));const date=v117DateKey(ss)
     const handStats={}
     participants.forEach(n=>handStats[n]={wins:0,selfdraws:0,pattern:false,patternBonus:0})
-    ;(Array.isArray(ss.hands)?ss.hands:[]).forEach(h=>{
+    ;recordedHands.forEach(h=>{
       const w=canonicalPlayerName(h.winner||'');if(!w||!handStats[w]||!(h.result==='胡牌'||h.result==='自摸'))return
       if(h.result==='自摸')handStats[w].selfdraws++;else handStats[w].wins++
       const pb=v117PatternBonus(h.patterns||[]);if(pb){handStats[w].pattern=true;handStats[w].patternBonus+=pb}
@@ -13112,7 +13119,7 @@ function v118XpRowsForIds(ids=[],players=[]){
 }
 function v118XpBlock(rows,title='本將 XP'){
   if(!rows?.length)return ''
-  return `<div class="v118-xp-wrap"><div class="v118-xp-head"><b>✨ ${escapeHtml(title)}</b><span class="muted">V117 練等</span></div><div class="v118-xp-list">${rows.map(x=>{
+  return `<div class="v118-xp-wrap"><div class="v118-xp-head"><b>✨ ${escapeHtml(title)}</b><span class="muted">依實際牌局計算</span></div><div class="v118-xp-list">${rows.map(x=>{
     const up=Number(x.after.level||1)>Number(x.before.level||1)
     return `<div class="v118-xp-row"><div class="v118-xp-name">${v117LevelPill(x.name)}<div><b>${escapeHtml(x.name)}</b><div class="v118-xp-sub">Lv.${x.before.level||1} → Lv.${x.after.level||1}${up?'<span class="v118-levelup">LEVEL UP</span>':''}</div></div></div><div class="v118-xp-gain">+${Number(x.gain||0).toLocaleString()} XP</div></div>`
   }).join('')}</div></div>`
