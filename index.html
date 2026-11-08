@@ -3059,6 +3059,10 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
       </button>
 
 
+      <button id="midgameBtn" class="mode" onclick="setMode('midgame')" style="grid-column:1/-1;text-align:left">
+        <strong>🀄 打到一半才開始記錄</strong>
+        <span>帶入目前局數、莊家、連莊及四人輸贏，再從這一把繼續計分。</span>
+      </button>
     </div>
 
 
@@ -3200,8 +3204,8 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 
 
-  <button type="button" class="rule-btn" onclick="v183MidgameEntry()" style="width:100%;margin:8px 0 12px">中途接手計分・帶入目前金額及進度</button>
-  <button
+  <button id="midgameStartBtn" type="button" class="primary hidden" onclick="v183MidgameEntry()" style="width:100%;margin:8px 0 12px">帶入目前金額及進度・開始記錄</button>
+  <button id="normalStartBtn"
     class="primary"
     onclick="confirmDealer()"
   >
@@ -4614,6 +4618,10 @@ function setMode(value){
 
 
   mode=value
+  const midgame=value==='midgame'
+  document.getElementById('midgameBtn')?.classList.toggle('active',midgame)
+  document.getElementById('midgameStartBtn')?.classList.toggle('hidden',!midgame)
+  document.getElementById('normalStartBtn')?.classList.toggle('hidden',midgame)
 
 
   document
@@ -5160,6 +5168,8 @@ function startGame(){
 
 
   }else{
+    // 中途接手仍使用既有逐把記錄與抽位流程，不建立新的統計類型。
+    if(mode==='midgame') mode='detailed'
 
 
     seats=[]
