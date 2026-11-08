@@ -8470,6 +8470,17 @@ function closeFinishModal(){
 
 
 async function finishDetailedGame(){
+  // V183：阻止連點結案產生並行的 PocketBase PATCH / 備援紀錄。
+  if(finishDetailedGameInFlight) return
+  finishDetailedGameInFlight=true
+  try{
+  await finishDetailedGameOnce()
+  }finally{
+    finishDetailedGameInFlight=false
+  }
+}
+let finishDetailedGameInFlight=false
+async function finishDetailedGameOnce(){
 
 
   closeFinishModal()
