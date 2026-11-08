@@ -3084,6 +3084,28 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 
 
+<!-- V183 中途接手專用：不抽位、不使用系統 prompt -->
+<section id="midgameSetup" class="hidden">
+  <div class="card">
+    <div class="toprow"><h2>🀄 打到一半・接手記錄</h2><button class="nav-action" onclick="show('setup')">← 返回</button></div>
+    <p class="muted">依照現在實際坐的位置登記，從下一把開始記錄。之前的輸贏只計金額，不補造胡牌紀錄。</p>
+    <h3>目前座位</h3>
+    <div class="manual-seat-grid" id="midgameSeatGrid"></div>
+    <h3>目前進度</h3>
+    <div class="grid2">
+      <label>下一把的局數<select id="midgameRound" class="manual-seat-select"></select></label>
+      <label>已連莊次數<input id="midgameRepeats" type="number" min="0" max="99" step="1" value="0" inputmode="numeric"></label>
+      <label>目前莊家<select id="midgameDealer" class="manual-seat-select"></select></label>
+      <label>拿手機記錄的人<select id="midgameRecorder" class="manual-seat-select"></select></label>
+    </div>
+    <h3>目前累計輸贏</h3>
+    <p class="muted">贏填正數、輸填負數；四人加總必須為 0。</p>
+    <div id="midgameMoneyGrid" class="grid2"></div>
+    <div id="midgameNetTotal" class="notice" aria-live="polite">四人合計 $0</div>
+  </div>
+  <button class="primary" onclick="v183StartMidgame()">確認座位與金額・繼續計分</button>
+</section>
+
 <!-- 座位 -->
 
 
@@ -5168,8 +5190,12 @@ function startGame(){
 
 
   }else{
-    // 中途接手仍使用既有逐把記錄與抽位流程，不建立新的統計類型。
-    if(mode==='midgame') mode='detailed'
+    if(mode==='midgame'){
+      mode='detailed'
+      v183RenderMidgameSetup()
+      show('midgameSetup')
+      return
+    }
 
 
     seats=[]
@@ -5618,6 +5644,53 @@ function selectRecorder(player,element){
 
 
 
+// V183：接手設定直接使用專用頁面，不經過抽位或原生 prompt。
+function v183RenderMidgameSetup(){
+  const options='<option value="">請選擇玩家</option>'+P.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join('')
+  document.getElementById('midgameSeatGrid').innerHTML=winds.map((wind,i)=>
+    '<label class="manual-seat-tile"><span class="manual-seat-heading"><span class="manual-seat-wind">'+wind+'</span><span>'+wind+'風</span></span><select class="manual-seat-select" id="midgameSeat'+i+'" onchange="v183RefreshMidgameNames()">'+options+'</select></label>'
+  ).join('')
+  document.getElementById('midgameRound').innerHTML=Array.from({length:16},(_,i)=>'<option value="'+i+'">'+getRoundName(i)+'</option>').join('')
+  document.getElementById('midgameDealer').innerHTML=options
+  document.getElementById('midgameRecorder').innerHTML=options
+  document.getElementById('midgameMoneyGrid').innerHTML=P.map((name,i)=>
+    '<label class="manual-seat-tile"><b>'+escapeHtml(name)+'</b><input type="number" step="1" inputmode="numeric" id="midgameMoney'+i+'" value="0" oninput="v183RefreshMidgameTotal()" style="width:100%;margin-top:8px" aria-label="'+escapeHtml(name)+'目前輸贏"></label>'
+  ).join('')
+  v183RefreshMidgameTotal()
+}
+function v183RefreshMidgameNames(){
+  const chosen=Array.from({length:4},(_,i)=>document.getElementById('midgameSeat'+i)?.value||'')
+  const opts='<option value="">請選擇玩家</option>'+chosen.filter(Boolean).map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('')
+  for(const id of ['midgameDealer','midgameRecorder']){
+    const el=document.getElementById(id),prev=el.value
+    el.innerHTML=opts
+    if(chosen.includes(prev))el.value=prev
+  }
+}
+function v183RefreshMidgameTotal(){
+  const nums=P.map((_,i)=>Number(document.getElementById('midgameMoney'+i)?.value||0))
+  const total=nums.reduce((a,b)=>a+b,0)
+  const el=document.getElementById('midgameNetTotal')
+  el.textContent='四人合計：'+money(total)+(total===0?' ✓':'・必須為 $0')
+  el.classList.toggle('ok',total===0)
+}
+function v183StartMidgame(){
+  const chosen=Array.from({length:4},(_,i)=>document.getElementById('midgameSeat'+i)?.value||'')
+  if(chosen.some(n=>!n)||new Set(chosen).size!==4){alert('請依照東南西北指定四位不同的玩家。');return}
+  const chosenDealer=document.getElementById('midgameDealer').value
+  const recorder=document.getElementById('midgameRecorder').value
+  if(!chosen.includes(chosenDealer)||!chosen.includes(recorder)){alert('請選擇目前莊家與記錄者。');return}
+  const values=P.map((_,i)=>Number(document.getElementById('midgameMoney'+i).value))
+  if(values.some(n=>!Number.isSafeInteger(n))||values.reduce((a,b)=>a+b,0)!==0){alert('四人金額必須是整數，且合計為 0。');return}
+  const repeat=Number(document.getElementById('midgameRepeats').value)
+  if(!Number.isInteger(repeat)||repeat<0||repeat>99){alert('連莊次數請輸入 0～99。');return}
+  seats=chosen
+  dealer=chosenDealer
+  dealerSeatIndex=chosen.indexOf(dealer)
+  recorderPlayer=recorder
+  v183MidgamePending={values,roundIndex:Number(document.getElementById('midgameRound').value),repeats:repeat}
+  confirmDealer()
+}
 // V183：接手前已打的把數只計入金額，不虛構逐把勝負紀錄。
 let v183MidgamePending=null
 function v183MidgameEntry(){
