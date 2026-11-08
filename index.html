@@ -2934,10 +2934,10 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 
     <div class="grid2" style="margin-top:10px">
-      <input id="player1" placeholder="玩家 1">
-      <input id="player2" placeholder="玩家 2">
-      <input id="player3" placeholder="玩家 3">
-      <input id="player4" placeholder="玩家 4">
+      <input id="player1" placeholder="玩家 1" oninput="v183CheckInitialPlayers(1)">
+      <input id="player2" placeholder="玩家 2" oninput="v183CheckInitialPlayers(2)">
+      <input id="player3" placeholder="玩家 3" oninput="v183CheckInitialPlayers(3)">
+      <input id="player4" placeholder="玩家 4" oninput="v183CheckInitialPlayers(4)">
     </div>
     <div class="muted" style="margin-top:8px">先從房間選單選擇；真的第一次來、沒有註冊的人，再直接輸入名字湊滿四人。未註冊玩家只保留名稱與戰績，不能登入、看直播、統計或計分。</div>
 
@@ -3100,11 +3100,12 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
   </style>
   <div class="card">
     <div class="toprow"><h2>🀄 下一將・換人</h2><button class="nav-action" onclick="show('done')">← 返回</button></div>
-    <p class="next-intro">原本四位已經幫你選好了，只要調整要換的人。同一將每位玩家只能選一次。</p>
+    <p class="next-intro">其他三位不必重選，只需選擇一位離場與一位新加入的玩家。</p>
     <div class="next-grid" id="nextMatchGrid"></div>
+    <div id="nextMatchSwapPreview" class="next-info" aria-live="polite">只要選一位離場玩家與一位加入玩家。</div>
     <div class="next-info">上一將的輸贏會保留；離場的人也會出現在今晚總結算。確認後再重新抽位。</div>
   </div>
-  <button class="primary" onclick="v183ConfirmNextMatch()">確認四位玩家・下一將抽位</button>
+  <button class="primary" onclick="v183ConfirmNextMatch()">確認換人・下一將抽位</button>
 </section>
 
 <!-- V183 中途接手專用：不抽位、不使用系統 prompt -->
@@ -8795,32 +8796,39 @@ function continueNextMatch(){
   v183RenderNextMatch()
   show('nextMatchSetup')
 }
+// V183：開局四個名字不允許重複，並與房間選人選單同步。
+function v183CheckInitialPlayers(changedIndex){
+  const inputs=Array.from({length:4},(_,i)=>document.getElementById('player'+(i+1)))
+  const current=inputs[changedIndex-1]
+  const name=canonicalPlayerName(current?.value||'')
+  if(name&&inputs.some((el,i)=>i!==changedIndex-1&&canonicalPlayerName(el?.value||'')===name)){
+    current.value=''
+    alert('這位玩家已經選過了，請選其他玩家。')
+  }
+  if(typeof v38RenderRoomPlayerMenu==='function')v38RenderRoomPlayerMenu()
+}
 function v183RenderNextMatch(){
   const room=(appData?.rooms||[]).find(x=>x.id===currentRoomId)
-  const names=[...new Set([...P,...Object.keys(balances),...(room?.members||[]).map(m=>m.name)].map(n=>String(n||'').trim()).filter(Boolean))]
-  const options=names.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('')
-  document.getElementById('nextMatchGrid').innerHTML=P.map((name,i)=>
-    '<label class="next-tile"><b>第 '+(i+1)+' 位玩家</b><select id="nextMatchPlayer'+i+'" onchange="v183UpdateNextMatchOptions()">'+options+'</select></label>'
-  ).join('')
-  P.forEach((name,i)=>{document.getElementById('nextMatchPlayer'+i).value=name})
+  const names=[...new Set([...P,...Object.keys(balances),...(room?.members||[]).map(m=>m.name),...((typeof v35RoomPickerEntries!=='undefined'?v35RoomPickerEntries:[])||[]).map(m=>m.name)].map(n=>String(n||'').trim()).filter(Boolean))]
+  const select=(id,items,placeholder)=>'<select id="'+id+'" onchange="v183UpdateNextMatchOptions()"><option value="">'+placeholder+'</option>'+items.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('')+'</select>'
+  document.getElementById('nextMatchGrid').innerHTML=
+    '<label class="next-tile"><b>誰要離場？</b>'+select('nextMatchLeaving',P,'選擇離場玩家')+'</label>'+
+    '<label class="next-tile"><b>誰要加入？</b>'+select('nextMatchJoining',names.filter(n=>!P.includes(n)),'選擇加入玩家')+'</label>'
   v183UpdateNextMatchOptions()
 }
 function v183UpdateNextMatchOptions(){
-  const selected=Array.from({length:4},(_,i)=>document.getElementById('nextMatchPlayer'+i)?.value||'')
-  for(let i=0;i<4;i++){
-    const el=document.getElementById('nextMatchPlayer'+i)
-    if(!el)continue
-    Array.from(el.options).forEach(option=>{
-      option.disabled=!!option.value && selected.some((name,j)=>j!==i&&name===option.value)
-    })
-  }
+  const leaving=document.getElementById('nextMatchLeaving')?.value||''
+  const joining=document.getElementById('nextMatchJoining')?.value||''
+  const note=document.getElementById('nextMatchSwapPreview')
+  if(note)note.textContent=leaving&&joining?leaving+' 離場 → '+joining+' 加入；其他三人保留。':'只要選一位離場玩家與一位加入玩家。'
 }
 function v183ConfirmNextMatch(){
   if(!sessionSaved){alert('請先完成上一將結案。');return}
-  const nextPlayers=Array.from({length:4},(_,i)=>document.getElementById('nextMatchPlayer'+i)?.value?.trim()||'')
-  if(nextPlayers.some(n=>!n)||new Set(nextPlayers).size!==4){
-    alert('請選擇四位不同的玩家。');return
-  }
+  const leaving=document.getElementById('nextMatchLeaving')?.value||''
+  const joining=document.getElementById('nextMatchJoining')?.value||''
+  if(!P.includes(leaving)||!joining||P.includes(joining)){alert('請選擇離場玩家，以及目前不在桌上的加入玩家。');return}
+  const nextPlayers=P.map(n=>n===leaving?joining:n)
+  if(new Set(nextPlayers).size!==4){alert('同一將不能有重複玩家。');return}
   const previousPlayers=[...P]
   sessionSaved=false
   preferredNextTableNumber=Number(currentTableNumber||0)
