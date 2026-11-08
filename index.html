@@ -3084,6 +3084,29 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 
 
+<!-- V183 下一將換人：四個座位各自選人，禁止重複選擇 -->
+<section id="nextMatchSetup" class="hidden">
+  <style>
+    #nextMatchSetup .card{padding:19px 15px;border-radius:25px}
+    #nextMatchSetup .next-intro{font-size:14px;color:#807985;line-height:1.6;margin:10px 0 16px}
+    #nextMatchSetup .next-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:11px}
+    #nextMatchSetup .next-tile{display:block;min-width:0;padding:13px 11px;background:#eff9f3;border:1.5px solid #d5e9dc;border-radius:18px}
+    #nextMatchSetup .next-tile:nth-child(2){background:#fff3f5;border-color:#f1dce2}
+    #nextMatchSetup .next-tile:nth-child(3){background:#f5f2ff;border-color:#e6def5}
+    #nextMatchSetup .next-tile:nth-child(4){background:#fff9e9;border-color:#eee3c8}
+    #nextMatchSetup .next-tile b{display:block;font-size:13px;color:#746e78;margin-bottom:9px}
+    #nextMatchSetup .next-tile select{box-sizing:border-box;width:100%;min-width:0;min-height:45px;border:1px solid #dedee2;background:#fff;border-radius:12px;padding:8px 6px;font-size:16px;color:#48434d}
+    #nextMatchSetup .next-info{margin-top:14px;padding:12px 14px;border-radius:14px;background:#f2f7f5;font-size:13px;line-height:1.6;color:#62786b}
+  </style>
+  <div class="card">
+    <div class="toprow"><h2>🀄 下一將・換人</h2><button class="nav-action" onclick="show('done')">← 返回</button></div>
+    <p class="next-intro">原本四位已經幫你選好了，只要調整要換的人。同一將每位玩家只能選一次。</p>
+    <div class="next-grid" id="nextMatchGrid"></div>
+    <div class="next-info">上一將的輸贏會保留；離場的人也會出現在今晚總結算。確認後再重新抽位。</div>
+  </div>
+  <button class="primary" onclick="v183ConfirmNextMatch()">確認四位玩家・下一將抽位</button>
+</section>
+
 <!-- V183 中途接手專用：不抽位、不使用系統 prompt -->
 <section id="midgameSetup" class="hidden">
   <style>
@@ -8769,14 +8792,36 @@ function continueNextMatch(){
   // V81：連打時不把桌上水位歸零；下一將以目前水位作為起點。
   // sessionOpeningBalances 只用來算「這一將」的輸贏，避免長期戰績重複累加。
   // V183：離場者的累積金額仍保留在 balances；新玩家從 0 開始。
-  const previousPlayers=[...P]
-  const proposed=window.prompt('下一將的四位玩家（用頓號或逗號分隔，可換人）',P.join('、'))
-  if(proposed===null) return
-  const nextPlayers=proposed.split(/[、,，\n]+/).map(x=>x.trim()).filter(Boolean)
-  if(nextPlayers.length!==4 || new Set(nextPlayers).size!==4){
-    alert('請輸入四位不重複的玩家，已取消換人。')
-    return
+  v183RenderNextMatch()
+  show('nextMatchSetup')
+}
+function v183RenderNextMatch(){
+  const room=(appData?.rooms||[]).find(x=>x.id===currentRoomId)
+  const names=[...new Set([...P,...Object.keys(balances),...(room?.members||[]).map(m=>m.name)].map(n=>String(n||'').trim()).filter(Boolean))]
+  const options=names.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('')
+  document.getElementById('nextMatchGrid').innerHTML=P.map((name,i)=>
+    '<label class="next-tile"><b>第 '+(i+1)+' 位玩家</b><select id="nextMatchPlayer'+i+'" onchange="v183UpdateNextMatchOptions()">'+options+'</select></label>'
+  ).join('')
+  P.forEach((name,i)=>{document.getElementById('nextMatchPlayer'+i).value=name})
+  v183UpdateNextMatchOptions()
+}
+function v183UpdateNextMatchOptions(){
+  const selected=Array.from({length:4},(_,i)=>document.getElementById('nextMatchPlayer'+i)?.value||'')
+  for(let i=0;i<4;i++){
+    const el=document.getElementById('nextMatchPlayer'+i)
+    if(!el)continue
+    Array.from(el.options).forEach(option=>{
+      option.disabled=!!option.value && selected.some((name,j)=>j!==i&&name===option.value)
+    })
   }
+}
+function v183ConfirmNextMatch(){
+  if(!sessionSaved){alert('請先完成上一將結案。');return}
+  const nextPlayers=Array.from({length:4},(_,i)=>document.getElementById('nextMatchPlayer'+i)?.value?.trim()||'')
+  if(nextPlayers.some(n=>!n)||new Set(nextPlayers).size!==4){
+    alert('請選擇四位不同的玩家。');return
+  }
+  const previousPlayers=[...P]
   sessionSaved=false
   preferredNextTableNumber=Number(currentTableNumber||0)
   remoteSessionId=''
