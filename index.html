@@ -3092,7 +3092,15 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
     #midgameSetup .toprow h2{font-size:21px;letter-spacing:-.5px}
     #midgameSetup .mid-help{font-size:13px;line-height:1.6;color:#827c87;margin:9px 0 17px}
     #midgameSetup .mid-label{font-weight:800;font-size:16px;margin:18px 0 10px;color:#49444e}
-    #midgameSetup .mid-seat-grid,#midgameSetup .mid-field-grid,#midgameSetup .mid-money-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+    #midgameSetup .mid-field-grid,#midgameSetup .mid-money-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+    #midgameSetup .mid-seat-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto;gap:8px;align-items:stretch}
+    #midgameSetup .mid-seat-grid .mid-seat-card{padding:9px 7px;text-align:center}
+    #midgameSetup .mid-seat-grid .mid-seat-card:nth-child(1){grid-column:2;grid-row:1}
+    #midgameSetup .mid-seat-grid .mid-seat-card:nth-child(2){grid-column:3;grid-row:2}
+    #midgameSetup .mid-seat-grid .mid-seat-card:nth-child(3){grid-column:2;grid-row:3}
+    #midgameSetup .mid-seat-grid .mid-seat-card:nth-child(4){grid-column:1;grid-row:2}
+    #midgameSetup .mid-seat-center{grid-column:2;grid-row:2;border-radius:16px;background:linear-gradient(145deg,#d4eadd,#c7e4e9);display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:86px;font-size:13px;font-weight:800;color:#527369;box-shadow:inset 0 0 0 2px #ffffff99}
+    #midgameSetup .mid-seat-grid select{font-size:14px;min-height:40px;padding:6px 2px;text-align:center}
     #midgameSetup .mid-seat-card{min-width:0;background:#f4faf6;border:1.5px solid #d5e8dc;border-radius:17px;padding:12px}
     #midgameSetup .mid-seat-card:nth-child(2){background:#fff7f5;border-color:#f0dedb}
     #midgameSetup .mid-seat-card:nth-child(3){background:#f7f5ff;border-color:#e7e1f5}
@@ -3106,12 +3114,12 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
     #midgameSetup .mid-money-card input{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
     #midgameSetup #midgameNetTotal{margin-top:12px;border-radius:14px;padding:13px;font-weight:800;text-align:center}
     #midgameSetup .mid-start{margin-top:14px}
-    @media(max-width:370px){#midgameSetup .card{padding:16px 12px}#midgameSetup .mid-seat-grid,#midgameSetup .mid-field-grid,#midgameSetup .mid-money-grid{gap:8px}}
+    @media(max-width:370px){#midgameSetup .card{padding:16px 12px}#midgameSetup .mid-seat-grid,#midgameSetup .mid-field-grid,#midgameSetup .mid-money-grid{gap:6px}}
   </style>
   <div class="card">
     <div class="toprow"><h2>🀄 中途接手</h2><button class="nav-action" onclick="show('setup')">← 返回</button></div>
     <p class="mid-help">照現在的位置填好四個人，帶入目前戰況，下一把直接繼續打。</p>
-    <div class="mid-label">① 現在誰坐哪裡？</div>
+    <div class="mid-label">① 現在誰坐哪裡？</div><p class="mid-help">以你面前看到的麻將桌為準，直接選上、右、下、左四個位置。</p>
     <div class="mid-seat-grid" id="midgameSeatGrid"></div>
     <div class="mid-label">② 打到哪裡了？</div>
     <div class="mid-field-grid">
@@ -5669,9 +5677,9 @@ function selectRecorder(player,element){
 // V183：接手設定直接使用專用頁面，不經過抽位或原生 prompt。
 function v183RenderMidgameSetup(){
   const options='<option value="">請選擇玩家</option>'+P.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join('')
-  document.getElementById('midgameSeatGrid').innerHTML=winds.map((wind,i)=>
-    '<label class="mid-seat-card"><span class="mid-wind">'+wind+'位</span><select id="midgameSeat'+i+'" onchange="v183RefreshMidgameNames()">'+options+'</select></label>'
-  ).join('')
+  document.getElementById('midgameSeatGrid').innerHTML=['上方','右方','下方','左方'].map((position,i)=>
+    '<label class="mid-seat-card"><span class="mid-wind">'+position+'</span><select id="midgameSeat'+i+'" aria-label="'+position+'座位玩家" onchange="v183RefreshMidgameNames()">'+options+'</select></label>'
+  ).join('')+'<div class="mid-seat-center">🀄<span>麻將桌</span></div>'
   document.getElementById('midgameRound').innerHTML=Array.from({length:16},(_,i)=>'<option value="'+i+'">'+getRoundName(i)+'</option>').join('')
   document.getElementById('midgameDealer').innerHTML=options
   document.getElementById('midgameRecorder').innerHTML=options
@@ -5698,7 +5706,7 @@ function v183RefreshMidgameTotal(){
 }
 function v183StartMidgame(){
   const chosen=Array.from({length:4},(_,i)=>document.getElementById('midgameSeat'+i)?.value||'')
-  if(chosen.some(n=>!n)||new Set(chosen).size!==4){alert('請依照東南西北指定四位不同的玩家。');return}
+  if(chosen.some(n=>!n)||new Set(chosen).size!==4){alert('請依照桌面上、右、下、左四個位置指定不同的玩家。');return}
   const chosenDealer=document.getElementById('midgameDealer').value
   const recorder=document.getElementById('midgameRecorder').value
   if(!chosen.includes(chosenDealer)||!chosen.includes(recorder)){alert('請選擇目前莊家與記錄者。');return}
