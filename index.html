@@ -8730,6 +8730,11 @@ function continueNextMatch(){
 // V85：這張是「真正收錢」的連打結算，不使用今天所有 sessions，
 // 只使用目前這一輪從 0 累積到現在的 balances。
 function showSeriesSettlement(){
+  // V183：未確認本將結案前，不能顯示整晚收付，避免漏算尚未同步的牌局。
+  if(!sessionSaved){
+    alert('目前這一將尚未確認結案，請先完成本將儲存，再進行今晚總結算。')
+    return
+  }
   const modal=document.getElementById('seriesSettlementModal')
   const content=document.getElementById('seriesSettlementContent')
   if(!modal||!content) return
@@ -8768,6 +8773,10 @@ function closeSeriesSettlement(){
   document.getElementById('seriesSettlementModal')?.classList.add('hidden')
 }
 async function finishSeriesSettlement(){
+  if(!sessionSaved){
+    alert('本將尚未確認結案，不能完成整晚收付。')
+    return
+  }
   const total=Object.values(balances).reduce((sum,value)=>sum+Number(value||0),0)
   if(total!==0){
     alert('今晚所有玩家的累積金額加總不是 0，請先檢查，不能完成收付。')
