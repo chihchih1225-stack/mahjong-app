@@ -8631,7 +8631,10 @@ async function finishDetailedGame(){
     checkpoint.resumeStage='done'
     localStorage.setItem(ACTIVE_GAME_KEY,JSON.stringify(checkpoint))
     renderResumeGameCard()
-  }catch(e){ console.error('V183：將間結算檢查點保存失敗',e) }
+  }catch(e){
+    console.error('V183：將間結算檢查點保存失敗',e)
+    alert('本將已結案，但整晚進度無法寫入此裝置。請先截圖記錄金額，且不要關閉 App。')
+  }
   show('done')
 
 
@@ -8715,7 +8718,8 @@ function continueNextMatch(){
     renderResumeGameCard()
   }catch(e){
     console.error('V183：換人狀態無法儲存',e)
-    alert('目前無法安全儲存換人進度，請勿關閉 App；請檢查裝置儲存空間。')
+    alert('換人進度儲存失敗，已停止切換畫面。請勿關閉 App，先檢查裝置儲存空間。')
+    return
   }
   show('seat')
 }
