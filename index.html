@@ -4958,12 +4958,13 @@ function v186ReadPendingHands(){
     return items && typeof items==='object' && !Array.isArray(items)?items:{}
   }catch(e){return {}}
 }
-function v186RememberPendingHand(payload){
+function v186RememberPendingHand(payload,expectedSnapshot=null){
   if(!payload?.id || !payload?.session) throw new Error('缺少遠端牌局識別碼')
   const pending=v186ReadPendingHands()
   const old=pending[payload.id]
   if(old && JSON.stringify(old.payload)!==JSON.stringify(payload)) throw new Error('牌局 ID 衝突，禁止覆蓋待同步紀錄')
-  pending[payload.id]={payload,status:'unconfirmed',savedAt:old?.savedAt||new Date().toISOString()}
+  if(old?.expectedSnapshot && expectedSnapshot && JSON.stringify(old.expectedSnapshot)!==JSON.stringify(expectedSnapshot)) throw new Error('同一把牌的快照衝突')
+  pending[payload.id]={payload,expectedSnapshot:old?.expectedSnapshot||expectedSnapshot,status:'unconfirmed',savedAt:old?.savedAt||new Date().toISOString()}
   localStorage.setItem(V186_PENDING_HANDS_KEY,JSON.stringify(pending))
 }
 function v186ForgetConfirmedHand(id){
@@ -4973,6 +4974,19 @@ function v186ForgetConfirmedHand(id){
   localStorage.setItem(V186_PENDING_HANDS_KEY,JSON.stringify(pending))
 }
 // 恢復時只做唯讀核對；不自動重送或覆蓋正式 session，避免舊快照倒退。
+// 僅在遠端提款機矩陣與本機提交時凍結的快照完全一致時，才可結案。
+function v186PendingSnapshotMatches(session,expected){
+  if(!expected || !expected.cashflowSnapshot || !session) return false
+  if(Number(session.hand_number)!==Number(expected.nextHandNumber)) return false
+  const actual=session.seat_map?._series_cashflow_snapshot
+  if(!actual) return false
+  const normalize=value=>{
+    if(Array.isArray(value)) return value.map(normalize)
+    if(value && typeof value==='object') return Object.fromEntries(Object.keys(value).sort().map(k=>[k,normalize(value[k])]))
+    return value
+  }
+  return JSON.stringify(normalize(actual))===JSON.stringify(normalize(expected.cashflowSnapshot))
+}
 async function v186AuditPendingHands(){
   const pending=v186ReadPendingHands()
   const report={confirmed:[],unconfirmed:[],conflicts:[],unreachable:[]}
@@ -4986,8 +5000,9 @@ async function v186AuditPendingHands(){
       const session=await pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(payload.session))
       // 進度數字前進不代表同一把牌的提款機快照已正確更新；
       // 在沒有原子交易或快照校驗前，不可自動清除待確認資料。
-      if(Number(session?.hand_number)>Number(payload.hand_number)){
+      if(v186PendingSnapshotMatches(session,item.expectedSnapshot)){
         report.confirmed.push(id)
+        v186ForgetConfirmedHand(id)
       }else{
         report.unconfirmed.push(id)
       }
@@ -5031,7 +5046,7 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
     }
     if(!payload.id) return {ok:false,reason:'missing_stable_hand_id'}
     // 先落盤，後送出；即使請求逾時也保留同一把牌的固定 ID。
-    v186RememberPendingHand(payload)
+    v186RememberPendingHand(payload,committedSnapshot)
     const verified=await v186CreateOrVerifyHand(payload)
     if(!verified.ok) return verified
     handCreated=true
