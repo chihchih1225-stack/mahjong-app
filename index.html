@@ -9644,7 +9644,9 @@ function activeGameSnapshot(){
     savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
     balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, seriesCashflowBase:JSON.parse(JSON.stringify(seriesCashflowBase||{})), seriesCashflowLedger:seriesCashflowLedger?JSON.parse(JSON.stringify(seriesCashflowLedger)):null, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
     dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt,
-    seriesId,seriesGameCount,seriesStartedAt
+    seriesId,seriesGameCount,seriesStartedAt,
+    // V186：保留本將遠端 session 身分，避免恢復後後續牌局無法同步。
+    remoteSessionId:remoteSessionId||''
   }
 }
 function persistActiveGame(){
@@ -9668,8 +9670,9 @@ function renderResumeGameCard(){
   if(info) info.innerHTML=`<b>${room?.name||'未完成牌局'}</b>・${getRoundName(g.roundIndex||0)}・第 ${(g.hands||[]).length+1} 場<br>${(g.P||[]).join('・')}`
 }
 function resumeActiveGame(){
-  remoteSessionId=''
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
+  // 舊版快照沒有 remoteSessionId 時維持原行為；不建立新的正式 session。
+  remoteSessionId=typeof g.remoteSessionId==='string'?g.remoteSessionId:''
   currentRoomId=g.currentRoomId||''; P=g.P||[]; seats=g.seats||[...P]; selectedStake=g.selectedStake||selectedStake
   currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); seriesCashflowBase=g.seriesCashflowBase||{}; seriesCashflowLedger=g.seriesCashflowLedger||null; hands=g.hands||[]
   roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
