@@ -7000,6 +7000,7 @@ function handlePlayerCardClick(player){
     discarder=''
     if(result==='詐胡') fraudTai={}
     renderGame()
+    v186ScheduleAutoScore()
     return
   }
 
@@ -7027,6 +7028,7 @@ function handlePlayerCardClick(player){
 
 
   renderGame()
+  v186ScheduleAutoScore()
 }
 
 
@@ -7054,6 +7056,7 @@ function selectWinner(player){
 
 
   renderGame()
+  v186ScheduleAutoScore()
 
 
 }
@@ -7068,6 +7071,7 @@ function selectDiscarder(player){
 
 
   renderGame()
+  v186ScheduleAutoScore()
 
 
 }
@@ -7149,6 +7153,7 @@ function pickResult(
 
 
   renderGame()
+  v186ScheduleAutoScore()
 
 
 }
@@ -7174,6 +7179,7 @@ function addTai(value){
 
 
   renderPaymentPreview()
+  v186ScheduleAutoScore()
 
 
 }
@@ -7192,6 +7198,7 @@ function resetTai(){
 
 
   renderPaymentPreview()
+  v186ScheduleAutoScore()
 
 
 }
@@ -7743,6 +7750,7 @@ function canAutoRecordCurrentHand(){
 // 防止重入提交；遠端冪等性仍需獨立驗證。
 let handSaveInProgress=false
 function saveHand(){
+  v186CancelAutoScore()
 
 
   if(
