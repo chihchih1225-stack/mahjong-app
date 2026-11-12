@@ -4972,6 +4972,31 @@ function v186ForgetConfirmedHand(id){
   delete pending[id]
   localStorage.setItem(V186_PENDING_HANDS_KEY,JSON.stringify(pending))
 }
+// 恢復時只做唯讀核對；不自動重送或覆蓋正式 session，避免舊快照倒退。
+async function v186AuditPendingHands(){
+  const pending=v186ReadPendingHands()
+  const report={confirmed:[],unconfirmed:[],conflicts:[],unreachable:[]}
+  for(const [id,item] of Object.entries(pending)){
+    const payload=item?.payload
+    if(!payload || payload.id!==id || !payload.session){report.conflicts.push(id);continue}
+    try{
+      const remote=await pbRequest('/api/collections/game_hands/records/'+encodeURIComponent(id))
+      if(!v186RemoteHandMatches(remote,payload)){report.conflicts.push(id);continue}
+      // 已有 hand 不代表 session 快照已更新；保留 pending 直到可確認兩者一致。
+      const session=await pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(payload.session))
+      if(Number(session?.hand_number)>Number(payload.hand_number)){
+        report.confirmed.push(id)
+        v186ForgetConfirmedHand(id)
+      }else{
+        report.unconfirmed.push(id)
+      }
+    }catch(error){
+      if(Number(error?.status)===404) report.unconfirmed.push(id)
+      else report.unreachable.push(id)
+    }
+  }
+  return report
+}
 async function v186CreateOrVerifyHand(payload){
   try{
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
