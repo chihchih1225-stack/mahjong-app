@@ -58,3 +58,42 @@ test('遠端同步目前仍未具備可驗證的冪等保證：標記為待完�
   // 此測試只是揭露現況，不代表重試安全；需先建立伺服器唯一限制。
   assert.doesNotMatch(sync, /idempotency[_-]key|unique_hand_key/);
 });
+
+test('連續調整台數只保留最後一次排程，且取消後不會記錄', () => {
+  let nextId=0, saved=0;
+  const timers=new Map();
+  const ctx={
+    V186_AUTO_SCORE_ENABLED:true,handSaveInProgress:false,
+    v186AutoScoreTimer:null,
+    canAutoRecordCurrentHand:()=>true,
+    saveHand:()=>{saved++},
+    setTimeout:(fn)=>{const id=++nextId;timers.set(id,fn);return id},
+    clearTimeout:(id)=>timers.delete(id)
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186CancelAutoScore')+'\\n'+extractFunction('v186ScheduleAutoScore'),ctx);
+  ctx.v186ScheduleAutoScore();
+  ctx.v186ScheduleAutoScore();
+  ctx.v186ScheduleAutoScore();
+  assert.equal(timers.size,1,'rapid taps should leave only one pending timer');
+  ctx.v186CancelAutoScore();
+  assert.equal(timers.size,0);
+  assert.equal(saved,0);
+});
+test('計分排程必須在觸發時重新檢查選擇狀態', () => {
+  let callback,valid=true,saved=0;
+  const ctx={
+    V186_AUTO_SCORE_ENABLED:true,handSaveInProgress:false,
+    v186AutoScoreTimer:null,
+    canAutoRecordCurrentHand:()=>valid,
+    saveHand:()=>{saved++},
+    setTimeout:(fn)=>{callback=fn;return 1},
+    clearTimeout:()=>{}
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186CancelAutoScore')+'\\n'+extractFunction('v186ScheduleAutoScore'),ctx);
+  ctx.v186ScheduleAutoScore();
+  valid=false;
+  callback();
+  assert.equal(saved,0,'invalidated selection must not save');
+});
