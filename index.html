@@ -9897,7 +9897,7 @@ function roomKingHistoryHtml(sessions){
     if(nextKing!==currentKing){
       if(currentKing) reigns[reigns.length-1].endAt=ss.createdAt
       currentKing=nextKing
-      reigns.push({name:currentKing,startAt:ss.createdAt,endAt:null})
+      reigns.push({name:currentKing,amount:Number(totals[currentKing]||0),startAt:ss.createdAt,endAt:null})
     }
   })
   if(!reigns.length) return '<div class="muted">完成牌局後，這裡會開始記錄王座更替。</div>'
@@ -9912,7 +9912,7 @@ function roomKingHistoryHtml(sessions){
     const extra=i>=3?' v144-king-extra':''
     return `<div class="king-timeline-item${isCurrent?' current':''}${extra}">
       <div class="king-timeline-rail"><span class="king-timeline-node"></span></div>
-      <div class="king-timeline-content"><span class="king-timeline-name">${escapeHtml(r.name)}</span>${isCurrent?'<span class="king-timeline-crown">👑</span>':''}<span class="king-timeline-date">${fmt(r.startAt)}</span><span class="king-timeline-days">${isCurrent?'現任第'+d+'天':d+'天'}</span></div>
+      <div class="king-timeline-content"><span class="king-timeline-name">${escapeHtml(r.name)}</span>${isCurrent?'<span class="king-timeline-crown">👑</span>':''}<span class="king-timeline-date">${fmt(r.startAt)}</span><span class="king-timeline-amount" style="display:block;font-size:13px;color:#966027;font-weight:800">登基累積 ${money(r.amount)}</span><span class="king-timeline-days">${isCurrent?'現任第'+d+'天':d+'天'}</span></div>
     </div>`
   }).join('')
   const toggle=displayReigns.length>3
@@ -11070,6 +11070,19 @@ async function openRoomMemberStats(userId,nickname){
   const discardRate=stat.handAppearances?stat.discards/stat.handAppearances:0
   const best=Number.isFinite(stat.maxWin)?stat.maxWin:0
   const worst=Number.isFinite(stat.minWin)?stat.minWin:0
+  // V184 preview: 依每將登記的地點，彙總此玩家的最終淨輸贏；不依逐把重複加總。
+  const placeTotals=new Map()
+  playerSs.forEach(ss=>{
+    const place=String(ss.place||'').trim()
+    if(!place) return
+    const net=Number(sessionNets(ss)[name])
+    if(!Number.isFinite(net)) return
+    placeTotals.set(place,(placeTotals.get(place)||0)+net)
+  })
+  const placeResults=[...placeTotals].map(([place,net])=>({place,net}))
+  const luckyPlace=placeResults.filter(x=>x.net>0).sort((a,b)=>b.net-a.net||a.place.localeCompare(b.place,'zh-Hant'))[0]
+  const unluckyPlace=placeResults.filter(x=>x.net<0).sort((a,b)=>a.net-b.net||a.place.localeCompare(b.place,'zh-Hant'))[0]
+  const placeCard=(label,item,color)=>`<div class="career-stat" style="min-width:0"><div class="k">${label}</div><div class="v" style="font-size:16px;overflow-wrap:anywhere">${item?escapeHtml(item.place):'尚無紀錄'}</div>${item?`<div style="font-weight:800;color:${color};margin-top:5px">${money(item.net)}</div>`:''}</div>`
   const history=[...playerSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(ss=>{
     const d=new Date(ss.createdAt), net=Number(sessionNets(ss)[name]||0)
     return `<div class="member-history-row" onclick="v124OpenMemberSessionDetail('${ss.id}',decodeURIComponent('${encodeURIComponent(userId||'')}'),decodeURIComponent('${encodeURIComponent(nickname||name||'')}'))" role="button" tabindex="0"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・點擊查看牌局 ›</div></div>`
@@ -11088,6 +11101,7 @@ async function openRoomMemberStats(userId,nickname){
       <div class="career-stat"><div class="k">放槍率</div><div class="v">${(discardRate*100).toFixed(1)}%</div></div>
       <div class="career-stat"><div class="k">最高 / 最低單將</div><div class="v" style="font-size:16px">${money(best)} / ${money(worst)}</div></div>
     </div>
+    <h3>📍 場地運勢</h3><div class="career-grid">${placeCard("🍀 福地",luckyPlace,"var(--green)")}${placeCard("💀 墓地",unluckyPlace,"var(--red)")}</div>
     <h3>🀄 特殊牌型</h3><div class="member-pattern-grid"><div class="member-pattern-stat">清一色<b>${stat.cleanSuit||0}</b></div><div class="member-pattern-stat">混一色<b>${stat.mixedSuit||0}</b></div><div class="member-pattern-stat">碰碰胡<b>${stat.pongPong||0}</b></div><div class="member-pattern-stat">小三元<b>${stat.smallThree||0}</b></div><div class="member-pattern-stat">大三元<b>${stat.bigThree||0}</b></div><div class="member-pattern-stat">四暗刻<b>${stat.fourConcealed||0}</b></div><div class="member-pattern-stat">五暗刻<b>${stat.fiveConcealed||0}</b></div><div class="member-pattern-stat">MIGI<b>${stat.migi||0}</b></div></div>
     <h3>📈 在這個房間的戰績走勢</h3><div class="trend-chart">${v40SinglePlayerTrendHtml(playerSs,name)}</div>
     <h3>🗂️ 參與過的歷史牌局</h3><div>${history}</div></div>`
