@@ -1,5 +1,5 @@
-/* 誰與爭鋒 V170 Service Worker */
-const CACHE_NAME='mahjong-pwa-V170';
+/* 誰與爭鋒 V185 Service Worker - approved production release */
+const CACHE_NAME='mahjong-pwa-V185-20261112';
 const APP_SHELL=['/','/manifest.webmanifest'];
 
 

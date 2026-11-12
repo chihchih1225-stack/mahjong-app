@@ -1,0 +1,39 @@
+name: V186 isolated score checks
+on:
+  push:
+    branches:
+      - fix/auto-score-idempotency-v186-20261112
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  score-checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts
+      - name: Install isolated browser
+        run: npx playwright install --with-deps chromium
+      - name: Check HTML embedded JavaScript syntax
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const vm=require('node:vm');
+          const html=fs.readFileSync('index.html','utf8');
+          const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+            .map(m=>m[1]).filter(x=>x.trim());
+          if(!scripts.length)throw new Error('No inline scripts found');
+          for(const [i,script] of scripts.entries())new vm.Script(script,{filename:'index-inline-'+i+'.js'});
+          console.log('Validated',scripts.length,'inline scripts');
+          NODE
+      - name: Run isolated scoring tests
+        run: npm test
+      - name: Run isolated Chromium tests (external requests blocked)
+        run: npm run test:e2e
