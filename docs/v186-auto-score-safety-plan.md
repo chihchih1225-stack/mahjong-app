@@ -78,3 +78,8 @@
 - `main` 與正式 V185 基準差異仍存在；PR #12 必須保持草稿，禁止直接合併。
 
 結論：可供 ChatGPT 檢查程式與唯讀預覽；**尚未達到 V186 自動計分完整使用者驗收條件**。
+
+### CI 相容性修正
+首次續作推送的 GitHub CI 發現 ubuntu-latest 已為 Ubuntu 26.04，與固定 Playwright 1.56.1 不相容。
+已將 runner 固定為 Playwright 支援的 Ubuntu 24.04；保留首次失敗紀錄，後續以新 commit 的 CI 結果為準。
+本機最後驗證：40 項 Node/SQLite 契約測試與 7 項 Chromium 瀏覽器測試通過，0 失敗；17 段 inline JavaScript 語法通過。
