@@ -11079,10 +11079,10 @@ async function openRoomMemberStats(userId,nickname){
     placeTotals.set(place,(placeTotals.get(place)||0)+net)
   })
   const placeResults=[...placeTotals].map(([place,net])=>({place,net}))
-  const placeRows=placeResults.sort((a,b)=>b.net-a.net||a.place.localeCompare(b.place,'zh-Hant')).map(item=>`<div class="member-history-row" style="cursor:default"><div class="toprow"><b>${escapeHtml(item.place)}</b><span class="member-history-net" style="color:${item.net>0?'var(--green)':item.net<0?'var(--red)':'inherit'}">${money(item.net)}</span></div></div>`).join('')||'<div class="muted">目前沒有可統計的歷史牌局。</div>'
+  const placeRows=placeResults.sort((a,b)=>b.net-a.net||a.place.localeCompare(b.place,'zh-Hant')).map(item=>`<div style="font-size:12px;display:flex;justify-content:space-between;gap:8px;padding:3px 0"><span style="overflow-wrap:anywhere">${escapeHtml(item.place)}</span><span style="white-space:nowrap;font-weight:700;color:${item.net>0?'var(--green)':item.net<0?'var(--red)':'inherit'}">${money(item.net)}</span></div>`).join('')||'<div class="muted" style="font-size:12px">目前沒有可統計的歷史牌局。</div>'
   const placeSum=placeResults.reduce((sum,item)=>sum+item.net,0)
   const placeDiff=Number(stat.net||0)-placeSum
-  const placeSummary=`<div class="member-history-row" style="cursor:default"><div class="toprow"><b>各場地合計</b><b>${money(placeSum)}</b></div></div><div class="member-history-row" style="cursor:default"><div class="toprow"><b>個人累積輸贏</b><b>${money(stat.net||0)}</b></div></div>${Math.abs(placeDiff)>0.001?`<div class="notice" style="color:var(--red)">⚠️ 金額核對不一致，差額 ${money(placeDiff)}，請檢查歷史牌局資料。</div>`:'<div class="muted" style="padding:8px 0">✓ 場地金額核對一致</div>'}`
+  const placeSummary=`<div style="font-size:12px;border-top:1px solid var(--line,#ddd);margin-top:5px;padding-top:5px;display:flex;justify-content:space-between"><b>合計</b><b>${money(placeSum)}</b></div>${Math.abs(placeDiff)>0.001?`<div style="font-size:11px;color:var(--red)">⚠ 與個人累積輸贏差額 ${money(placeDiff)}</div>`:'<div class="muted" style="font-size:11px">✓ 與個人戰績一致</div>'}`
   const history=[...playerSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(ss=>{
     const d=new Date(ss.createdAt), net=Number(sessionNets(ss)[name]||0)
     return `<div class="member-history-row" onclick="v124OpenMemberSessionDetail('${ss.id}',decodeURIComponent('${encodeURIComponent(userId||'')}'),decodeURIComponent('${encodeURIComponent(nickname||name||'')}'))" role="button" tabindex="0"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・點擊查看牌局 ›</div></div>`
@@ -11101,7 +11101,7 @@ async function openRoomMemberStats(userId,nickname){
       <div class="career-stat"><div class="k">放槍率</div><div class="v">${(discardRate*100).toFixed(1)}%</div></div>
       <div class="career-stat"><div class="k">最高 / 最低單將</div><div class="v" style="font-size:16px">${money(best)} / ${money(worst)}</div></div>
     </div>
-    <h3>📍 各場地戰績</h3><div>${placeRows}${placeSummary}</div>
+    <h3>📍 各場地戰績</h3><div style="padding:0 2px">${placeRows}${placeSummary}</div>
     <h3>🀄 特殊牌型</h3><div class="member-pattern-grid"><div class="member-pattern-stat">清一色<b>${stat.cleanSuit||0}</b></div><div class="member-pattern-stat">混一色<b>${stat.mixedSuit||0}</b></div><div class="member-pattern-stat">碰碰胡<b>${stat.pongPong||0}</b></div><div class="member-pattern-stat">小三元<b>${stat.smallThree||0}</b></div><div class="member-pattern-stat">大三元<b>${stat.bigThree||0}</b></div><div class="member-pattern-stat">四暗刻<b>${stat.fourConcealed||0}</b></div><div class="member-pattern-stat">五暗刻<b>${stat.fiveConcealed||0}</b></div><div class="member-pattern-stat">MIGI<b>${stat.migi||0}</b></div></div>
     <h3>📈 在這個房間的戰績走勢</h3><div class="trend-chart">${v40SinglePlayerTrendHtml(playerSs,name)}</div>
     <h3>🗂️ 參與過的歷史牌局</h3><div>${history}</div></div>`
