@@ -192,3 +192,19 @@ test('V186 牌局寫入使用本機固定 record ID', () => {
   assert.match(sync,/v186CreateOrVerifyHand\(payload\)/);
   assert.match(save,/hand\.v186RecordId=v186CreateHandRecordId\(\)/);
 });
+
+test('V186 待同步牌局先保存，且不得覆蓋相同 ID 的不同資料', () => {
+  const data=new Map();
+  const ctx={localStorage:{getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)},Date,JSON};
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186ReadPendingHands')+'\n'+extractFunction('v186RememberPendingHand'),ctx);
+  const payload={id:'abcdefghijklmno',session:'session1',hand_number:1};
+  ctx.v186RememberPendingHand(payload);
+  assert.equal(JSON.parse(data.get('mahjongV186PendingHandsV1'))[payload.id].status,'unconfirmed');
+  assert.throws(()=>ctx.v186RememberPendingHand({...payload,hand_number:2}),/衝突/);
+});
+test('V186 只有 session 同步成功後才清除待同步牌局', () => {
+  const sync=extractFunction('syncRemoteConfirmedHand');
+  assert.ok(sync.indexOf('v186RememberPendingHand(payload)')<sync.indexOf('v186CreateOrVerifyHand(payload)'));
+  assert.ok(sync.indexOf('v186ForgetConfirmedHand(payload.id)')>sync.indexOf('game_sessions/records/'));
+});
