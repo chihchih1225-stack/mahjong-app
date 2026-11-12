@@ -4154,7 +4154,17 @@ function setAuthMode(mode){
   if(authMode==='login') applyRememberedAccount()
   authError('')
 }
+// V186 安全閘：預覽網址仍指向正式 PocketBase，禁止預覽版寫入正式資料。
+// 注意：此防護是瀏覽器端保護，不是伺服器權限控制；隔離測試仍需獨立 PB。
+function v186MayWritePocketBase(){
+  const host=String(location.hostname||'').toLowerCase()
+  return host==='mahjong-v2.vercel.app' || host==='mahjongbattle.app' || host==='www.mahjongbattle.app'
+}
 async function pbRequest(path,options={}){
+  const method=String(options.method||'GET').toUpperCase()
+  if(method!=='GET' && method!=='HEAD' && !v186MayWritePocketBase()){
+    throw new Error('V186 預覽版為唯讀模式：禁止寫入正式麻將資料庫')
+  }
   const headers={'Content-Type':'application/json',...(options.headers||{})}
   if(pbAuth?.token && !headers.Authorization) headers.Authorization=`Bearer ${pbAuth.token}`
   const res=await fetch(PB_BASE_URL+path,{...options,headers})
