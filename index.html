@@ -11070,19 +11070,19 @@ async function openRoomMemberStats(userId,nickname){
   const discardRate=stat.handAppearances?stat.discards/stat.handAppearances:0
   const best=Number.isFinite(stat.maxWin)?stat.maxWin:0
   const worst=Number.isFinite(stat.minWin)?stat.minWin:0
-  // V184 preview: 依每將登記的地點，彙總此玩家的最終淨輸贏；不依逐把重複加總。
+  // V185: 以同一批 playerSs 統計每將淨額；空白場地獨立列出，並核對個人累積輸贏。
   const placeTotals=new Map()
   playerSs.forEach(ss=>{
-    const place=String(ss.place||'').trim()
-    if(!place) return
+    const place=String(ss.place||'').trim()||'未填地點'
     const net=Number(sessionNets(ss)[name])
     if(!Number.isFinite(net)) return
     placeTotals.set(place,(placeTotals.get(place)||0)+net)
   })
   const placeResults=[...placeTotals].map(([place,net])=>({place,net}))
-  const placeRows=placeResults.sort((a,b)=>b.net-a.net||a.place.localeCompare(b.place,'zh-Hant')).map(item=>`<div class="member-history-row" style="cursor:default"><div class="toprow"><b>${escapeHtml(item.place)}</b><span class="member-history-net" style="color:${item.net>0?'var(--green)':item.net<0?'var(--red)':'inherit'}">${money(item.net)}</span></div></div>`).join('')||'<div class="muted">目前沒有登記場地的歷史牌局。</div>'
+  const placeRows=placeResults.sort((a,b)=>b.net-a.net||a.place.localeCompare(b.place,'zh-Hant')).map(item=>`<div class="member-history-row" style="cursor:default"><div class="toprow"><b>${escapeHtml(item.place)}</b><span class="member-history-net" style="color:${item.net>0?'var(--green)':item.net<0?'var(--red)':'inherit'}">${money(item.net)}</span></div></div>`).join('')||'<div class="muted">目前沒有可統計的歷史牌局。</div>'
   const placeSum=placeResults.reduce((sum,item)=>sum+item.net,0)
-  const placeSummary=placeResults.length?`<div class="member-history-row" style="cursor:default"><div class="toprow"><b>已登記場地合計</b><b>${money(placeSum)}</b></div></div>`:''
+  const placeDiff=Number(stat.net||0)-placeSum
+  const placeSummary=`<div class="member-history-row" style="cursor:default"><div class="toprow"><b>各場地合計</b><b>${money(placeSum)}</b></div></div><div class="member-history-row" style="cursor:default"><div class="toprow"><b>個人累積輸贏</b><b>${money(stat.net||0)}</b></div></div>${Math.abs(placeDiff)>0.001?`<div class="notice" style="color:var(--red)">⚠️ 金額核對不一致，差額 ${money(placeDiff)}，請檢查歷史牌局資料。</div>`:'<div class="muted" style="padding:8px 0">✓ 場地金額核對一致</div>'}`
   const history=[...playerSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(ss=>{
     const d=new Date(ss.createdAt), net=Number(sessionNets(ss)[name]||0)
     return `<div class="member-history-row" onclick="v124OpenMemberSessionDetail('${ss.id}',decodeURIComponent('${encodeURIComponent(userId||'')}'),decodeURIComponent('${encodeURIComponent(nickname||name||'')}'))" role="button" tabindex="0"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・點擊查看牌局 ›</div></div>`
