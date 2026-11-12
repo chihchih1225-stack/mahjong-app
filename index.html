@@ -4162,7 +4162,8 @@ function v186MayWritePocketBase(){
 }
 async function pbRequest(path,options={}){
   const method=String(options.method||'GET').toUpperCase()
-  if(method!=='GET' && method!=='HEAD' && !v186MayWritePocketBase()){
+  const previewLoginOnly=method==='POST' && /^\/api\/collections\/users\/auth-with-password(?:\?.*)?$/.test(String(path))
+  if(method!=='GET' && method!=='HEAD' && !previewLoginOnly && !v186MayWritePocketBase()){
     throw new Error('V186 預覽版為唯讀模式：禁止寫入正式麻將資料庫')
   }
   const headers={'Content-Type':'application/json',...(options.headers||{})}
