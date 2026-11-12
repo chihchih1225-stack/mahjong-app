@@ -208,3 +208,36 @@ test('V186 只有 session 同步成功後才清除待同步牌局', () => {
   assert.ok(sync.indexOf('v186RememberPendingHand(payload)')<sync.indexOf('v186CreateOrVerifyHand(payload)'));
   assert.ok(sync.indexOf('v186ForgetConfirmedHand(payload.id)')>sync.indexOf('game_sessions/records/'));
 });
+
+test('V186 恢復核對：遠端 hand 與 session 均確認才移除 pending',async()=>{
+  const payload={id:'abcdefghijklmno',session:'session1',hand_number:3,result:'win',winner:'p1',discarder:'p2',tai:2};
+  let forgotten=[];
+  const ctx={
+    v186ReadPendingHands:()=>({[payload.id]:{payload}}),
+    v186RemoteHandMatches:(record,p)=>record.id===p.id,
+    v186ForgetConfirmedHand:id=>forgotten.push(id),
+    pbRequest:async path=>path.includes('game_hands')?payload:{hand_number:4},
+    encodeURIComponent,Object
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186AuditPendingHands'),ctx);
+  const report=await ctx.v186AuditPendingHands();
+  assert.equal(report.confirmed.length,1);
+  assert.deepEqual(forgotten,[payload.id]);
+});
+test('V186 恢復核對：session 尚未更新不可清除 pending',async()=>{
+  const payload={id:'abcdefghijklmno',session:'session1',hand_number:3};
+  let forgotten=0;
+  const ctx={
+    v186ReadPendingHands:()=>({[payload.id]:{payload}}),
+    v186RemoteHandMatches:()=>true,
+    v186ForgetConfirmedHand:()=>forgotten++,
+    pbRequest:async path=>path.includes('game_hands')?payload:{hand_number:3},
+    encodeURIComponent,Object
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186AuditPendingHands'),ctx);
+  const report=await ctx.v186AuditPendingHands();
+  assert.equal(report.unconfirmed.length,1);
+  assert.equal(forgotten,0);
+});
