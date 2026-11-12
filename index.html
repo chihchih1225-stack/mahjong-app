@@ -4938,6 +4938,33 @@ async function createRemoteGameSession(){
 }
 
 
+// V186: 固定的 PocketBase record ID 作為每把牌的冪等鍵；不依賴修改正式資料庫 schema。
+// PocketBase 自訂 record id 為 15 位小寫英數字。僅在安全隨機來源可用時產生。
+function v186CreateHandRecordId(){
+  if(!globalThis.crypto?.getRandomValues) throw new Error('此裝置不支援安全的牌局識別碼')
+  const bytes=new Uint8Array(15)
+  globalThis.crypto.getRandomValues(bytes)
+  return Array.from(bytes,b=>(b%36).toString(36)).join('')
+}
+function v186RemoteHandMatches(record,payload){
+  return !!record && record.session===payload.session && Number(record.hand_number)===Number(payload.hand_number) && record.result===payload.result && record.winner===payload.winner && record.discarder===payload.discarder && Number(record.tai)===Number(payload.tai)
+}
+async function v186CreateOrVerifyHand(payload){
+  try{
+    await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+    return {ok:true,alreadyExists:false}
+  }catch(writeError){
+    // POST 逾時不等於失敗：先以固定 ID 查詢，絕不使用新 ID 盲目重送。
+    try{
+      const existing=await pbRequest('/api/collections/game_hands/records/'+encodeURIComponent(payload.id))
+      if(v186RemoteHandMatches(existing,payload)) return {ok:true,alreadyExists:true}
+      return {ok:false,reason:'remote_hand_conflict'}
+    }catch(readError){
+      return {ok:false,reason:'remote_hand_unconfirmed',message:String(writeError?.message||writeError)}
+    }
+  }
+}
+
 async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
   if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
   let handCreated=false
@@ -4946,14 +4973,16 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
     const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
     const handNo=committedSnapshot?.handNumber??hands.length
     const payload={
-      session:remoteSessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
+      id:hand.v186RecordId||'',session:remoteSessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
       dealer:map[hand.dealer]?.id||'',dealer_repeats:Number(hand.repeats||0),
       result:resultMap[hand.result]||'draw',winner:map[hand.winner]?.id||'',
       discarder:map[hand.discarder]?.id||'',tai:Number(hand.tai||0),
       patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
     }
-    await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+    if(!payload.id) return {ok:false,reason:'missing_stable_hand_id'}
+    const verified=await v186CreateOrVerifyHand(payload)
+    if(!verified.ok) return verified
     handCreated=true
 
 
@@ -7905,6 +7934,10 @@ function saveHand(){
 
 
 
+  // 先將穩定的遠端識別碼放進本機牌局紀錄；失敗時不可使用另一個 ID 重送。
+  if(remoteSessionId && pbAuth?.record?.id){
+    try{hand.v186RecordId=v186CreateHandRecordId()}catch(e){console.warn('V186: 無法產生遠端牌局 ID',e)}
+  }
   hands.push(hand)
   // V108：這一把確認後，立即寫進整輪連打提款機帳本。
   commitHandToCashflowLedger(hand)
