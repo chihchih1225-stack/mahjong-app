@@ -149,3 +149,46 @@ test('預覽版只放行指定登入 POST，不放行其他 auth POST', async ()
   await assert.rejects(ctx.pbRequest('/api/collections/users/records',{method:'POST'}),/唯讀模式/);
   assert.equal(requests,1);
 });
+
+test('V186 每把牌有固定 PocketBase ID，且寫入失敗時先讀回核對', async () => {
+  let writes=0,reads=0;
+  const payload={id:'abcdefghijklmno',session:'session1',hand_number:3,result:'win',winner:'p1',discarder:'p2',tai:2};
+  const ctx={pbRequest:async(path,options)=>{
+    if(options?.method==='POST'){writes++;throw new Error('timeout')}
+    reads++;return {...payload};
+  },encodeURIComponent};
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186RemoteHandMatches')+'\n'+extractFunction('v186CreateOrVerifyHand'),ctx);
+  const outcome=await ctx.v186CreateOrVerifyHand(payload);
+  assert.equal(outcome.ok,true);
+  assert.equal(outcome.alreadyExists,true);
+  assert.equal(writes,1);
+  assert.equal(reads,1);
+});
+test('V186 讀回資料不一致時禁止視為成功', async () => {
+  const payload={id:'abcdefghijklmno',session:'session1',hand_number:3,result:'win',winner:'p1',discarder:'p2',tai:2};
+  const ctx={pbRequest:async(path,options)=>{
+    if(options?.method==='POST')throw new Error('timeout');
+    return {...payload,hand_number:4};
+  },encodeURIComponent};
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186RemoteHandMatches')+'\n'+extractFunction('v186CreateOrVerifyHand'),ctx);
+  const outcome=await ctx.v186CreateOrVerifyHand(payload);
+  assert.equal(outcome.ok,false);
+  assert.equal(outcome.reason,'remote_hand_conflict');
+});
+test('V186 讀回也失敗時保留未確認狀態，不用新 ID 盲目重送', async () => {
+  const ctx={pbRequest:async()=>{throw new Error('offline')},encodeURIComponent};
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186RemoteHandMatches')+'\n'+extractFunction('v186CreateOrVerifyHand'),ctx);
+  const outcome=await ctx.v186CreateOrVerifyHand({id:'abcdefghijklmno'});
+  assert.equal(outcome.ok,false);
+  assert.equal(outcome.reason,'remote_hand_unconfirmed');
+});
+test('V186 牌局寫入使用本機固定 record ID', () => {
+  const sync=extractFunction('syncRemoteConfirmedHand');
+  const save=extractFunction('saveHand');
+  assert.match(sync,/id:hand\.v186RecordId/);
+  assert.match(sync,/v186CreateOrVerifyHand\(payload\)/);
+  assert.match(save,/hand\.v186RecordId=v186CreateHandRecordId\(\)/);
+});
