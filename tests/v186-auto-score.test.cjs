@@ -215,6 +215,7 @@ test('V186 恢復核對：即使 session 進度已前進仍須保留 pending 待
   const ctx={
     v186ReadPendingHands:()=>({[payload.id]:{payload}}),
     v186RemoteHandMatches:(record,p)=>record.id===p.id,
+    v186PendingSnapshotMatches:()=>false,
     v186ForgetConfirmedHand:id=>forgotten.push(id),
     pbRequest:async path=>path.includes('game_hands')?payload:{hand_number:4},
     encodeURIComponent,Object
@@ -222,7 +223,7 @@ test('V186 恢復核對：即使 session 進度已前進仍須保留 pending 待
   vm.createContext(ctx);
   vm.runInContext(extractFunction('v186AuditPendingHands'),ctx);
   const report=await ctx.v186AuditPendingHands();
-  assert.equal(report.confirmed.length,1);
+  assert.equal(report.unconfirmed.length,1);
   assert.deepEqual(forgotten,[]);
 });
 test('V186 恢復核對：session 尚未更新不可清除 pending',async()=>{
@@ -231,6 +232,7 @@ test('V186 恢復核對：session 尚未更新不可清除 pending',async()=>{
   const ctx={
     v186ReadPendingHands:()=>({[payload.id]:{payload}}),
     v186RemoteHandMatches:()=>true,
+    v186PendingSnapshotMatches:()=>false,
     v186ForgetConfirmedHand:()=>forgotten++,
     pbRequest:async path=>path.includes('game_hands')?payload:{hand_number:3},
     encodeURIComponent,Object
@@ -240,4 +242,31 @@ test('V186 恢復核對：session 尚未更新不可清除 pending',async()=>{
   const report=await ctx.v186AuditPendingHands();
   assert.equal(report.unconfirmed.length,1);
   assert.equal(forgotten,0);
+});
+
+test('V186 快照核對：金額矩陣一致且場次進度相符才能結案',()=>{
+  const ctx={};vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186PendingSnapshotMatches'),ctx);
+  const expected={nextHandNumber:4,cashflowSnapshot:{B:{A:100},A:{B:-100}}};
+  assert.equal(ctx.v186PendingSnapshotMatches({hand_number:4,seat_map:{_series_cashflow_snapshot:{A:{B:-100},B:{A:100}}}},expected),true);
+  assert.equal(ctx.v186PendingSnapshotMatches({hand_number:5,seat_map:{_series_cashflow_snapshot:expected.cashflowSnapshot}},expected),false);
+  assert.equal(ctx.v186PendingSnapshotMatches({hand_number:4,seat_map:{_series_cashflow_snapshot:{A:{B:0}}}},expected),false);
+  assert.equal(ctx.v186PendingSnapshotMatches({hand_number:4},expected),false);
+});
+test('V186 核對成功後才清除待同步牌局',async()=>{
+  const payload={id:'abcdefghijklmno',session:'session1',hand_number:3};
+  const expectedSnapshot={nextHandNumber:4,cashflowSnapshot:{A:{B:100}}};
+  const forgotten=[];
+  const ctx={
+    v186ReadPendingHands:()=>({[payload.id]:{payload,expectedSnapshot}}),
+    v186RemoteHandMatches:()=>true,
+    v186PendingSnapshotMatches:()=>true,
+    v186ForgetConfirmedHand:id=>forgotten.push(id),
+    pbRequest:async path=>path.includes('game_hands')?payload:{hand_number:4},
+    encodeURIComponent,Object
+  };
+  vm.createContext(ctx);vm.runInContext(extractFunction('v186AuditPendingHands'),ctx);
+  const report=await ctx.v186AuditPendingHands();
+  assert.equal(report.confirmed.length,1);
+  assert.deepEqual(forgotten,[payload.id]);
 });
