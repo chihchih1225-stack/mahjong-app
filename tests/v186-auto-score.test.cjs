@@ -71,7 +71,7 @@ test('連續調整台數只保留最後一次排程，且取消後不會記錄',
     clearTimeout:(id)=>timers.delete(id)
   };
   vm.createContext(ctx);
-  vm.runInContext(extractFunction('v186CancelAutoScore')+'\\n'+extractFunction('v186ScheduleAutoScore'),ctx);
+  vm.runInContext(extractFunction('v186CancelAutoScore')+'\n'+extractFunction('v186ScheduleAutoScore'),ctx);
   ctx.v186ScheduleAutoScore();
   ctx.v186ScheduleAutoScore();
   ctx.v186ScheduleAutoScore();
@@ -91,7 +91,7 @@ test('計分排程必須在觸發時重新檢查選擇狀態', () => {
     clearTimeout:()=>{}
   };
   vm.createContext(ctx);
-  vm.runInContext(extractFunction('v186CancelAutoScore')+'\\n'+extractFunction('v186ScheduleAutoScore'),ctx);
+  vm.runInContext(extractFunction('v186CancelAutoScore')+'\n'+extractFunction('v186ScheduleAutoScore'),ctx);
   ctx.v186ScheduleAutoScore();
   valid=false;
   callback();
