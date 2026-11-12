@@ -114,6 +114,7 @@ test('V186 預覽站阻擋 PocketBase 寫入，正式站允許原有操作', () 
 });
 test('PocketBase API 寫入保護必須在發送 fetch 前執行', () => {
   const source=html.slice(html.indexOf('async function pbRequest('),html.indexOf('async function pbRequest(')+900);
-  assert.match(source,/method!=='GET' && method!=='HEAD' && !v186MayWritePocketBase\(\)/);
+  assert.match(source,/method!=='GET' && method!=='HEAD' && !previewLoginOnly && !v186MayWritePocketBase\(\)/);
+  assert.match(source,/auth-with-password/);
   assert.ok(source.indexOf('!v186MayWritePocketBase()') < source.indexOf('await fetch('));
 });
