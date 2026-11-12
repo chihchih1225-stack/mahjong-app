@@ -97,3 +97,23 @@ test('計分排程必須在觸發時重新檢查選擇狀態', () => {
   callback();
   assert.equal(saved,0,'invalidated selection must not save');
 });
+
+test('V186 預覽站阻擋 PocketBase 寫入，正式站允許原有操作', () => {
+  const fn=extractFunction('v186MayWritePocketBase');
+  function allowed(host) {
+    const ctx={location:{hostname:host}};
+    vm.createContext(ctx);
+    vm.runInContext(fn,ctx);
+    return vm.runInContext('v186MayWritePocketBase()',ctx);
+  }
+  assert.equal(allowed('mahjong-v2.vercel.app'),true);
+  assert.equal(allowed('mahjongbattle.app'),true);
+  assert.equal(allowed('mahjong-v2-rddzdynqk-4wh2kxwstk-3079.vercel.app'),false);
+  assert.equal(allowed('mahjong-v2-git-fix-auto-score-idempotenc-4edb58-4wh2kxwstk-3079.vercel.app'),false);
+  assert.equal(allowed('localhost'),false);
+});
+test('PocketBase API 寫入保護必須在發送 fetch 前執行', () => {
+  const source=html.slice(html.indexOf('async function pbRequest('),html.indexOf('async function pbRequest(')+900);
+  assert.match(source,/method!=='GET' && method!=='HEAD' && !v186MayWritePocketBase\(\)/);
+  assert.ok(source.indexOf('!v186MayWritePocketBase()') < source.indexOf('await fetch('));
+});
