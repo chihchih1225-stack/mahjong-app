@@ -38,3 +38,9 @@ GROUP BY session, hand_number HAVING COUNT(*) > 1;
 在隔離 PB 驗證兩裝置競爭、POST 回應遺失、transaction 中斷、重啟重送、401/403/409、
 undo/結案/換人競爭後，才可接上前端的自動補送。正式 schema 變更仍須使用者另行授權。
 目前不得開啟自動計分或宣稱伺服器原子性完成。
+
+## 第二階段資料準備
+
+目前 Repository 沒有可確認的 PB 版本、schema/rules 匯出或 Hooks 實作；前端使用線索不代表實際設定。
+請依 [非工程人員安全資訊取得指南](safe-information-collection-guide.md) 收集去除機密後的必要資訊，
+再依 [隔離環境建置說明](isolated-environment-setup.md) 建立全新測試 instance。
