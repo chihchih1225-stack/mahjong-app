@@ -4947,16 +4947,32 @@ function v186CreateHandRecordId(){
   return Array.from(bytes,b=>(b%36).toString(36)).join('')
 }
 function v186RemoteHandMatches(record,payload){
-  return !!record && record.session===payload.session && Number(record.hand_number)===Number(payload.hand_number) && record.result===payload.result && record.winner===payload.winner && record.discarder===payload.discarder && Number(record.tai)===Number(payload.tai)
+  if(!record || !payload || record.id!==payload.id) return false
+  // 比對所有提交欄位，包含實際金額、莊家與記錄者，不能只核對胡牌摘要。
+  const normalize=value=>{
+    if(Array.isArray(value)) return value.map(normalize)
+    if(value && typeof value==='object') return Object.fromEntries(Object.keys(value).sort().map(k=>[k,normalize(value[k])]))
+    return value
+  }
+  return Object.keys(payload).every(key=>{
+    if(['hand_number','tai','dealer_repeats'].includes(key)) return Number(record[key])===Number(payload[key])
+    // PocketBase DateField 可將 ISO 時間正規化為空格分隔的 UTC 格式。
+    if(key==='recorded_at') return Number.isFinite(Date.parse(record[key])) && Date.parse(record[key])===Date.parse(payload[key])
+    return JSON.stringify(normalize(record[key]))===JSON.stringify(normalize(payload[key]))
+  })
 }
 // 待確認寫入持久化：斷線或重新開啟 App 時，保留原始 ID 與內容。
 // 此階段不自動重送；必須先確認伺服器紀錄與 session 狀態才能安全補送。
 const V186_PENDING_HANDS_KEY='mahjongV186PendingHandsV1'
 function v186ReadPendingHands(){
+  const raw=localStorage.getItem(V186_PENDING_HANDS_KEY)
+  if(raw===null) return {}
   try{
-    const items=JSON.parse(localStorage.getItem(V186_PENDING_HANDS_KEY)||'{}')
-    return items && typeof items==='object' && !Array.isArray(items)?items:{}
-  }catch(e){return {}}
+    const items=JSON.parse(raw)
+    if(items && typeof items==='object' && !Array.isArray(items)) return items
+  }catch(e){}
+  // 原始資料保持原樣；不得以空佇列覆蓋無法解析的未確認牌局。
+  throw new Error('待同步牌局資料損壞，請保留本機資料並停止同步')
 }
 function v186RememberPendingHand(payload,expectedSnapshot=null){
   if(!payload?.id || !payload?.session) throw new Error('缺少遠端牌局識別碼')
@@ -5014,39 +5030,55 @@ async function v186AuditPendingHands(){
   return report
 }
 async function v186CreateOrVerifyHand(payload){
+  let writeError=null
   try{
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
-    return {ok:true,alreadyExists:false}
-  }catch(writeError){
-    // POST 逾時不等於失敗：先以固定 ID 查詢，絕不使用新 ID 盲目重送。
-    try{
-      const existing=await pbRequest('/api/collections/game_hands/records/'+encodeURIComponent(payload.id))
-      if(v186RemoteHandMatches(existing,payload)) return {ok:true,alreadyExists:true}
-      return {ok:false,reason:'remote_hand_conflict'}
-    }catch(readError){
-      return {ok:false,reason:'remote_hand_unconfirmed',message:String(writeError?.message||writeError)}
-    }
+  }catch(error){writeError=error}
+  // 包括 2xx 都讀回確認，防止 schema 靜默忽略金額欄位；逾時不使用新 ID。
+  try{
+    const existing=await pbRequest('/api/collections/game_hands/records/'+encodeURIComponent(payload.id))
+    if(v186RemoteHandMatches(existing,payload)) return {ok:true,alreadyExists:!!writeError}
+    return {ok:false,reason:'remote_hand_conflict'}
+  }catch(readError){
+    return {ok:false,reason:'remote_hand_unconfirmed',message:String(writeError?.message||readError?.message||readError)}
   }
 }
 
+let v186RemoteSyncQueue=Promise.resolve()
+function v186EnqueueRemoteHand(task){
+  const queued=v186RemoteSyncQueue.then(task)
+  v186RemoteSyncQueue=queued.catch(()=>{})
+  return queued
+}
 async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
   if(!remoteSessionId || !pbAuth?.record?.id || !hand) return {ok:false,reason:'remote_session_unavailable'}
+  const sessionId=remoteSessionId,roomId=currentRoomId,recorderId=pbAuth.record.id
+  const frozenHand=JSON.parse(JSON.stringify(hand))
+  const frozenSnapshot=committedSnapshot?JSON.parse(JSON.stringify(committedSnapshot)):null
+  const knownMap=JSON.parse(JSON.stringify(remoteRoomPlayerMap||{}))
+  const frozenSeatMap=JSON.parse(JSON.stringify(buildSeatMap(knownMap)))
+  return v186EnqueueRemoteHand(async()=>{
+  hand=frozenHand;committedSnapshot=frozenSnapshot
   let handCreated=false
   try{
-    const map=Object.keys(remoteRoomPlayerMap||{}).length?remoteRoomPlayerMap:await loadRoomPlayerMap(currentRoomId)
+    if(pbAuth?.record?.id!==recorderId) return {ok:false,reason:'recorder_changed'}
+    const map=Object.keys(knownMap).length?knownMap:await loadRoomPlayerMap(roomId)
     const resultMap={'胡牌':'win','自摸':'selfdraw','流局':'draw','詐胡':'fraud'}
     const handNo=committedSnapshot?.handNumber??hands.length
     const payload={
-      id:hand.v186RecordId||'',session:remoteSessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
+      id:hand.v186RecordId||'',session:sessionId,hand_number:handNo,round:hand.round||getRoundName(hand.roundIndex||0),
       dealer:map[hand.dealer]?.id||'',dealer_repeats:Number(hand.repeats||0),
       result:resultMap[hand.result]||'draw',winner:map[hand.winner]?.id||'',
       discarder:map[hand.discarder]?.id||'',tai:Number(hand.tai||0),
       patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
-      recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
+      recorded_by:recorderId,recorded_at:hand.v186RecordedAt||new Date().toISOString()
     }
     if(!payload.id) return {ok:false,reason:'missing_stable_hand_id'}
     // 先落盤，後送出；即使請求逾時也保留同一把牌的固定 ID。
     v186RememberPendingHand(payload,committedSnapshot)
+    // 未確認的前一把不能被較新的 session 快照跨過。
+    const unresolved=Object.values(v186ReadPendingHands()).some(item=>item.payload?.session===sessionId && Number(item.payload.hand_number)<Number(handNo))
+    if(unresolved) return {ok:false,reason:'earlier_hand_unconfirmed'}
     const verified=await v186CreateOrVerifyHand(payload)
     if(!verified.ok) return verified
     handCreated=true
@@ -5055,11 +5087,12 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
     // V105：每存一把，計分端把「目前整輪連打」完整提款機矩陣一起同步。
     // 直播端只讀這份快照，不再猜上一場誰付誰。
     const exactCashflowSnapshot=committedSnapshot?.cashflowSnapshot||buildCashflowMatrix(hands,P)
-    const syncedSeatMap=buildSeatMap(map)
+    const syncedSeatMap=frozenSeatMap
+    Object.values(syncedSeatMap).forEach(seat=>{if(seat && typeof seat==='object' && seat.name) seat.player_id=map[seat.name]?.id||''})
     syncedSeatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(exactCashflowSnapshot||{}))
 
 
-    await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{
+    await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`,{
       method:'PATCH',
       body:JSON.stringify({
         dealer:map[committedSnapshot?.nextDealer||dealer]?.id||payload.dealer,round:committedSnapshot?.nextRound||getRoundName(roundIndex),
@@ -5067,12 +5100,15 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
         seat_map:syncedSeatMap
       })
     })
+    const confirmedSession=await pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(sessionId))
+    if(!v186PendingSnapshotMatches(confirmedSession,committedSnapshot)) return {ok:false,reason:'session_snapshot_unconfirmed'}
     v186ForgetConfirmedHand(payload.id)
     return {ok:true,handNumber:handNo}
   }catch(e){
     console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e)
     return {ok:false,reason:handCreated?'session_snapshot_failed':'hand_write_failed',handCreated,message:String(e?.message||e)}
   }
+  })
 }
 
 
@@ -7278,8 +7314,9 @@ let handTaiExplicitlySelected=false
 function addTai(value){
 
 
+  if(!Number.isSafeInteger(value)) return
   handTaiExplicitlySelected=true
-  tai+=value
+  tai=Math.max(0,Number(tai)+value)
 
 
   updateTai()
@@ -7917,6 +7954,19 @@ function saveHand(){
 
 
   if(handSaveInProgress) return
+  if(mode!=='detailed' || liveViewerMode || P.length!==4 || new Set(P).size!==4 ||
+     !['胡牌','自摸','流局','詐胡'].includes(result) ||
+     (result!=='流局' && !P.includes(winner)) ||
+     (result==='胡牌' && !P.includes(discarder)) ||
+     !Number.isSafeInteger(Number(tai)) || Number(tai)<0){
+    alert('玩家或台數不正確，尚未記錄這一把')
+    return
+  }
+  const rollback={balances:{...balances},hands:[...hands],roundLeaders:[...roundLeaders],
+    roundIndex,repeats,dealer,dealerSeatIndex,autoEndAfterHand,
+    seriesCashflowBase:JSON.parse(JSON.stringify(seriesCashflowBase||{})),
+    seriesCashflowLedger:seriesCashflowLedger?JSON.parse(JSON.stringify(seriesCashflowLedger)):null}
+  let locallyCommitted=false
   handSaveInProgress=true
   try{
   const beforeBalances=
@@ -8005,6 +8055,7 @@ function saveHand(){
   if(remoteSessionId && pbAuth?.record?.id){
     try{hand.v186RecordId=v186CreateHandRecordId()}catch(e){console.warn('V186: 無法產生遠端牌局 ID',e)}
   }
+  hand.v186RecordedAt=new Date().toISOString()
   hands.push(hand)
   // V108：這一把確認後，立即寫進整輪連打提款機帳本。
   commitHandToCashflowLedger(hand)
@@ -8133,7 +8184,13 @@ function saveHand(){
     nextHandNumber:hands.length+1,
     cashflowSnapshot:JSON.parse(JSON.stringify(buildCashflowMatrix(hands,P)||{}))
   }
-  void syncRemoteConfirmedHand(hand,remoteHandSnapshot)
+  // 在任何網路作業前保存已提交牌局及快照；重啟後可檢視原始 ID 與內容。
+  hand.v186RemoteSnapshot=remoteHandSnapshot
+  persistActiveGame()
+  locallyCommitted=true
+  void syncRemoteConfirmedHand(hand,remoteHandSnapshot).then(outcome=>{
+    if(!outcome.ok) console.warn('V186：未確認同步，保留本機牌局',outcome)
+  }).catch(error=>console.warn('V186：同步中斷，保留本機牌局',error))
 
 
   if(autoEndAfterHand){
@@ -8188,6 +8245,17 @@ function saveHand(){
 
   renderGame()
   persistActiveGame()
+  } catch(error) {
+    if(!locallyCommitted){
+      balances=rollback.balances;hands=rollback.hands;roundLeaders=rollback.roundLeaders
+      roundIndex=rollback.roundIndex;repeats=rollback.repeats;dealer=rollback.dealer
+      dealerSeatIndex=rollback.dealerSeatIndex;autoEndAfterHand=rollback.autoEndAfterHand
+      seriesCashflowBase=rollback.seriesCashflowBase;seriesCashflowLedger=rollback.seriesCashflowLedger
+      alert('本機保存失敗，這一把尚未記錄。請保留畫面並檢查儲存空間。')
+      console.warn('V186：本機提交已回復',error)
+      return
+    }
+    throw error
   } finally {
     handSaveInProgress=false
   }
@@ -11031,7 +11099,7 @@ function v32StartRecorderHeartbeat(){
   if(v32HeartbeatTimer) clearInterval(v32HeartbeatTimer)
   v32HeartbeatTimer=setInterval(async()=>{
     if(!remoteSessionId || liveViewerMode || document.getElementById('game')?.classList.contains('hidden')) return
-    try{ await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{method:'PATCH',body:JSON.stringify({hand_number:hands.length+1})}) }catch(e){}
+    try{ await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(remoteSessionId)}`,{method:'PATCH',body:JSON.stringify({}) /* 心跳只更新 updated，不可覆蓋已確認計分進度 */}) }catch(e){}
   },15000)
 }
 function v32SessionIsFresh(ss){
@@ -14155,7 +14223,17 @@ html body #game.projection-mode:not(.hidden) #projectionLatestHand{flex:0 1 auto
  html body #game.projection-mode:not(.hidden) #projectionLatestHand{max-height:17%!important;padding:4px!important}
 }
 </style>
-<style id="v181-point-style">#v181LiveLatestPoint{font-weight:800;font-size:clamp(12px,1.2vw,18px);color:#315d7b;white-space:nowrap}#game.projection-mode .game-status-card .live-head{position:relative}#game.projection-mode #v181LiveLatestPoint{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font-size:clamp(11px,1vw,16px)}#game.live-viewer-mode:not(.projection-mode) #v181LiveLatestPoint{padding:4px 7px}</style></body>
+<style id="v181-point-style">#v181LiveLatestPoint{font-weight:800;font-size:clamp(12px,1.2vw,18px);color:#315d7b;white-space:nowrap}#game.projection-mode .game-status-card .live-head{position:relative}#game.projection-mode #v181LiveLatestPoint{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font-size:clamp(11px,1vw,16px)}#game.live-viewer-mode:not(.projection-mode) #v181LiveLatestPoint{padding:4px 7px}</style><script>
+// 預覽標示不依賴登入或遠端資料；正式網域不顯示。
+if(!v186MayWritePocketBase()){
+  const notice=document.createElement('aside')
+  notice.id='v186PreviewNotice'
+  notice.setAttribute('role','status')
+  notice.style.cssText='position:relative;z-index:10000;padding:10px 14px;background:#fff3cd;color:#664d03;text-align:center;font-size:14px'
+  notice.textContent='V186 開發預覽｜自動計分停用｜正式資料庫唯讀｜尚未完成使用者驗收'
+  document.body.prepend(notice)
+}
+</script></body>
 </html>
 
 
