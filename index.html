@@ -4984,9 +4984,10 @@ async function v186AuditPendingHands(){
       if(!v186RemoteHandMatches(remote,payload)){report.conflicts.push(id);continue}
       // 已有 hand 不代表 session 快照已更新；保留 pending 直到可確認兩者一致。
       const session=await pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(payload.session))
+      // 進度數字前進不代表同一把牌的提款機快照已正確更新；
+      // 在沒有原子交易或快照校驗前，不可自動清除待確認資料。
       if(Number(session?.hand_number)>Number(payload.hand_number)){
         report.confirmed.push(id)
-        v186ForgetConfirmedHand(id)
       }else{
         report.unconfirmed.push(id)
       }
