@@ -7716,7 +7716,21 @@ function continueDealer(){
 ========================= */
 
 
-/* 自動記錄的純檢查：未啟用觸發，待遠端確認及防重送測試完成後使用。 */
+/* V186：預備自動計分排程；未完成遠端去重與恢復驗證前維持停用。 */
+const V186_AUTO_SCORE_ENABLED=false
+let v186AutoScoreTimer=null
+function v186CancelAutoScore(){
+  if(v186AutoScoreTimer!==null){clearTimeout(v186AutoScoreTimer);v186AutoScoreTimer=null}
+}
+function v186ScheduleAutoScore(){
+  v186CancelAutoScore()
+  if(!V186_AUTO_SCORE_ENABLED || handSaveInProgress || !canAutoRecordCurrentHand()) return
+  v186AutoScoreTimer=setTimeout(()=>{
+    v186AutoScoreTimer=null
+    if(V186_AUTO_SCORE_ENABLED && !handSaveInProgress && canAutoRecordCurrentHand()) saveHand()
+  },1200)
+}
+/* 自動記錄條件檢查 */
 function canAutoRecordCurrentHand(){
   if(liveViewerMode || !Array.isArray(P) || P.length!==4) return false
   if(result!=='胡牌' && result!=='自摸') return false
