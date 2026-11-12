@@ -4949,6 +4949,29 @@ function v186CreateHandRecordId(){
 function v186RemoteHandMatches(record,payload){
   return !!record && record.session===payload.session && Number(record.hand_number)===Number(payload.hand_number) && record.result===payload.result && record.winner===payload.winner && record.discarder===payload.discarder && Number(record.tai)===Number(payload.tai)
 }
+// 待確認寫入持久化：斷線或重新開啟 App 時，保留原始 ID 與內容。
+// 此階段不自動重送；必須先確認伺服器紀錄與 session 狀態才能安全補送。
+const V186_PENDING_HANDS_KEY='mahjongV186PendingHandsV1'
+function v186ReadPendingHands(){
+  try{
+    const items=JSON.parse(localStorage.getItem(V186_PENDING_HANDS_KEY)||'{}')
+    return items && typeof items==='object' && !Array.isArray(items)?items:{}
+  }catch(e){return {}}
+}
+function v186RememberPendingHand(payload){
+  if(!payload?.id || !payload?.session) throw new Error('缺少遠端牌局識別碼')
+  const pending=v186ReadPendingHands()
+  const old=pending[payload.id]
+  if(old && JSON.stringify(old.payload)!==JSON.stringify(payload)) throw new Error('牌局 ID 衝突，禁止覆蓋待同步紀錄')
+  pending[payload.id]={payload,status:'unconfirmed',savedAt:old?.savedAt||new Date().toISOString()}
+  localStorage.setItem(V186_PENDING_HANDS_KEY,JSON.stringify(pending))
+}
+function v186ForgetConfirmedHand(id){
+  const pending=v186ReadPendingHands()
+  if(!Object.prototype.hasOwnProperty.call(pending,id)) return
+  delete pending[id]
+  localStorage.setItem(V186_PENDING_HANDS_KEY,JSON.stringify(pending))
+}
 async function v186CreateOrVerifyHand(payload){
   try{
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
@@ -4981,6 +5004,8 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
     }
     if(!payload.id) return {ok:false,reason:'missing_stable_hand_id'}
+    // 先落盤，後送出；即使請求逾時也保留同一把牌的固定 ID。
+    v186RememberPendingHand(payload)
     const verified=await v186CreateOrVerifyHand(payload)
     if(!verified.ok) return verified
     handCreated=true
@@ -5001,6 +5026,7 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
         seat_map:syncedSeatMap
       })
     })
+    v186ForgetConfirmedHand(payload.id)
     return {ok:true,handNumber:handNo}
   }catch(e){
     console.warn('V28：遠端單手同步失敗，本機紀錄仍完整保留',e)
