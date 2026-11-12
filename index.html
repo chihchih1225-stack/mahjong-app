@@ -5079,6 +5079,12 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
     // 未確認的前一把不能被較新的 session 快照跨過。
     const unresolved=Object.values(v186ReadPendingHands()).some(item=>item.payload?.session===sessionId && Number(item.payload.hand_number)<Number(handNo))
     if(unresolved) return {ok:false,reason:'earlier_hand_unconfirmed'}
+    // 保守的進度檢查：恢復舊佇列不得覆寫已前進或已結案的 session。
+    // 此讀取仍不是跨裝置原子鎖；伺服器交易入口完成前旗標維持停用。
+    const beforeSession=await pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(sessionId))
+    if(beforeSession.status!=='active' || Number(beforeSession.hand_number)!==Number(handNo)){
+      return {ok:false,reason:'remote_session_progress_changed'}
+    }
     const verified=await v186CreateOrVerifyHand(payload)
     if(!verified.ok) return verified
     handCreated=true

@@ -303,7 +303,7 @@ test('本頁遠端操作依序完成；失敗不會永久卡住佇列',async()=>
 });
 function syncHarness(failure='') {
   const storage=new Map(), records=new Map(),calls=[];
-  let session={hand_number:1},offline=failure==='offline';
+  let session={status:'active',hand_number:1},offline=failure==='offline';
   const ctx={remoteSessionId:'s1',currentRoomId:'r1',pbAuth:{record:{id:'u1'}},remoteRoomPlayerMap:{A:{id:'a'},B:{id:'b'}},
     v186RemoteSyncQueue:Promise.resolve(),V186_PENDING_HANDS_KEY:'mahjongV186PendingHandsV1',
     localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},
@@ -315,7 +315,7 @@ function syncHarness(failure='') {
         if(!records.has(path.split('/').pop()))throw Object.assign(Error('missing'),{status:404});
         return records.get(path.split('/').pop());
       }
-      if(options.method==='PATCH') {if(failure==='patch')throw Error('patch failed');session=JSON.parse(options.body)}
+      if(options.method==='PATCH') {if(failure==='patch')throw Error('patch failed');session={...session,...JSON.parse(options.body)}}
       if(failure==='mismatch')return {...session,hand_number:999};return session;
     }};
   vm.createContext(ctx);
@@ -329,7 +329,7 @@ for(const failure of ['','lost-response','offline','patch','mismatch']) test('�
   const pending=h.ctx.v186ReadPendingHands();
   assert.equal(outcome.ok,['','lost-response'].includes(failure));
   assert.equal(Object.keys(pending).length,outcome.ok?0:1);
-  assert.equal(h.records.size,failure==='offline'?0:1);
+  assert.equal(h.records.size,['offline','mismatch'].includes(failure)?0:1);
   if(failure==='offline') {
     h.reconnect();assert.equal((await h.ctx.syncRemoteConfirmedHand(h.hand,h.snapshot)).ok,true);
     assert.equal(h.records.size,1);assert.equal(Object.keys(h.ctx.v186ReadPendingHands()).length,0);
@@ -365,4 +365,21 @@ for(const result of ['胡牌','自摸','流局','詐胡']) test('既有付款規
   const actual=JSON.parse(JSON.stringify(ctx.calculateHandPayments()));
   const expected={'胡牌':{A:0,B:140,C:-140,D:0},'自摸':{A:-200,B:480,C:-140,D:-140},'流局':{A:0,B:0,C:0,D:0},'詐胡':{A:160,B:-420,C:120,D:140}}[result];
   assert.deepEqual(actual,expected);assert.equal(Object.values(actual).reduce((a,b)=>a+b,0),0);
+});
+
+test('舊佇列不可對已前進或結案的 session 寫入；pending 必須保留',async()=>{
+  for(const session of [{status:'active',hand_number:2},{status:'completed',hand_number:1},{status:'active',hand_number:0}]){
+    const h=syncHarness();let writes=0;
+    h.ctx.pbRequest=async(path,options={})=>{if(options.method)writes++;return session};
+    const outcome=await h.ctx.syncRemoteConfirmedHand(h.hand,h.snapshot);
+    assert.equal(outcome.reason,'remote_session_progress_changed');assert.equal(writes,0);
+    assert.equal(Object.keys(h.ctx.v186ReadPendingHands()).length,1);
+  }
+});
+test('送出成功但金額遭伺服器忽略時，不可更新 session 或清除 pending',async()=>{
+  const h=syncHarness();const request=h.ctx.pbRequest;
+  h.ctx.pbRequest=async(path,options)=>{const value=await request(path,options);if(path.includes('game_hands')&&!options?.method)return {...value,payments:{}};return value};
+  const outcome=await h.ctx.syncRemoteConfirmedHand(h.hand,h.snapshot);
+  assert.equal(outcome.reason,'remote_hand_conflict');assert.equal(Object.keys(h.ctx.v186ReadPendingHands()).length,1);
+  assert.equal(h.calls.filter(([,method])=>method==='PATCH').length,0);
 });

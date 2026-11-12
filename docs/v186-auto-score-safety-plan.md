@@ -83,3 +83,14 @@
 首次續作推送的 GitHub CI 發現 ubuntu-latest 已為 Ubuntu 26.04，與固定 Playwright 1.56.1 不相容。
 已將 runner 固定為 Playwright 支援的 Ubuntu 24.04；保留首次失敗紀錄，後續以新 commit 的 CI 結果為準。
 本機最後驗證：40 項 Node/SQLite 契約測試與 7 項 Chromium 瀏覽器測試通過，0 失敗；17 段 inline JavaScript 語法通過。
+
+## 方案 1 續作：無獨立 PocketBase（2026-11-12）
+
+依使用者選擇，不建立／連線正式資料庫測試、不正式部署、不合併 main、旗標保持 false。
+補上 session 寫入前的進度與 active 狀態檢查，遇進度改變或結案即保留 pending 並拒寫。
+新增模擬案例：已前進／已結案 session 不得寫入、2xx 但伺服器忽略金額欄位不得結案。
+這是保守檢查，不是 compare-and-swap；跨裝置的讀寫間競爭仍須原子交易處理。
+
+本次本機結果：42 項 Node/SQLite 測試、7 項 Chromium 測試通過，0 失敗；17 段 inline script 語法通過。
+隔離環境所需設定、建立順序與尚未執行的整合矩陣，見 `pocketbase-review/isolated-environment-setup.md`。
+本次只建立本機 Commit，未推送，避免觸發 GitHub/Vercel 自動流程；既有遠端分支與預覽不含本次續作。
