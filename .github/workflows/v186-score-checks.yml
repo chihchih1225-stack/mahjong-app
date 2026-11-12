@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - fix/auto-score-idempotency-v186-20261112
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 permissions:
   contents: read
