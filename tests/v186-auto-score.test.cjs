@@ -118,3 +118,34 @@ test('PocketBase API 寫入保護必須在發送 fetch 前執行', () => {
   assert.match(source,/auth-with-password/);
   assert.ok(source.indexOf('!v186MayWritePocketBase()') < source.indexOf('await fetch('));
 });
+
+test('預覽版實際拒絕 POST/PATCH/DELETE，且完全不呼叫 fetch', async () => {
+  let requests=0;
+  const ctx={
+    location:{hostname:'preview-example.vercel.app'},
+    PB_BASE_URL:'https://api.mahjongbattle.app',
+    pbAuth:null,
+    fetch:async()=>{requests++;return {ok:true,json:async()=>({})}}
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186MayWritePocketBase')+'\n'+extractFunction('pbRequest'),ctx);
+  for(const method of ['POST','PATCH','DELETE','PUT']){
+    await assert.rejects(ctx.pbRequest('/api/collections/game_hands/records',{method}),/唯讀模式/);
+  }
+  assert.equal(requests,0);
+});
+test('預覽版只放行指定登入 POST，不放行其他 auth POST', async () => {
+  let requests=0;
+  const ctx={
+    location:{hostname:'preview-example.vercel.app'},
+    PB_BASE_URL:'https://api.mahjongbattle.app',
+    pbAuth:null,
+    fetch:async()=>{requests++;return {ok:true,json:async()=>({token:'test'})}}
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extractFunction('v186MayWritePocketBase')+'\n'+extractFunction('pbRequest'),ctx);
+  await ctx.pbRequest('/api/collections/users/auth-with-password',{method:'POST'});
+  assert.equal(requests,1);
+  await assert.rejects(ctx.pbRequest('/api/collections/users/records',{method:'POST'}),/唯讀模式/);
+  assert.equal(requests,1);
+});
