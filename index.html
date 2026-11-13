@@ -2817,7 +2817,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
       <button class="rule-btn" data-room-filter="last30" onclick="setRoomFilter('last30')">近30天</button>
       <button class="rule-btn" data-room-filter="custom" onclick="v149ToggleCustomRange()">自訂日期</button>
     </div>
-    <div id="v149CustomRangeHost"></div>
+    <div id="v149CustomRangeHost"></div><div style="margin-top:12px"><label for="v1852PlaceFilter">📍 統計場地</label><select id="v1852PlaceFilter" onchange="v1852SetPlaceFilter(this.value)"><option value="__all__">全部場地</option></select></div>
   </div>
 
 
@@ -9768,6 +9768,16 @@ let v149CustomTo=''
 let v149RankingExpanded=false
 let v152LastRankingRows=[]
 function v150SyncCustomRange(){ const host=document.getElementById('v149CustomRangeHost'); if(!host)return; if(roomTimeFilter!=='custom'){host.innerHTML='';return} host.innerHTML=`<div id="v149CustomRange" class="v149-custom-range"><label class="v170-date-label" for="v149DateFrom">開始日期</label><input id="v149DateFrom" type="date" aria-label="開始日期" value="${escapeHtml(v149CustomFrom||'')}"><span class="v149-date-sep">～</span><label class="v170-date-label" for="v149DateTo">結束日期</label><input id="v149DateTo" type="date" aria-label="結束日期" value="${escapeHtml(v149CustomTo||'')}"><button type="button" class="nav-action" onclick="v149ApplyCustomRange()">套用</button></div>` }
+let v1852SelectedPlace='__all__'
+function v1852SetPlaceFilter(value){v1852SelectedPlace=value;v149RankingExpanded=false;renderRoomDashboard(false)}
+function v1852FilterPlaces(sessions){return v1852SelectedPlace==='__all__'?sessions:sessions.filter(ss=>(String(ss.place||'').trim()||'__missing__')===v1852SelectedPlace)}
+function v1852SyncPlaceFilter(allSessions){
+  const select=document.getElementById('v1852PlaceFilter');if(!select)return
+  const places=[...new Set(allSessions.map(ss=>String(ss.place||'').trim()||'__missing__'))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))
+  if(v1852SelectedPlace!=='__all__'&&!places.includes(v1852SelectedPlace))v1852SelectedPlace='__all__'
+  select.innerHTML='<option value="__all__">全部場地</option>'+places.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p==='__missing__'?'未設定場地':p)}</option>`).join('')
+  select.value=v1852SelectedPlace
+}
 function setRoomFilter(v){ roomTimeFilter=v; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ToggleCustomRange(){ roomTimeFilter='custom'; v149RankingExpanded=false; v150SyncCustomRange(); renderRoomDashboard() }
 function v149ApplyCustomRange(){ const a=document.getElementById('v149DateFrom')?.value||'',b=document.getElementById('v149DateTo')?.value||''; if(!a||!b){alert('請選擇開始與結束日期');return} if(a>b){alert('開始日期不能晚於結束日期');return} v149CustomFrom=a;v149CustomTo=b;roomTimeFilter='custom';v149RankingExpanded=false;renderRoomDashboard() }
@@ -10415,7 +10425,8 @@ function renderRoomDashboard(loadShared=true){
   if(loadShared && room.pocketbase && pbAuth?.token){
     v37LoadSharedRoomHistory(room.id).then(()=>{ if(currentRoomId===room.id) renderRoomDashboard(false) }).catch(e=>console.warn('V37：共同房間資料讀取失敗',e))
   }
-  const allSs=roomSessions(room.id), ss=filterSessionsByTime(allSs,roomTimeFilter), rows=aggregateSessions(ss).sort((a,b)=>b.net-a.net)
+  const allSs=roomSessions(room.id);v1852SyncPlaceFilter(allSs)
+  const ss=v1852FilterPlaces(filterSessionsByTime(allSs,roomTimeFilter)), rows=aggregateSessions(ss).sort((a,b)=>b.net-a.net)
   const totalHands=ss.reduce((n,x)=>n+(x.hands||[]).length,0)
   const labels={all:'全部紀錄',year:'今年',month:'本月',week:'本週',today:'今天',last30:'近30天',custom:(v149CustomFrom&&v149CustomTo?`${v149CustomFrom}～${v149CustomTo}`:'自訂日期'),historyMonth:v113HistoryMonth||'歷史月份'}
   document.getElementById('roomFilterLabel').textContent=labels[roomTimeFilter]||'全部'
@@ -10726,6 +10737,22 @@ function sessionDetailStatsHtml(ss){
 
   return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${cards}</div>${duelHtml}${verifyHtml}</div>`
 }
+// V185-2：只顯示實際存在的逐把資料，不推算舊式結算。
+function v1852SessionHandsHtml(ss){
+  const hands=Array.isArray(ss.hands)?ss.hands:[]
+  if(!hands.length)return '<div class="career-note" style="margin-top:14px">這一將沒有逐把紀錄，僅保留原本總結算。</div>'
+  return '<section style="margin-top:18px"><h3>🀄 每一把的結果（'+hands.length+' 把）</h3>'+hands.map((h,i)=>{
+    const changes=h.changes||h.payments||{}
+    const result=String(h.result||'未記錄')
+    const desc=result==='胡牌'?String(h.winner||'')+' 胡牌・'+String(h.discarder||'')+' 放槍':result==='自摸'?String(h.winner||'')+' 自摸':result
+    const entries=Object.entries(changes).filter(([,n])=>Number.isFinite(Number(n))).map(([name,n])=>'<span style="white-space:nowrap">'+escapeHtml(canonicalPlayerName(name))+' '+money(Number(n))+'</span>').join('・')
+    const round=String(h.round||'第 '+(i+1)+' 把')
+    const dealer=h.dealer?'・莊家 '+escapeHtml(canonicalPlayerName(h.dealer)):''
+    const tai=(result==='胡牌'||result==='自摸')?'・'+Number(h.tai||0)+' 台':''
+    const patterns=Array.isArray(h.patterns)&&h.patterns.length?'・'+h.patterns.map(escapeHtml).join('、'):''
+    return '<div style="padding:12px;border:1px solid var(--line);border-radius:14px;margin:9px 0"><b>第 '+(i+1)+' 把・'+escapeHtml(round)+'</b><div style="margin-top:5px">'+escapeHtml(desc)+tai+dealer+patterns+'</div><div class="muted" style="margin-top:6px;line-height:1.8">'+(entries||'此把沒有可顯示的金額明細')+'</div></div>'
+  }).join('')+'</section>'
+}
 function showSessionDetail(id){
   ensureAppData(); const ss=appData.sessions.find(s=>s.id===id); if(!ss) return
   const old=document.getElementById('sessionDetailModal'); if(old) old.remove()
@@ -10738,9 +10765,10 @@ function showSessionDetail(id){
   const sessionTotal=netEntries.reduce((sum,[,v])=>sum+Number(v||0),0)
   const totalHtml=`<div class="session-head" style="margin-top:8px;padding-top:10px;border-top:2px solid var(--line)"><b>單場加總</b><b style="color:${sessionTotal===0?'#6caa8b':'#cf7f91'}">${sessionTotal===0?'0':money(sessionTotal)}</b></div><div class="muted" style="text-align:right;margin-top:4px">${sessionTotal===0?'✓ 本場收支吻合':'⚠️ 本場收支不為 0，請檢查紀錄'}</div>`
   const statsHtml=sessionDetailStatsHtml(ss)
+  const perHandHtml=v1852SessionHandsHtml(ss)
   const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
-  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}<button class="secondary danger-soft session-delete-btn" onclick="deleteSessionById('${ss.id}')">刪除這一將</button></div>`
+  div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}${perHandHtml}<button class="secondary danger-soft session-delete-btn" onclick="deleteSessionById('${ss.id}')">刪除這一將</button></div>`
   document.body.appendChild(div)
 }
 
