@@ -14043,6 +14043,20 @@ html body #game.projection-mode:not(.hidden) .game-status-card .live-head{flex-w
 html body #game.projection-mode:not(.hidden) .game-status-card .live-head > div{min-width:0!important}
 html body #game.projection-mode:not(.hidden) .cashflow-table th,html body #game.projection-mode:not(.hidden) .cashflow-table td{overflow-wrap:normal!important;word-break:keep-all!important;white-space:nowrap!important;font-size:clamp(9px,.85vw,13px)!important;letter-spacing:-.5px!important}
 </style>
+<style id="v185-projection-seats-fix2">
+/* Both recorder and LIVE viewer use the same four-seat cross. */
+html body #game.projection-mode:not(.hidden) #playerStats{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-rows:repeat(3,minmax(0,1fr))!important;grid-template-areas:"top top" "left right" "bottom bottom"!important;align-items:stretch!important;justify-items:stretch!important;gap:4px!important;min-height:0!important;min-width:0!important;overflow:hidden!important}
+html body #game.projection-mode:not(.hidden) #playerStats :is(.player-card,.viewer-player-card){display:flex!important;flex-direction:column!important;justify-content:center!important;position:relative!important;inset:auto!important;transform:none!important;float:none!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;width:100%!important;height:100%!important;box-sizing:border-box!important;overflow:hidden!important;margin:0!important;padding:4px 6px!important}
+html body #game.projection-mode:not(.hidden) #playerStats :is(.player-card,.viewer-player-card).pos-top{grid-area:top!important;width:78%!important;justify-self:center!important}
+html body #game.projection-mode:not(.hidden) #playerStats :is(.player-card,.viewer-player-card).pos-left{grid-area:left!important}
+html body #game.projection-mode:not(.hidden) #playerStats :is(.player-card,.viewer-player-card).pos-right{grid-area:right!important}
+html body #game.projection-mode:not(.hidden) #playerStats :is(.player-card,.viewer-player-card).pos-bottom{grid-area:bottom!important;width:78%!important;justify-self:center!important}
+html body #game.projection-mode:not(.hidden) #playerStats .viewer-player-top{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:4px!important;flex-wrap:wrap!important;min-width:0!important}
+html body #game.projection-mode:not(.hidden) #playerStats .viewer-player-name{font-size:clamp(11px,1.2vw,17px)!important;overflow-wrap:anywhere!important;min-width:0!important}
+html body #game.projection-mode:not(.hidden) #playerStats .viewer-player-money{font-size:clamp(12px,1.5vw,22px)!important;white-space:nowrap!important;overflow-wrap:normal!important}
+html body #game.projection-mode:not(.hidden) #playerStats .viewer-player-meta{font-size:clamp(9px,.9vw,13px)!important;white-space:normal!important}
+</style>
+
 </body>
 </html>
 
