@@ -7156,8 +7156,7 @@ function pickResult(
 
 
   }
-
-
+  syncPatterns()
 
 
   renderGame()
@@ -7186,6 +7185,7 @@ function addTai(value){
 
 
   renderPaymentPreview()
+  syncProjectionScorePanel()
 
 
 }
@@ -7204,6 +7204,7 @@ function resetTai(){
 
 
   renderPaymentPreview()
+  syncProjectionScorePanel()
 
 
 }
@@ -7741,6 +7742,8 @@ function canAutoRecordCurrentHand(){
 // 防止重入提交；遠端冪等性仍需獨立驗證。
 let handSaveInProgress=false
 function saveHand(){
+  if(handSaveInProgress) return
+  if(liveViewerMode) return
   // V186：記錄前再次驗證台數與選人，禁止未選台數或負台數入帳。
   if((result==='胡牌'||result==='自摸') && (!handTaiExplicitlySelected || !Number.isFinite(Number(tai)) || tai<0)){
     alert('請先選擇這一把的台數（0 台也要按 0）')
@@ -8174,6 +8177,8 @@ function undoHand(){
 
   tai=
     last.tai
+  // 復原後仍要求明確確認台數，避免誤把復原狀態當作新的一把。
+  handTaiExplicitlySelected=false
 
 
 
