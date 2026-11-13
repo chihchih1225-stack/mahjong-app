@@ -4979,8 +4979,25 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
       patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
     }
-    await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
-    handCreated=true
+    // V186：寫入前核對同場同把，避免網路重試產生第二筆。
+    // 注意：這是前端防護，不是資料庫原子唯一約束；跨裝置併發仍須後端處理。
+    const handFilter=encodeURIComponent(`session="${pbFilterValue(remoteSessionId)}" && hand_number=${Number(handNo)}`)
+    const existing=await pbRequest(`/api/collections/game_hands/records?perPage=5&filter=${handFilter}`)
+    if((existing.items||[]).length){
+      const previous=existing.items[0]
+      const same=previous.result===payload.result
+        && previous.winner===payload.winner
+        && previous.discarder===payload.discarder
+        && previous.dealer===payload.dealer
+        && Number(previous.dealer_repeats)===Number(payload.dealer_repeats)
+        && Number(previous.tai)===Number(payload.tai)
+        && JSON.stringify(previous.payments||{})===JSON.stringify(payload.payments||{})
+      if(!same) return {ok:false,reason:'remote_hand_conflict',handNumber:handNo}
+      handCreated=true
+    }else{
+      await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
+      handCreated=true
+    }
 
 
     // V105：每存一把，計分端把「目前整輪連打」完整提款機矩陣一起同步。
