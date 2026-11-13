@@ -31,3 +31,7 @@ must('projection-mode.live-viewer-mode:not(.hidden) #playerStats .viewer-player-
 assert.ok(!html.includes('v185-live-projection-hotfix'));
 assert.ok(!html.includes('v185-projection-seats-fix2'));
 console.log('V185 static regression guards PASS');
+
+// Preview must never write to the production-connected PocketBase backend.
+must("const previewHost=/\\.vercel\\.app$/i.test(location.hostname)");
+must("if(previewHost && !['GET','HEAD','OPTIONS'].includes(method))");
