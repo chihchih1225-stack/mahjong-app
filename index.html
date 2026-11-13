@@ -10500,15 +10500,31 @@ function renderRoomPlayerVsPlayer(sessions){
   box.innerHTML=`<div class="grid2" style="gap:10px">
     <div><label>玩家 A</label><select id="v48PlayerA" onchange="v48RefreshPairDetail()">${opts}</select></div>
     <div><label>玩家 B</label><select id="v48PlayerB" onchange="v48RefreshPairDetail()">${opts}</select></div>
-  </div><div id="v48PairDetail"></div>`
+  </div><div id="v48PairDetail"></div><div id="v1852AllPairs"></div>`
   const b=document.getElementById('v48PlayerB'); if(b&&names.length>1) b.value=names[1]
-  window.v48CurrentSessions=sessions||[]; v48RefreshPairDetail()
+  window.v48CurrentSessions=sessions||[]; v48RefreshPairDetail(); v1852RenderAllPairs()
 }
 function v48RefreshPairDetail(){
   const a=document.getElementById('v48PlayerA')?.value, b=document.getElementById('v48PlayerB')?.value
   const box=document.getElementById('v48PairDetail'); if(!box) return
   if(a===b){ box.innerHTML='<div class="career-note" style="margin-top:12px">請選擇兩位不同的玩家。</div>'; return }
   box.innerHTML=v48PairDetailHtml(a,b,window.v48CurrentSessions||[])
+}
+// V185-2：主角對全部同桌玩家。沿用房間統計的已篩選 sessions。
+function v1852RenderAllPairs(){
+  const host=document.getElementById('v1852AllPairs')
+  if(!host) return
+  const sessions=window.v48CurrentSessions||[]
+  const names=[...new Set(sessions.flatMap(ss=>Object.keys(sessionNets(ss))))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))
+  const previous=host.querySelector('#v1852MainPlayer')?.value
+  const selected=names.includes(previous)?previous:names[0]
+  if(!selected){host.innerHTML='<div class="muted">目前沒有可比較的同桌紀錄。</div>';return}
+  const rows=names.filter(n=>n!==selected).map(other=>{
+    const stat=v48PairStats(sessions,selected,other)
+    return {other,count:stat.shared.length,me:stat.aNet,them:stat.bNet}
+  }).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.other.localeCompare(b.other,'zh-Hant'))
+  const options=names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')
+  host.innerHTML=`<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px"><h3>個人對全部</h3><label>比較主角</label><select id="v1852MainPlayer" onchange="v1852RenderAllPairs()">${options}</select><div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap"><thead><tr><th style="text-align:left;padding:9px 5px">同桌玩家</th><th>共同將數</th><th>我的輸贏</th><th>對手輸贏</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td style="padding:10px 5px">${escapeHtml(r.other)}</td><td style="text-align:center">${r.count}</td><td style="text-align:right;color:${r.me>=0?'var(--green)':'var(--red)'}">${money(r.me)}</td><td style="text-align:right;color:${r.them>=0?'var(--green)':'var(--red)'}">${money(r.them)}</td></tr>`).join('')||'<tr><td colspan="4">目前沒有共同牌局。</td></tr>'}</tbody></table></div><div class="muted" style="font-size:12px;margin-top:8px">每列僅計算雙方共同參與的將；不代表兩人直接金流。</div></div>`
 }
 function renderRoomNemesis(sessions){
   const box=document.getElementById('roomNemesis'); if(!box) return
