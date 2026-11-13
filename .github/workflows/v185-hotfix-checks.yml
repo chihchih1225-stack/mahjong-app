@@ -1,0 +1,19 @@
+name: V185 hotfix safety checks
+on:
+  push:
+    branches:
+      - fix/v185-live-projection-layout-20261112
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check inline JavaScript and hotfix invariants
+        run: node tests/v185-hotfix-check.cjs
