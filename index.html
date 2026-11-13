@@ -4961,7 +4961,10 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
       const same=previous.result===payload.result
         && previous.winner===payload.winner
         && previous.discarder===payload.discarder
+        && previous.dealer===payload.dealer
+        && Number(previous.dealer_repeats)===Number(payload.dealer_repeats)
         && Number(previous.tai)===Number(payload.tai)
+        && JSON.stringify(previous.payments||{})===JSON.stringify(payload.payments||{})
       if(!same) return {ok:false,reason:'remote_hand_conflict',handNumber:handNo}
       handCreated=true
     }else{
@@ -8129,6 +8132,12 @@ function syncResultButtons(){
 
 
 function undoHand(){
+  // V186：尚無遠端復原交易時，禁止只撤銷本機，造成正式戰績與畫面分歧。
+  // 未來必須先建立經授權的遠端撤銷／重算流程，才能開放遠端牌局復原。
+  if(remoteSessionId){
+    alert('此牌局已連接遠端戰績，目前暫停「復原上一把」，避免手機金額與正式戰績不一致。請先保留紀錄，待安全復原功能完成。')
+    return
+  }
 
 
   if(!hands.length){
