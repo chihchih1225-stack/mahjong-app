@@ -7120,8 +7120,10 @@ function pickResult(
 
 
   discarder=''
-
-
+  // V186：切換結果必須重新選台，避免上一把或上一種結果的台數誤用。
+  handTaiExplicitlySelected=false
+  tai=0
+  selectedPatterns=[]
   fraudTai={}
 
 
@@ -7177,7 +7179,7 @@ function addTai(value){
 
 
   handTaiExplicitlySelected=true
-  tai+=value
+  tai=Math.max(0,tai+value)
 
 
   updateTai()
@@ -7739,6 +7741,11 @@ function canAutoRecordCurrentHand(){
 // 防止重入提交；遠端冪等性仍需獨立驗證。
 let handSaveInProgress=false
 function saveHand(){
+  // V186：記錄前再次驗證台數與選人，禁止未選台數或負台數入帳。
+  if((result==='胡牌'||result==='自摸') && (!handTaiExplicitlySelected || !Number.isFinite(Number(tai)) || tai<0)){
+    alert('請先選擇這一把的台數（0 台也要按 0）')
+    return
+  }
 
 
   if(
