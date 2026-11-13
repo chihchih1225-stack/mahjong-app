@@ -4160,7 +4160,8 @@ async function pbRequest(path,options={}){
   // Refuse remote mutations on Vercel preview hosts until an isolated test backend exists.
   const previewHost=/\.vercel\.app$/i.test(location.hostname)
   const method=String(options.method||'GET').toUpperCase()
-  if(previewHost && !['GET','HEAD','OPTIONS'].includes(method)){
+  const isAuthOnlyRequest=method==='POST' && path==='/api/collections/users/auth-with-password'
+  if(previewHost && !['GET','HEAD','OPTIONS'].includes(method) && !isAuthOnlyRequest){
     throw new Error('V185-1 預覽版僅供唯讀檢查，禁止修改正式牌局資料。')
   }
   const headers={'Content-Type':'application/json',...(options.headers||{})}
