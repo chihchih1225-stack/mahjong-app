@@ -2631,6 +2631,25 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 .room-period-card .v1852-place-chevron{position:absolute;right:15px;top:50%;transform:translateY(-55%);pointer-events:none;font-size:20px;color:#8c7256}
 @media(max-width:360px){.room-period-card .v1852-place-wrap{max-width:210px}}
 </style>
+<style id="v1852-compare-table-style">
+.v1852-compare-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 16px}
+.v1852-compare-controls label{font-weight:700;font-size:14px;white-space:nowrap}
+.v1852-compare-controls select{width:auto;min-width:145px;max-width:65%;min-height:44px;padding:8px 13px;border-radius:20px;background:#f9e8d0;border:1px solid #e9d0a6;color:#6c5643;font-weight:700;font-size:15px}
+.v1852-compare-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.v1852-compare-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;line-height:1.4}
+.v1852-compare-table th{padding:10px 3px;background:#faf5ee;color:#776c66;font-weight:700;white-space:normal;text-align:center}
+.v1852-compare-table th:first-child{width:24%;text-align:left;padding-left:7px}
+.v1852-compare-table th:nth-child(2){width:17%}
+.v1852-compare-table th:nth-child(3),.v1852-compare-table th:nth-child(4){width:29.5%}
+.v1852-compare-table td{padding:12px 3px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.v1852-compare-table td:first-child{text-align:left;padding-left:7px;font-weight:700;white-space:normal;overflow-wrap:anywhere}
+.v1852-compare-table td:nth-child(2){text-align:center}
+.v1852-compare-table .v1852-positive{color:#438f70}
+.v1852-compare-table .v1852-negative{color:#c36b7d}
+.v1852-compare-note{font-size:11px;margin-top:10px;line-height:1.6}
+.v1852-compare-table .v1852-empty{text-align:center;padding:18px 6px}
+@media(max-width:390px){.v1852-compare-table{font-size:11px}.v1852-compare-table td{padding:11px 2px}}
+</style>
 </head>
 
 
@@ -2860,7 +2879,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 
   <div class="card room-protected">
-    <div class="toprow"><div><h2>⚔️ 同桌戰績</h2><div class="room-stat-help">選一位對手，看看你們同桌時誰的表現更好</div></div></div>
+    <div class="toprow"><div><h2>⚔️ 同桌戰績</h2><div class="room-stat-help">選一位玩家，一次比較所有曾經同桌的對手</div></div></div>
     <div id="roomPlayerVsPlayer"></div>
   </div>
 
@@ -10511,39 +10530,29 @@ function v48PairDetailHtml(a,b,sessions){
   </div>
   <div class="pvp-history-title">共同牌局明細</div><div>${detail}</div>`
 }
+// V185-2：同桌戰績統一為「選一位主角 → 全部同桌玩家」表格。
+let v1852ComparisonPlayer=''
 function renderRoomPlayerVsPlayer(sessions){
-  const box=document.getElementById('roomPlayerVsPlayer'); if(!box) return
-  const names=[...new Set((sessions||[]).flatMap(ss=>ss.players||Object.keys(sessionNets(ss))))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))
-  if(names.length<2){ box.innerHTML='<div class="muted">至少需要兩位有牌局紀錄的玩家。</div>'; return }
-  const opts=names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
-  box.innerHTML=`<div class="grid2" style="gap:10px">
-    <div><label>玩家 A</label><select id="v48PlayerA" onchange="v48RefreshPairDetail()">${opts}</select></div>
-    <div><label>玩家 B</label><select id="v48PlayerB" onchange="v48RefreshPairDetail()">${opts}</select></div>
-  </div><div id="v48PairDetail"></div><div id="v1852AllPairs"></div>`
-  const b=document.getElementById('v48PlayerB'); if(b&&names.length>1) b.value=names[1]
-  window.v48CurrentSessions=sessions||[]; v48RefreshPairDetail(); v1852RenderAllPairs()
+  const box=document.getElementById('roomPlayerVsPlayer');if(!box)return
+  window.v48CurrentSessions=sessions||[]
+  const names=[...new Set((sessions||[]).flatMap(ss=>Object.keys(sessionNets(ss))))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))
+  if(!names.length){box.innerHTML='<div class="muted">目前沒有可比較的同桌紀錄。</div>';return}
+  if(!names.includes(v1852ComparisonPlayer))v1852ComparisonPlayer=names[0]
+  const opts=names.map(n=>`<option value="${escapeHtml(n)}" ${n===v1852ComparisonPlayer?'selected':''}>${escapeHtml(n)}</option>`).join('')
+  box.innerHTML=`<div class="v1852-compare-controls"><label for="v1852MainPlayer">比較主角</label><select id="v1852MainPlayer" onchange="v1852ComparisonPlayer=this.value;v1852RenderAllPairs()">${opts}</select></div><div id="v1852AllPairs"></div>`
+  v1852RenderAllPairs()
 }
-function v48RefreshPairDetail(){
-  const a=document.getElementById('v48PlayerA')?.value, b=document.getElementById('v48PlayerB')?.value
-  const box=document.getElementById('v48PairDetail'); if(!box) return
-  if(a===b){ box.innerHTML='<div class="career-note" style="margin-top:12px">請選擇兩位不同的玩家。</div>'; return }
-  box.innerHTML=v48PairDetailHtml(a,b,window.v48CurrentSessions||[])
-}
-// V185-2：主角對全部同桌玩家。沿用房間統計的已篩選 sessions。
 function v1852RenderAllPairs(){
-  const host=document.getElementById('v1852AllPairs')
-  if(!host) return
+  const host=document.getElementById('v1852AllPairs');if(!host)return
   const sessions=window.v48CurrentSessions||[]
-  const names=[...new Set(sessions.flatMap(ss=>Object.keys(sessionNets(ss))))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))
-  const previous=host.querySelector('#v1852MainPlayer')?.value
-  const selected=names.includes(previous)?previous:names[0]
-  if(!selected){host.innerHTML='<div class="muted">目前沒有可比較的同桌紀錄。</div>';return}
-  const rows=names.filter(n=>n!==selected).map(other=>{
-    const stat=v48PairStats(sessions,selected,other)
-    return {other,count:stat.shared.length,me:stat.aNet,them:stat.bNet}
-  }).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.other.localeCompare(b.other,'zh-Hant'))
-  const options=names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')
-  host.innerHTML=`<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px"><h3>個人對全部</h3><label>比較主角</label><select id="v1852MainPlayer" onchange="v1852RenderAllPairs()">${options}</select><div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap"><thead><tr><th style="text-align:left;padding:9px 5px">同桌玩家</th><th>共同將數</th><th>我的輸贏</th><th>對手輸贏</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td style="padding:10px 5px">${escapeHtml(r.other)}</td><td style="text-align:center">${r.count}</td><td style="text-align:right;color:${r.me>=0?'var(--green)':'var(--red)'}">${money(r.me)}</td><td style="text-align:right;color:${r.them>=0?'var(--green)':'var(--red)'}">${money(r.them)}</td></tr>`).join('')||'<tr><td colspan="4">目前沒有共同牌局。</td></tr>'}</tbody></table></div><div class="muted" style="font-size:12px;margin-top:8px">每列僅計算雙方共同參與的將；不代表兩人直接金流。</div></div>`
+  const selected=document.getElementById('v1852MainPlayer')?.value||v1852ComparisonPlayer
+  v1852ComparisonPlayer=selected
+  const names=[...new Set(sessions.flatMap(ss=>Object.keys(sessionNets(ss))))].filter(n=>n!==selected)
+  const rows=names.map(other=>{
+    const st=v48PairStats(sessions,selected,other)
+    return {other,count:st.shared.length,me:st.aNet,them:st.bNet}
+  }).filter(r=>r.count>0).sort((a,b)=>b.count-a.count||a.other.localeCompare(b.other,'zh-Hant'))
+  host.innerHTML=`<div class="v1852-compare-table-wrap"><table class="v1852-compare-table"><thead><tr><th>同桌玩家</th><th>共同將數</th><th>我的輸贏</th><th>對手輸贏</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(r.other)}</td><td>${r.count}</td><td class="${r.me>=0?'v1852-positive':'v1852-negative'}">${money(r.me)}</td><td class="${r.them>=0?'v1852-positive':'v1852-negative'}">${money(r.them)}</td></tr>`).join('')||'<tr><td colspan="4" class="v1852-empty">這段期間沒有共同牌局。</td></tr>'}</tbody></table></div><div class="muted v1852-compare-note">依上方統計期間與場地篩選；金額為各自在共同牌局中的輸贏。</div>`
 }
 function renderRoomNemesis(sessions){
   const box=document.getElementById('roomNemesis'); if(!box) return
