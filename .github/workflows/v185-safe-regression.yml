@@ -2,7 +2,7 @@ name: V185 safe regression checks
 on:
   push:
     branches:
-      - fix/v185-safe-regression-20261113
+      - release/v185-1-candidate
   pull_request:
     branches:
       - main
@@ -21,3 +21,4 @@ jobs:
         run: |
           node tests/v185-safe-regression.cjs
           node tests/v185-next-match-simulation.cjs
+          node tests/v185-live-viewer-simulation.cjs
