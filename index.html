@@ -14188,3 +14188,15 @@ html body #game.projection-mode:not(.hidden) #projectionLatestHand{flex:0 1 auto
 
 
 
+
+<style id="v1852-live-projection-layout-fix">
+#game.live-viewer-mode:not(.projection-mode) .game-status-card .live-head{display:grid!important;grid-template-columns:minmax(110px,auto) minmax(0,1fr)!important;gap:10px!important;align-items:start!important;width:100%!important}
+#game.live-viewer-mode:not(.projection-mode) .game-status-card .live-head>div:first-child{min-width:0!important;width:auto!important}
+#game.live-viewer-mode:not(.projection-mode) .game-status-card .live-head>div:nth-child(2){min-width:0!important;width:auto!important;text-align:left!important}
+#game.live-viewer-mode:not(.projection-mode) #v181LiveLatestPoint{grid-column:1/-1!important;position:static!important;min-width:0!important;width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;line-height:1.5!important;text-align:left!important}
+#game.live-viewer-mode:not(.projection-mode) .round-big,#game.live-viewer-mode:not(.projection-mode) .hand-counter{word-break:keep-all!important;white-space:normal!important}
+html body #game.projection-mode:not(.hidden) .game-status-card .live-head{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:start!important;gap:4px 10px!important;position:relative!important;width:100%!important;flex:0 0 auto!important;min-height:0!important;padding-bottom:0!important}
+html body #game.projection-mode:not(.hidden) #v181LiveLatestPoint{position:static!important;grid-column:1/-1!important;left:auto!important;right:auto!important;bottom:auto!important;white-space:normal!important;overflow-wrap:anywhere!important;text-align:left!important;font-size:clamp(11px,1.05vw,16px)!important}
+html body #game.projection-mode:not(.hidden) .game-status-card #playerStats{min-height:0!important;align-content:stretch!important;grid-auto-rows:minmax(0,1fr)!important}
+html body #game.projection-mode:not(.hidden) .game-status-card #playerStats>.player-card{min-width:0!important;min-height:0!important;height:100%!important;overflow:hidden!important}
+</style>
