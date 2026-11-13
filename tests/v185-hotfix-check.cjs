@@ -14,4 +14,7 @@ assert.match(html,/onclick="v183ConfirmNextMatch\(true\)"/);
 assert.match(html,/if\(!sessionSaved\)\{alert\('請先完成上一將結案。'\);return\}/);
 assert.match(html,/id="v185-live-projection-hotfix"/);
 assert.match(html,/#game\.projection-mode:not\(\.hidden\) #playerStats\{display:grid!important/);
+assert.match(html,/id="v185-projection-seats-fix2"/);
+assert.match(html,/#playerStats :is\(\.player-card,\.viewer-player-card\)/);
+assert.match(html,/function v32ViewerStatsHtml\(\)/);
 console.log('PASS: '+scripts.length+' inline JS scripts syntax, next-match guards, live/projection CSS markers');
