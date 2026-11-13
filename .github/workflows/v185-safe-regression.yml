@@ -15,4 +15,6 @@ jobs:
         with:
           node-version: '22'
       - name: Check recorder, next-match and ledger invariants
-        run: node tests/v185-safe-regression.cjs
+        run: |
+          node tests/v185-safe-regression.cjs
+          node tests/v185-next-match-simulation.cjs
