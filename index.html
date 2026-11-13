@@ -7341,6 +7341,8 @@ function togglePattern(
 
 
   syncPatterns()
+  // V186：選擇／取消特殊牌型時重新倒數，避免操作途中自動記錄。
+  v186ScheduleDiscardWin()
 
 
 }
