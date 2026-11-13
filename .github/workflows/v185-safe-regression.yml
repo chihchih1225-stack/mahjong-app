@@ -1,0 +1,18 @@
+name: V185 safe regression checks
+on:
+  push:
+    branches:
+      - fix/v185-safe-regression-20261113
+  workflow_dispatch:
+jobs:
+  static-regression:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check recorder, next-match and ledger invariants
+        run: node tests/v185-safe-regression.cjs
