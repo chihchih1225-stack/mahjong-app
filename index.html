@@ -7081,7 +7081,7 @@ function selectWinner(player){
 
 
   renderGame()
-
+  v186ScheduleDiscardWin()
 
 }
 
@@ -7095,7 +7095,7 @@ function selectDiscarder(player){
 
 
   renderGame()
-
+  v186ScheduleDiscardWin()
 
 }
 
@@ -7111,6 +7111,7 @@ function pickResult(
   element,
   value
 ){
+  if(v186DiscardTimer!==null){ clearTimeout(v186DiscardTimer); v186DiscardTimer=null }
   // V186：自摸按鈕作為最後一步時，保留先前選好的玩家與台數。
   const finalizeSelfDraw=value==='自摸' && result==='胡牌' && !!winner && handTaiExplicitlySelected
   const savedTai=tai
@@ -8152,6 +8153,7 @@ function syncResultButtons(){
 
 
 function undoHand(){
+  if(v186DiscardTimer!==null){ clearTimeout(v186DiscardTimer); v186DiscardTimer=null }
   // V186：尚無遠端復原交易時，禁止只撤銷本機，造成正式戰績與畫面分歧。
   // 未來必須先建立經授權的遠端撤銷／重算流程，才能開放遠端牌局復原。
   if(remoteSessionId){
