@@ -11187,7 +11187,7 @@ async function openRoomMemberStats(userId,nickname){
   const placeSummary=`<div style="font-size:12px;border-top:1px solid var(--line,#ddd);margin-top:5px;padding-top:5px;display:flex;justify-content:space-between"><b>合計</b><b>${money(placeSum)}</b></div>${Math.abs(placeDiff)>0.001?`<div style="font-size:11px;color:var(--red)">⚠ 與個人累積輸贏差額 ${money(placeDiff)}</div>`:'<div class="muted" style="font-size:11px">✓ 與個人戰績一致</div>'}`
   const history=[...playerSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(ss=>{
     const d=new Date(ss.createdAt), net=Number(sessionNets(ss)[name]||0)
-    return `<div class="member-history-row" onclick="v124OpenMemberSessionDetail('${ss.id}',decodeURIComponent('${encodeURIComponent(userId||'')}'),decodeURIComponent('${encodeURIComponent(nickname||name||'')}'))" role="button" tabindex="0"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・📍 ${escapeHtml(String(ss.place||'').trim()||'未設定場地')}・點擊查看牌局 ›</div></div>`
+    return `<div class="member-history-row" data-session-id="${escapeHtml(ss.id)}" onclick="v124OpenMemberSessionDetail('${ss.id}',decodeURIComponent('${encodeURIComponent(userId||'')}'),decodeURIComponent('${encodeURIComponent(nickname||name||'')}'))" role="button" tabindex="0"><div class="toprow"><b>${d.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'})}</b><span class="member-history-net" style="color:${net>=0?'var(--green)':'var(--red)'}">${money(net)}</span></div><div class="muted" style="margin-top:4px">${escapeHtml(ss.stake||'')}・📍 ${escapeHtml(String(ss.place||'').trim()||'未設定場地')}・點擊查看牌局 ›</div></div>`
   }).join('')||'<div class="muted">目前沒有參與過的歷史牌局。</div>'
   closeRoomMemberStats()
   const modal=document.createElement('div');modal.id='roomMemberStatsModal';modal.className='modal member-stats-modal'
@@ -13574,28 +13574,53 @@ function v48RefreshNemesis(){
 
 /* V185-2：返回個人戰績時保留歷史清單的展開狀態與捲動位置。 */
 let v1852MemberReturnState=null
-function v1852CaptureMemberReturnState(){
+// V185-2：從個人歷史牌局返回時，回到剛才點擊的那一筆，而非統計首頁。
+let v1852MemberReturnState=null
+function v1852CaptureMemberReturnState(sessionId){
   const modal=document.getElementById('roomMemberStatsModal')
-  if(!modal) return null
-  const scroller=modal.querySelector('.member-stats-box')
-  const details=[...modal.querySelectorAll('details')].map((el,i)=>({i,open:el.open}))
-  return {scrollTop:scroller?.scrollTop||0,modalScrollTop:modal.scrollTop,windowScrollY:window.scrollY,details}
+  if(!modal)return null
+  const rows=[...modal.querySelectorAll('.member-history-row')]
+  const clicked=rows.find(row=>row.getAttribute('data-session-id')===String(sessionId))
+  return {sessionId:String(sessionId),modalScrollTop:modal.scrollTop,windowScrollY:window.scrollY,clickedIndex:clicked?rows.indexOf(clicked):-1}
 }
 function v1852RestoreMemberReturnState(state){
-  if(!state) return
+  if(!state)return
   const modal=document.getElementById('roomMemberStatsModal')
-  if(!modal) return
-  const scroller=modal.querySelector('.member-stats-box')
-  state.details.forEach(({i,open})=>{const el=modal.querySelectorAll('details')[i];if(el)el.open=open})
-  if(scroller)scroller.scrollTop=state.scrollTop
+  if(!modal)return
+  const rows=[...modal.querySelectorAll('.member-history-row')]
+  const row=rows.find(el=>el.getAttribute('data-session-id')===state.sessionId)||rows[state.clickedIndex]
+  // 個人戰績的滾動容器是整個 modal，不是內層 .member-stats-box。
   modal.scrollTop=state.modalScrollTop||0
-  window.scrollTo(0,state.windowScrollY)
+  if(row){
+    const rowTop=row.getBoundingClientRect().top
+    const viewportTop=modal.getBoundingClientRect().top
+    if(rowTop<viewportTop+80||rowTop>window.innerHeight-90){
+      row.scrollIntoView({block:'center',behavior:'instant'})
+    }
+  }
 }
-/* V124 返回偶爾亂跳：保留 modal context，返回時不先清 context，並阻止舊 onclick。 */
 v124OpenMemberSessionDetail=function(sessionId,userId,nickname){
-  const ctx={userId:String(userId||''),nickname:String(nickname||'')};v124MemberStatsReturnContext=ctx;v1852MemberReturnState=v1852CaptureMemberReturnState();closeRoomMemberStats();showSessionDetail(sessionId)
-  const modal=document.getElementById('sessionDetailModal'),back=modal?.querySelector('.session-back-btn');if(!back)return
-  back.textContent='← 返回個人戰績';back.onclick=null;back.addEventListener('click',async ev=>{ev.preventDefault();ev.stopPropagation();modal.remove();await openRoomMemberStats(ctx.userId,ctx.nickname);v1852RestoreMemberReturnState(v1852MemberReturnState);v1852MemberReturnState=null},{once:true})
+  const ctx={userId:String(userId||''),nickname:String(nickname||'')}
+  v124MemberStatsReturnContext=ctx
+  const state=v1852CaptureMemberReturnState(sessionId)
+  v1852MemberReturnState=state
+  closeRoomMemberStats()
+  showSessionDetail(sessionId)
+  const modal=document.getElementById('sessionDetailModal')
+  const back=modal?.querySelector('.session-back-btn')
+  if(!back)return
+  back.textContent='← 返回歷史戰績'
+  // 原按鈕是「返回房間」，以 clone 移除既有 inline 與附加監聽，避免雙重導頁。
+  const replacement=back.cloneNode(true)
+  replacement.removeAttribute('onclick')
+  back.replaceWith(replacement)
+  replacement.addEventListener('click',async ev=>{
+    ev.preventDefault();ev.stopImmediatePropagation()
+    modal.remove()
+    await openRoomMemberStats(ctx.userId,ctx.nickname)
+    v1852RestoreMemberReturnState(state)
+    v1852MemberReturnState=null
+  },{once:true})
 }
 
 
