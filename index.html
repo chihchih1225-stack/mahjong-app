@@ -4156,6 +4156,13 @@ function setAuthMode(mode){
   authError('')
 }
 async function pbRequest(path,options={}){
+  // V185-1 safety: preview deployments may share the production PocketBase URL.
+  // Refuse remote mutations on Vercel preview hosts until an isolated test backend exists.
+  const previewHost=/\.vercel\.app$/i.test(location.hostname)
+  const method=String(options.method||'GET').toUpperCase()
+  if(previewHost && !['GET','HEAD','OPTIONS'].includes(method)){
+    throw new Error('V185-1 預覽版僅供唯讀檢查，禁止修改正式牌局資料。')
+  }
   const headers={'Content-Type':'application/json',...(options.headers||{})}
   if(pbAuth?.token && !headers.Authorization) headers.Authorization=`Bearer ${pbAuth.token}`
   const res=await fetch(PB_BASE_URL+path,{...options,headers})
