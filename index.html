@@ -3099,13 +3099,14 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
     #nextMatchSetup .next-info{margin-top:14px;padding:12px 14px;border-radius:14px;background:#f2f7f5;font-size:13px;line-height:1.6;color:#62786b}
   </style>
   <div class="card">
-    <div class="toprow"><h2>🀄 下一將・換人</h2><button class="nav-action" onclick="show('done')">← 返回</button></div>
-    <p class="next-intro">其他三位不必重選，只需選擇一位離場與一位新加入的玩家。</p>
+    <div class="toprow"><h2>🀄 下一將・選擇方式</h2><button class="nav-action" onclick="show('done')">← 返回</button></div>
+    <p class="next-intro">原班人馬可直接繼續；需要換人時，再選擇離場與加入玩家。</p>
     <div class="next-grid" id="nextMatchGrid"></div>
     <div id="nextMatchSwapPreview" class="next-info" aria-live="polite">只要選一位離場玩家與一位加入玩家。</div>
     <div class="next-info">上一將的輸贏會保留；離場的人也會出現在今晚總結算。確認後再重新抽位。</div>
   </div>
-  <button class="primary" onclick="v183ConfirmNextMatch()">確認換人・下一將抽位</button>
+  <button class="primary" type="button" onclick="v183ConfirmNextMatch(true)">原班人馬繼續・重新抽位</button>
+  <button class="secondary" type="button" onclick="v183ConfirmNextMatch(false)">確認換人・下一將抽位</button>
 </section>
 
 <!-- V183 中途接手專用：不抽位、不使用系統 prompt -->
@@ -8822,12 +8823,12 @@ function v183UpdateNextMatchOptions(){
   const note=document.getElementById('nextMatchSwapPreview')
   if(note)note.textContent=leaving&&joining?leaving+' 離場 → '+joining+' 加入；其他三人保留。':'只要選一位離場玩家與一位加入玩家。'
 }
-function v183ConfirmNextMatch(){
+function v183ConfirmNextMatch(keepPlayers=false){
   if(!sessionSaved){alert('請先完成上一將結案。');return}
-  const leaving=document.getElementById('nextMatchLeaving')?.value||''
-  const joining=document.getElementById('nextMatchJoining')?.value||''
-  if(!P.includes(leaving)||!joining||P.includes(joining)){alert('請選擇離場玩家，以及目前不在桌上的加入玩家。');return}
-  const nextPlayers=P.map(n=>n===leaving?joining:n)
+  const leaving=keepPlayers?'':(document.getElementById('nextMatchLeaving')?.value||'')
+  const joining=keepPlayers?'':(document.getElementById('nextMatchJoining')?.value||'')
+  if(!keepPlayers&&(!P.includes(leaving)||!joining||P.includes(joining))){alert('請選擇離場玩家，以及目前不在桌上的加入玩家。');return}
+  const nextPlayers=keepPlayers?[...P]:P.map(n=>n===leaving?joining:n)
   if(new Set(nextPlayers).size!==4){alert('同一將不能有重複玩家。');return}
   const previousPlayers=[...P]
   sessionSaved=false
