@@ -24,3 +24,11 @@
 - 先確保正式版與候選版可還原，才清理分支與舊部署。
 - 保留正式版、單一候選版、獨立還原點；其餘分支先逐一確認是否有未合併功能，不盲刪。
 - 每次修改後重新執行測試，正式發布後驗證正式站、確認 Dropbox 備份完整。
+
+## 2026-11-13 追加查核
+- GitHub 程式碼還原點已建立：`backup/v185-production-verified-20261113`，固定於正式版 `cd378d6`。
+- GitHub 比較顯示 V185-1 候選版相對此還原點 ahead 13、behind 0；僅變動 `index.html`、兩個測試、CI workflow 及本紀錄。
+- 預覽站 `pbRequest` 非 GET/HEAD/OPTIONS 請求已加阻擋，CI run `43353209302` 通過；此保護不等同完整資料庫隔離。
+- Vercel 最新預覽建置 `7ccea2f` READY，尚未完成實機功能驗收。
+- Dropbox 主程式資料夾僅查到 `mahjong_V185_production_manifest_2026-11-12.txt`，**完整程式備份尚未驗證**。
+- GitHub 還原點是程式碼保護，不等同 PocketBase 資料庫備份；正式發布仍暫停。
