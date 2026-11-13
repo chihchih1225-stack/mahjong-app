@@ -15,6 +15,9 @@ must('const nextPlayers=keepPlayers?[...P]:P.map(n=>n===leaving?joining:n)');
 must("sessionOpeningBalances[player]=Number(balances[player]||0)");
 must("seriesCashflowLedger=JSON.parse(JSON.stringify(expanded))");
 must("show('seat')");
+// Projection viewer cards must be scoped to live-viewer-mode only.
+must('projection-mode.live-viewer-mode:not(.hidden) #playerStats .viewer-player-card.pos-top');
+must('projection-mode.live-viewer-mode:not(.hidden) #playerStats .viewer-player-card.pos-left');
 // No unrelated projection CSS patch should be included in this safe branch.
 assert.ok(!html.includes('v185-live-projection-hotfix'));
 assert.ok(!html.includes('v185-projection-seats-fix2'));
