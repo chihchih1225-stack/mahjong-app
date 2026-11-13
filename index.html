@@ -2623,6 +2623,14 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 </style>
 
 
+<style id="v1852-place-filter-style">
+.room-period-card .v1852-place-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.room-period-card .v1852-place-label{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap}
+.room-period-card .v1852-place-wrap{position:relative;min-width:0;flex:1;max-width:260px}
+.room-period-card #v1852PlaceFilter{display:block;width:100%;min-height:46px;margin:0;padding:10px 34px 10px 16px;box-sizing:border-box;border:2px solid #e9d0a6;border-radius:24px;background:#f9e8d0;color:#6c5643;font-size:15px;font-weight:700;text-align:center;text-align-last:center;appearance:none;-webkit-appearance:none;outline-offset:3px}
+.room-period-card .v1852-place-chevron{position:absolute;right:15px;top:50%;transform:translateY(-55%);pointer-events:none;font-size:20px;color:#8c7256}
+@media(max-width:360px){.room-period-card .v1852-place-wrap{max-width:210px}}
+</style>
 </head>
 
 
@@ -2817,7 +2825,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
       <button class="rule-btn" data-room-filter="last30" onclick="setRoomFilter('last30')">近30天</button>
       <button class="rule-btn" data-room-filter="custom" onclick="v149ToggleCustomRange()">自訂日期</button>
     </div>
-    <div id="v149CustomRangeHost"></div><div style="margin-top:12px"><label for="v1852PlaceFilter">📍 統計場地</label><select id="v1852PlaceFilter" onchange="v1852SetPlaceFilter(this.value)"><option value="__all__">全部場地</option></select></div>
+    <div id="v149CustomRangeHost"></div><div class="v1852-place-row"><span class="v1852-place-label">📍 場地</span><div class="v1852-place-wrap"><select id="v1852PlaceFilter" aria-label="統計場地" onchange="v1852SetPlaceFilter(this.value)"><option value="__all__">全部場地</option></select><span class="v1852-place-chevron" aria-hidden="true">⌄</span></div></div>
   </div>
 
 
