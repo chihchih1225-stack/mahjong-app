@@ -10456,7 +10456,7 @@ function renderRoomDashboard(loadShared=true){
   document.getElementById('roomBadges').innerHTML=badgeHtml(rows,ss)
   renderRoomPlayerVsPlayer(ss)
   renderRoomNemesis(ss)
-  const kingHistory=document.getElementById('roomKingHistory'); if(kingHistory) kingHistory.innerHTML=roomKingHistoryHtml(allSs)
+  const kingHistory=document.getElementById('roomKingHistory'); if(kingHistory) kingHistory.innerHTML=roomKingHistoryHtml(ss)
   document.getElementById('roomSessionCount').textContent=`${allSs.length} 將`
   document.getElementById('roomHistory').innerHTML=allSs.length?[...allSs].sort((a,b)=>String(b.startedAt||b.createdAt).localeCompare(String(a.startedAt||a.createdAt))).map(sessionRowHtml).join(''):'還沒有歷史牌局'
 }
@@ -11143,9 +11143,10 @@ async function openRoomMemberStats(userId,nickname){
   const member={user:userId||'',nickname:nickname||''}
   const name=v40MemberPlayerName(member,roomPlayers)
   const allSs=roomSessions(currentRoomId)
-  const playerSs=allSs.filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),name))
+  // V185-2：個人統計也使用房間上方的期間與場地條件。
+  const playerSs=v1852FilterPlaces(filterSessionsByTime(allSs,roomTimeFilter)).filter(ss=>Object.prototype.hasOwnProperty.call(sessionNets(ss),name))
   const stat=aggregateSessions(playerSs).find(x=>x.name===name)||{name,net:0,sessions:0,wins:0,selfdraws:0,discards:0,discardWins:0,cleanSuit:0,mixedSuit:0,pongPong:0,handAppearances:0,maxWin:0,minWin:0}
-  const ranking=aggregateSessions(allSs).sort((a,b)=>b.net-a.net)
+  const ranking=aggregateSessions(v1852FilterPlaces(filterSessionsByTime(allSs,roomTimeFilter))).sort((a,b)=>b.net-a.net)
   const rank=ranking.findIndex(x=>x.name===name)+1
   const winRate=stat.handAppearances?stat.wins/stat.handAppearances:0
   const selfRate=stat.handAppearances?stat.selfdraws/stat.handAppearances:0
@@ -13559,7 +13560,7 @@ function v1852CaptureMemberReturnState(){
   if(!modal) return null
   const scroller=modal.querySelector('.member-stats-box')
   const details=[...modal.querySelectorAll('details')].map((el,i)=>({i,open:el.open}))
-  return {scrollTop:scroller?.scrollTop||0,windowScrollY:window.scrollY,details}
+  return {scrollTop:scroller?.scrollTop||0,modalScrollTop:modal.scrollTop,windowScrollY:window.scrollY,details}
 }
 function v1852RestoreMemberReturnState(state){
   if(!state) return
@@ -13568,6 +13569,7 @@ function v1852RestoreMemberReturnState(state){
   const scroller=modal.querySelector('.member-stats-box')
   state.details.forEach(({i,open})=>{const el=modal.querySelectorAll('details')[i];if(el)el.open=open})
   if(scroller)scroller.scrollTop=state.scrollTop
+  modal.scrollTop=state.modalScrollTop||0
   window.scrollTo(0,state.windowScrollY)
 }
 /* V124 返回偶爾亂跳：保留 modal context，返回時不先清 context，並阻止舊 onclick。 */
