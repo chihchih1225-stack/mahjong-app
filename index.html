@@ -8831,13 +8831,38 @@ function v183ConfirmNextMatch(keepPlayers=false){
   const nextPlayers=keepPlayers?[...P]:P.map(n=>n===leaving?joining:n)
   if(new Set(nextPlayers).size!==4){alert('同一將不能有重複玩家。');return}
   const previousPlayers=[...P]
+  // Keep an in-memory rollback of every value changed before localStorage succeeds.
+  // A failed write must not erase the just-finished game or tonight's balances.
+  const before={
+    sessionSaved,preferredNextTableNumber,remoteSessionId,remoteSessionCreatePromise,
+    remoteSessionClosingRequested,P,balances:{...balances},sessionOpeningBalances,
+    seriesCashflowBase,seriesCashflowLedger,liveCashflowSnapshot,hands,
+    roundIndex,repeats,dealer,dealerSeatIndex,recorderPlayer,tai,winner,discarder,
+    result,fraudTai,selectedPatterns,roundLeaders,seats,drawPool,drawTurn,
+    drawAssignments,drawOrder,gameStartedAt,gameEndedAt
+  }
+  const rollback=()=>{
+    sessionSaved=before.sessionSaved
+    preferredNextTableNumber=before.preferredNextTableNumber
+    remoteSessionId=before.remoteSessionId
+    remoteSessionCreatePromise=before.remoteSessionCreatePromise
+    remoteSessionClosingRequested=before.remoteSessionClosingRequested
+    P=before.P;balances=before.balances;sessionOpeningBalances=before.sessionOpeningBalances
+    seriesCashflowBase=before.seriesCashflowBase;seriesCashflowLedger=before.seriesCashflowLedger
+    liveCashflowSnapshot=before.liveCashflowSnapshot;hands=before.hands
+    roundIndex=before.roundIndex;repeats=before.repeats;dealer=before.dealer
+    dealerSeatIndex=before.dealerSeatIndex;recorderPlayer=before.recorderPlayer
+    tai=before.tai;winner=before.winner;discarder=before.discarder;result=before.result
+    fraudTai=before.fraudTai;selectedPatterns=before.selectedPatterns
+    roundLeaders=before.roundLeaders;seats=before.seats;drawPool=before.drawPool
+    drawTurn=before.drawTurn;drawAssignments=before.drawAssignments
+    drawOrder=before.drawOrder;gameStartedAt=before.gameStartedAt;gameEndedAt=before.gameEndedAt
+  }
   sessionSaved=false
   preferredNextTableNumber=Number(currentTableNumber||0)
   remoteSessionId=''
   remoteSessionCreatePromise=null
   remoteSessionClosingRequested=false
-  const room=(appData?.rooms||[]).find(x=>x.id===currentRoomId)
-  if(room) ensureRoomMembers(room,nextPlayers)
   P=nextPlayers
   P.forEach(player=>{if(!Object.prototype.hasOwnProperty.call(balances,player)) balances[player]=0})
   sessionOpeningBalances={}
@@ -8874,9 +8899,6 @@ function v183ConfirmNextMatch(keepPlayers=false){
   drawOrder=[]
   gameStartedAt=''
   gameEndedAt=''
-  const seatResult=document.getElementById('seatResult')
-  if(seatResult) seatResult.innerHTML=''
-  document.getElementById('confirmSeatBtn')?.classList.add('hidden')
   // V183：換人後立即保存「等待重新抽位」狀態，避免 iPhone 在選位前關閉而遺失整晚金額。
   // 此時尚未有新莊家，不可依賴 persistActiveGame() 的 dealer 條件。
   try{
@@ -8885,12 +8907,18 @@ function v183ConfirmNextMatch(keepPlayers=false){
     pending.dealer=''
     pending.seats=[]
     localStorage.setItem(ACTIVE_GAME_KEY,JSON.stringify(pending))
-    renderResumeGameCard()
   }catch(e){
-    console.error('V183：換人狀態無法儲存',e)
+    rollback()
+    console.error('V185：下一將待抽位狀態儲存失敗，已還原原本記憶體狀態',e)
     alert('換人進度儲存失敗，已停止切換畫面。請勿關閉 App，先檢查裝置儲存空間。')
     return
   }
+  const room=(appData?.rooms||[]).find(x=>x.id===currentRoomId)
+  if(room) ensureRoomMembers(room,nextPlayers)
+  const seatResult=document.getElementById('seatResult')
+  if(seatResult) seatResult.innerHTML=''
+  document.getElementById('confirmSeatBtn')?.classList.add('hidden')
+  renderResumeGameCard()
   show('seat')
 }
 
