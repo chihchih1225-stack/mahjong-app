@@ -7111,8 +7111,10 @@ function pickResult(
   element,
   value
 ){
-
-
+  // V186：自摸按鈕作為最後一步時，保留先前選好的玩家與台數。
+  const finalizeSelfDraw=value==='自摸' && result==='胡牌' && !!winner && handTaiExplicitlySelected
+  const savedTai=tai
+  const savedPatterns=[...selectedPatterns]
   result=value
 
 
@@ -7173,11 +7175,16 @@ function pickResult(
 
 
   }
+  if(finalizeSelfDraw){
+    tai=savedTai
+    selectedPatterns=savedPatterns
+    handTaiExplicitlySelected=true
+  }
   syncPatterns()
 
 
   renderGame()
-
+  if(finalizeSelfDraw && canAutoRecordCurrentHand()) saveHand()
 
 }
 
@@ -7203,7 +7210,7 @@ function addTai(value){
 
   renderPaymentPreview()
   syncProjectionScorePanel()
-
+  v186ScheduleDiscardWin()
 
 }
 
@@ -7222,7 +7229,7 @@ function resetTai(){
 
   renderPaymentPreview()
   syncProjectionScorePanel()
-
+  v186ScheduleDiscardWin()
 
 }
 
@@ -7756,6 +7763,19 @@ function canAutoRecordCurrentHand(){
   return !!discarder && P.includes(discarder) && discarder!==winner
 }
 
+// V186：胡牌選完台數後稍候送出，連續加台時重設倒數，避免只按第一台就記帳。
+let v186DiscardTimer=null
+function v186ScheduleDiscardWin(){
+  if(v186DiscardTimer!==null) clearTimeout(v186DiscardTimer)
+  v186DiscardTimer=null
+  if(result!=='胡牌' || !canAutoRecordCurrentHand()) return
+  const expected={winner,discarder,tai,handCount:hands.length}
+  v186DiscardTimer=setTimeout(()=>{
+    v186DiscardTimer=null
+    if(result==='胡牌' && canAutoRecordCurrentHand() && hands.length===expected.handCount
+      && winner===expected.winner && discarder===expected.discarder && tai===expected.tai) saveHand()
+  },1200)
+}
 // 防止重入提交；遠端冪等性仍需獨立驗證。
 let handSaveInProgress=false
 function saveHand(){
