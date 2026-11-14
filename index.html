@@ -8041,7 +8041,16 @@ function saveHand(){
     nextHandNumber:hands.length+1,
     cashflowSnapshot:JSON.parse(JSON.stringify(buildCashflowMatrix(hands,P)||{}))
   }
-  void syncRemoteConfirmedHand(hand,remoteHandSnapshot)
+  // V185-2 safety: do not silently treat remote write failures as synced.
+  void syncRemoteConfirmedHand(hand,remoteHandSnapshot).then(status=>{
+    if(!status?.ok){
+      console.error('牌局遠端同步未完成',status)
+      alert('警告：這一把已保存在本機，但雲端同步尚未確認成功。請先不要繼續記牌或關閉 App，並聯絡管理者核對。')
+    }
+  }).catch(error=>{
+    console.error('牌局遠端同步發生錯誤',error)
+    alert('警告：這一把的雲端同步發生錯誤，請先暫停記牌並核對資料。')
+  })
 
 
   if(autoEndAfterHand){
@@ -8136,6 +8145,12 @@ function syncResultButtons(){
 
 
 function undoHand(){
+  // Safety stop: a local-only undo would leave the PocketBase hand intact.
+  const room=(appData?.rooms||[]).find(r=>r.id===currentRoomId)
+  if(room?.pocketbase){
+    alert('為避免本機與雲端戰績不一致，正式房間暫停「復原上一把」。請聯絡管理者核對後修正，勿重複記錄。')
+    return
+  }
 
 
   if(!hands.length){
