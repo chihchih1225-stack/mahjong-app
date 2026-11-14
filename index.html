@@ -7837,6 +7837,11 @@ function saveHand(){
 
 
 
+  // A missing remote session must never look like a successful cloud recording.
+  if((appData?.rooms||[]).some(r=>r.id===currentRoomId&&r.pocketbase) && !remoteSessionId){
+    alert('尚未確認雲端牌局連線，請先暫停記牌，避免戰績不同步。')
+    return
+  }
   const changes=
     calculateHandPayments()
 
@@ -9706,7 +9711,8 @@ function activeGameSnapshot(){
     savedAt:new Date().toISOString(), currentRoomId, P:[...P], seats:[...seats], selectedStake, mode,
     balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, seriesCashflowBase:JSON.parse(JSON.stringify(seriesCashflowBase||{})), seriesCashflowLedger:seriesCashflowLedger?JSON.parse(JSON.stringify(seriesCashflowLedger)):null, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
     dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt,
-    seriesId,seriesGameCount,seriesStartedAt
+    seriesId,seriesGameCount,seriesStartedAt,
+    remoteSessionId:remoteSessionId||''
   }
 }
 function persistActiveGame(){
@@ -9732,6 +9738,24 @@ function renderResumeGameCard(){
 function resumeActiveGame(){
   remoteSessionId=''
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
+  // Never silently create a second remote session when recovering a saved game.
+  const savedRemoteId=String(g.remoteSessionId||'')
+  if(savedRemoteId){
+    remoteSessionId=savedRemoteId
+    void pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(savedRemoteId))
+      .then(remote=>{
+        if(remote.status!=='active'){
+          remoteSessionId=''
+          alert('這場牌局的雲端狀態不是進行中，請暫停記牌並核對。')
+        }
+      }).catch(error=>{
+        console.error('恢復牌局時無法驗證遠端場次',error)
+        remoteSessionId=''
+        alert('無法確認恢復牌局的雲端場次，請暫停記牌並核對。')
+      })
+  }else if(g.resumeStage==='game' && (appData?.rooms||[]).some(r=>r.id===g.currentRoomId&&r.pocketbase)){
+    alert('此未完成牌局缺少雲端場次識別，請暫停記牌並聯絡管理者核對。')
+  }
   currentRoomId=g.currentRoomId||''; P=g.P||[]; seats=g.seats||[...P]; selectedStake=g.selectedStake||selectedStake
   currentRule=stakeRules[selectedStake]||currentRule; mode='detailed'; balances=g.balances||{}; sessionOpeningBalances=g.sessionOpeningBalances||Object.fromEntries((g.P||[]).map(n=>[n,0])); seriesCashflowBase=g.seriesCashflowBase||{}; seriesCashflowLedger=g.seriesCashflowLedger||null; hands=g.hands||[]
   roundIndex=g.roundIndex||0; repeats=g.repeats||0; dealer=g.dealer||''; dealerSeatIndex=g.dealerSeatIndex||0
