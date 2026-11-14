@@ -4088,6 +4088,7 @@ const PB_REMEMBER_EMAIL_KEY='shuiYuZhengFengRememberEmailV1'
 let authMode='login'
 let pbAuth=loadPocketBaseAuth()
 let remoteSessionId=''
+let remoteSessionVerificationPending=false
 let remoteSessionCreatePromise=null
 let remoteSessionClosingRequested=false
 let currentTableNumber=0
@@ -4950,6 +4951,7 @@ async function createRemoteGameSession(){
       body:JSON.stringify(sessionPayload)
     })
     remoteSessionId=rec.id
+    try{persistActiveGame()}catch(e){console.warn('遠端場次識別儲存失敗',e)}
     // V131：若使用者在遠端 session 尚未建立完成前就按了結束，建立完成後立刻補標 completed。
     if(remoteSessionClosingRequested){
       try{ await completeRemoteSession('normal') }catch(e){ console.warn('V131：延遲建立後補關閉失敗',e) }
@@ -7838,7 +7840,7 @@ function saveHand(){
 
 
   // A missing remote session must never look like a successful cloud recording.
-  if((appData?.rooms||[]).some(r=>r.id===currentRoomId&&r.pocketbase) && !remoteSessionId){
+  if((appData?.rooms||[]).some(r=>r.id===currentRoomId&&r.pocketbase) && (!remoteSessionId || remoteSessionVerificationPending)){
     alert('尚未確認雲端牌局連線，請先暫停記牌，避免戰績不同步。')
     return
   }
@@ -9742,13 +9744,16 @@ function resumeActiveGame(){
   const savedRemoteId=String(g.remoteSessionId||'')
   if(savedRemoteId){
     remoteSessionId=savedRemoteId
+    remoteSessionVerificationPending=true
     void pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(savedRemoteId))
       .then(remote=>{
+        remoteSessionVerificationPending=false
         if(remote.status!=='active'){
           remoteSessionId=''
           alert('這場牌局的雲端狀態不是進行中，請暫停記牌並核對。')
         }
       }).catch(error=>{
+        remoteSessionVerificationPending=false
         console.error('恢復牌局時無法驗證遠端場次',error)
         remoteSessionId=''
         alert('無法確認恢復牌局的雲端場次，請暫停記牌並核對。')
