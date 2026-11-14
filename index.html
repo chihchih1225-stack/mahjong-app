@@ -4089,6 +4089,8 @@ let authMode='login'
 let pbAuth=loadPocketBaseAuth()
 let remoteSessionId=''
 let remoteSessionVerificationPending=false
+let remoteHandSyncPending=false
+let remoteHandSyncBlocked=false
 let remoteSessionCreatePromise=null
 let remoteSessionClosingRequested=false
 let currentTableNumber=0
@@ -4980,6 +4982,12 @@ async function syncRemoteConfirmedHand(hand,committedSnapshot=null){
       discarder:map[hand.discarder]?.id||'',tai:Number(hand.tai||0),
       patterns:hand.patterns||[],payments:hand.changes||{},balances_after:{...(committedSnapshot?.balancesAfter||balances)},
       recorded_by:pbAuth.record.id,recorded_at:new Date().toISOString()
+    }
+    // Preflight: detect a previously committed hand before any write. Never blindly retry POST.
+    const existingFilter=encodeURIComponent('session="'+pbFilterValue(remoteSessionId)+'" && hand_number='+Number(handNo))
+    const existing=await pbRequest('/api/collections/game_hands/records?perPage=5&filter='+existingFilter)
+    if((existing.items||[]).length){
+      return {ok:false,reason:'hand_number_already_exists',message:'雲端已有相同把數，已停止寫入以防重複'}
     }
     await pbRequest('/api/collections/game_hands/records',{method:'POST',body:JSON.stringify(payload)})
     handCreated=true
@@ -7840,8 +7848,8 @@ function saveHand(){
 
 
   // A missing remote session must never look like a successful cloud recording.
-  if((appData?.rooms||[]).some(r=>r.id===currentRoomId&&r.pocketbase) && (!remoteSessionId || remoteSessionVerificationPending)){
-    alert('尚未確認雲端牌局連線，請先暫停記牌，避免戰績不同步。')
+  if((appData?.rooms||[]).some(r=>r.id===currentRoomId&&r.pocketbase) && (!remoteSessionId || remoteSessionVerificationPending || remoteHandSyncPending || remoteHandSyncBlocked)){
+    alert('雲端牌局尚未確認同步完成，請先暫停記牌，避免戰績不同步。')
     return
   }
   const changes=
@@ -8049,12 +8057,17 @@ function saveHand(){
     cashflowSnapshot:JSON.parse(JSON.stringify(buildCashflowMatrix(hands,P)||{}))
   }
   // V185-2 safety: do not silently treat remote write failures as synced.
+  remoteHandSyncPending=true
   void syncRemoteConfirmedHand(hand,remoteHandSnapshot).then(status=>{
+    remoteHandSyncPending=false
+    if(!status?.ok) remoteHandSyncBlocked=true
     if(!status?.ok){
       console.error('牌局遠端同步未完成',status)
       alert('警告：這一把已保存在本機，但雲端同步尚未確認成功。請先不要繼續記牌或關閉 App，並聯絡管理者核對。')
     }
   }).catch(error=>{
+    remoteHandSyncPending=false
+    remoteHandSyncBlocked=true
     console.error('牌局遠端同步發生錯誤',error)
     alert('警告：這一把的雲端同步發生錯誤，請先暫停記牌並核對資料。')
   })
@@ -9739,6 +9752,8 @@ function renderResumeGameCard(){
 }
 function resumeActiveGame(){
   remoteSessionId=''
+  remoteHandSyncPending=false
+  remoteHandSyncBlocked=false
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
   // Never silently create a second remote session when recovering a saved game.
   const savedRemoteId=String(g.remoteSessionId||'')
