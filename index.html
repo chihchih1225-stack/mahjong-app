@@ -8060,7 +8060,7 @@ function saveHand(){
   remoteHandSyncPending=true
   void syncRemoteConfirmedHand(hand,remoteHandSnapshot).then(status=>{
     remoteHandSyncPending=false
-    if(!status?.ok) remoteHandSyncBlocked=true
+    if(!status?.ok){remoteHandSyncBlocked=true;persistActiveGame()}
     if(!status?.ok){
       console.error('牌局遠端同步未完成',status)
       alert('警告：這一把已保存在本機，但雲端同步尚未確認成功。請先不要繼續記牌或關閉 App，並聯絡管理者核對。')
@@ -8068,6 +8068,7 @@ function saveHand(){
   }).catch(error=>{
     remoteHandSyncPending=false
     remoteHandSyncBlocked=true
+    persistActiveGame()
     console.error('牌局遠端同步發生錯誤',error)
     alert('警告：這一把的雲端同步發生錯誤，請先暫停記牌並核對資料。')
   })
@@ -9727,7 +9728,8 @@ function activeGameSnapshot(){
     balances:{...balances}, sessionOpeningBalances:{...sessionOpeningBalances}, seriesCashflowBase:JSON.parse(JSON.stringify(seriesCashflowBase||{})), seriesCashflowLedger:seriesCashflowLedger?JSON.parse(JSON.stringify(seriesCashflowLedger)):null, hands:JSON.parse(JSON.stringify(hands)), roundIndex, repeats, dealer,
     dealerSeatIndex, recorderPlayer, roundLeaders:[...roundLeaders], gameStartedAt, gameEndedAt,
     seriesId,seriesGameCount,seriesStartedAt,
-    remoteSessionId:remoteSessionId||''
+    remoteSessionId:remoteSessionId||'',
+    remoteHandSyncBlocked:remoteHandSyncBlocked||remoteHandSyncPending
   }
 }
 function persistActiveGame(){
@@ -9755,6 +9757,9 @@ function resumeActiveGame(){
   remoteHandSyncPending=false
   remoteHandSyncBlocked=false
   ensureAppData(); const g=getActiveGame(); if(!g){alert('目前沒有未完成牌局');return}
+  // A previous failed/in-flight cloud write must not be cleared by restarting the app.
+  remoteHandSyncBlocked=Boolean(g.remoteHandSyncBlocked)
+  if(remoteHandSyncBlocked) alert('上一把雲端同步未確認成功。為保護戰績，本場暫停新增記牌，請先核對雲端資料。')
   // Never silently create a second remote session when recovering a saved game.
   const savedRemoteId=String(g.remoteSessionId||'')
   if(savedRemoteId){
