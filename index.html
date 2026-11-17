@@ -9625,6 +9625,38 @@ function aggregateSessions(sessions){
   })
 
 
+  // 名人堂連勝／連敗以整場連打的勝敗將數判定；跨午夜同一 seriesId 仍算一場。
+  const streakGroups=new Map()
+  const taiwanDay=value=>{
+    const date=new Date(value||0)
+    return Number.isFinite(date.getTime())
+      ? new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(date)
+      : 'unknown'
+  }
+  ordered.forEach(ss=>{
+    const groupKey=ss.seriesId
+      ? 'series:'+String(ss.roomId||'')+':'+String(ss.seriesId)
+      : 'day:'+String(ss.roomId||'')+':'+taiwanDay(ss.startedAt||ss.createdAt)
+    if(!streakGroups.has(groupKey)) streakGroups.set(groupKey,new Map())
+    const group=streakGroups.get(groupKey)
+    Object.entries(sessionNets(ss)).forEach(([name,net])=>{
+      const record=group.get(name)||{wins:0,losses:0}
+      if(net>0) record.wins++
+      else if(net<0) record.losses++
+      group.set(name,record)
+    })
+  })
+  streakGroups.forEach(group=>group.forEach((record,name)=>{
+    const x=touch(name)
+    if(record.wins>record.losses){
+      x.currentStreak++; x.maxStreak=Math.max(x.maxStreak,x.currentStreak); x.currentLossStreak=0
+    }else if(record.losses>record.wins){
+      x.currentStreak=0; x.currentLossStreak++; x.maxLossStreak=Math.max(x.maxLossStreak,x.currentLossStreak)
+    }else{
+      x.currentStreak=0; x.currentLossStreak=0
+    }
+  }))
+
   ordered.forEach(ss=>{
     const nets=sessionNets(ss)
     Object.entries(nets).forEach(([name,netRaw])=>{
@@ -9636,13 +9668,7 @@ function aggregateSessions(sessions){
       x.maxLoss=Math.max(x.maxLoss,Math.max(0,-net))
       const attendanceKey=ss.seriesId?`series:${ss.seriesId}`:`session:${ss.id||ss.createdAt||x.sessions}`
       if(!x._attendanceKeys.has(attendanceKey)){x._attendanceKeys.add(attendanceKey);x.attendanceCount++}
-      if(net>0){
-        x.sessionWins++; x.currentStreak++; x.maxStreak=Math.max(x.maxStreak,x.currentStreak); x.currentLossStreak=0
-      }else if(net<0){
-        x.currentStreak=0; x.currentLossStreak++; x.maxLossStreak=Math.max(x.maxLossStreak,x.currentLossStreak)
-      }else{
-        x.currentStreak=0; x.currentLossStreak=0
-      }
+      if(net>0) x.sessionWins++
     })
 
 
@@ -10636,8 +10662,8 @@ function badgeHtml(rows,sessions){
     ['🏅','最大贏分獎','maxWin',false,'單將贏分最高',true,rows],
     ['📈','最高勝率','winRate',false,`獲利將 ÷ 總將・至少 ${minEligibleSessions} 將`,true,qualified],
     ['💰','穩賺王','avgNet',false,`平均每將淨贏最高・至少 ${minEligibleSessions} 將`,true,qualified],
-    ['🔥','連勝王','maxStreak',false,'依牌局時間連續獲利最多',true,rows],
-    ['🌧️','連敗王','maxLossStreak',false,'依牌局時間連續輸錢最多將',true,rows],
+    ['🔥','連勝王','maxStreak',false,'連打場次勝將多於敗將的連續次數',true,rows],
+    ['🌧️','連敗王','maxLossStreak',false,'連打場次敗將多於勝將的連續次數',true,rows],
     ['📅','出席王','attendanceCount',false,'參與連打／聚會次數最多',true,rows],
     ['🎁','最大貢獻獎','maxLoss',false,'單將輸分最高',true,rows],
     ['🌸','自摸王','selfdraws',false,'自摸次數最多',true,rows],
