@@ -8061,6 +8061,7 @@ function saveHand(){
   void syncRemoteConfirmedHand(hand,remoteHandSnapshot).then(status=>{
     remoteHandSyncPending=false
     if(!status?.ok){remoteHandSyncBlocked=true;persistActiveGame()}
+    else persistActiveGame()
     if(!status?.ok){
       console.error('牌局遠端同步未完成',status)
       alert('警告：這一把已保存在本機，但雲端同步尚未確認成功。請先不要繼續記牌或關閉 App，並聯絡管理者核對。')
