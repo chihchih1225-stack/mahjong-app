@@ -1614,6 +1614,12 @@ body:has(#game:not(.hidden)) > header{display:none !important}
 #game.projection-mode #playerStats .dealer-seat-tag{font-size:12px;padding:3px 10px}
 
 
+/* V186：直播逐把紀錄（獨立捲動） */
+#game.live-viewer-mode #v186LiveHands{display:block!important;padding:12px 14px;border-radius:20px}
+#game.live-viewer-mode #v186LiveHands h2{font-size:17px;margin:0 0 6px}
+#game.live-viewer-mode .v186-hand-scroll{max-height:52vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin-top:8px}
+#game.live-viewer-mode .v186-hand-item{padding:10px 4px;border-top:1px solid #eae4e9;font-size:13px;line-height:1.6}
+#game.live-viewer-mode.projection-mode #v186LiveHands{display:none!important}
 /* ===== V32：直播觀看 Dashboard ===== */
 #game.live-viewer-mode{display:flex!important;flex-direction:column;gap:8px;padding-bottom:18px}
 #game.live-viewer-mode .projection-exit-btn{display:none!important}
@@ -6364,12 +6370,12 @@ function trendChartHtml(sessionHands, players){
   let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="連打累積輸贏走勢圖">`
   svg+=`<line x1="${pad.l}" y1="${y(0)}" x2="${W-pad.r}" y2="${y(0)}" stroke="#b9b1b4" stroke-width="1.5" stroke-dasharray="5 5"/>`
   ;[-maxAbs,0,maxAbs].forEach(v=>svg+=`<text x="${pad.l-7}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8b8388">${v>0?'+':''}${v}</text>`)
-  pts.forEach((pt,i)=>{if(i===0||i===pts.length-1||i%Math.max(1,Math.ceil(pts.length/6))===0)svg+=`<text x="${x(i)}" y="${H-15}" text-anchor="middle" font-size="10" fill="#8b8388">${i===0?'0':i}</text>`})
+  pts.forEach((pt,i)=>{if(i===0||i===pts.length-1||i%Math.max(1,Math.ceil(pts.length/6))===0)svg+=`<text x="${x(i)}" y="${H-15}" text-anchor="middle" font-size="10" fill="#8b8388">${i===0?'0':pt.round==='正式結算'?'結算':i}</text>`})
   players.forEach(p=>{
     const color=colorMap[p]
     const path=pts.map((pt,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(pt.values[p]||0).toFixed(1)}`).join(' ')
     svg+=`<path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
-    pts.forEach((pt,i)=>svg+=`<circle cx="${x(i)}" cy="${y(pt.values[p]||0)}" r="${i===pts.length-1?4.6:3}" fill="${color}"><title>${i===0?'開始':`第 ${i} 把 ${pt.round||''}`}・${p} ${(pt.values[p]||0)>=0?'+':''}$${Number(pt.values[p]||0).toLocaleString()}</title></circle>`)
+    pts.forEach((pt,i)=>svg+=`<circle cx="${x(i)}" cy="${y(pt.values[p]||0)}" r="${i===pts.length-1?4.6:3}" fill="${color}"><title>${i===0?'開始':pt.round==='正式結算'?'正式結算校正':`第 ${i} 把 ${pt.round||''}`}・${p} ${(pt.values[p]||0)>=0?'+':''}$${Number(pt.values[p]||0).toLocaleString()}</title></circle>`)
   })
   // 線尾標籤避免重疊：依最後金額由高到低排列，必要時上下錯開。
   const last=pts[pts.length-1]
@@ -10776,6 +10782,8 @@ function sessionDetailStatsHtml(ss){
     : `<div style="margin-top:16px"><h3>誰胡誰</h3><div class="career-note">這場還沒有胡牌放槍紀錄。</div></div>`
 
 
+  const selfdrawRows=players.map(p=>({name:p,count:stats[p]?.selfdraws||0})).sort((a,b)=>b.count-a.count)
+  const selfdrawHtml=`<div style="margin-top:16px"><h3>誰自摸</h3><div class="career-note" style="line-height:1.9">${selfdrawRows.map(x=>`<b>${escapeHtml(x.name)}</b>：${x.count}次`).join('<br>')}<br><b>合計 ${handCounts.selfdraw} 次</b></div></div>`
   const counted=handCounts.win+handCounts.selfdraw+handCounts.fraud+handCounts.draw+handCounts.other
   const verifyHtml=`<div class="career-note" style="margin-top:12px;line-height:1.8"><b>逐把核對：</b>共 ${hands.length}把・胡牌 ${handCounts.win}把・自摸 ${handCounts.selfdraw}把・詐胡 ${handCounts.fraud}把・流局 ${handCounts.draw}把${handCounts.other?`・其他 ${handCounts.other}把`:''}<br>${counted===hands.length?'✓ 加總與本場紀錄吻合':'⚠️ 加總與本場紀錄不吻合，請檢查資料'}</div>`
 
@@ -10796,7 +10804,7 @@ function sessionDetailStatsHtml(ss){
   </div>`).join('')
 
 
-  return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${cards}</div>${duelHtml}${verifyHtml}</div>`
+  return `<div style="margin-top:16px"><h3>本場統計</h3><div class="career-grid">${cards}</div>${duelHtml}${selfdrawHtml}${verifyHtml}</div>`
 }
 // V185-2：只顯示實際存在的逐把資料，不推算舊式結算。
 function v1852SessionHandsHtml(ss){
@@ -11079,6 +11087,16 @@ function v32ViewerStatsHtml(){
     return `<div class="viewer-player-card pos-${pos} ${p===dealer?'dealer':''}"><div class="viewer-player-top"><span class="viewer-player-name">${escapeHtml(wind)}家・${escapeHtml(p)} ${p===dealer?'<span class="viewer-dealer-tag">莊</span>':''}</span><span class="viewer-player-money" style="color:${n>=0?'#6caa8b':'#cf7f91'}">${n>=0?'+':''}$${n.toLocaleString()}</span></div><div class="viewer-player-meta">胡 ${c.win}・自摸 ${c.self}・放槍 ${c.discard}</div></div>`
   }).join('')
 }
+function v186RenderLiveHands(){
+  const game=document.getElementById('game');if(!game)return
+  let box=document.getElementById('v186LiveHands')
+  if(!box){box=document.createElement('section');box.id='v186LiveHands';box.className='card';game.appendChild(box)}
+  box.innerHTML=`<h2>🀄 即時逐把紀錄</h2><div class="muted">本將共 ${hands.length} 把・最新在上</div><div class="v186-hand-scroll">${hands.map((h,i)=>({h,i})).reverse().map(({h,i})=>{
+    const title=h.result==='自摸'?`${h.winner||'玩家'}自摸`:h.result==='胡牌'?`${h.winner||'玩家'}胡${h.discarder||'玩家'}`:h.result==='詐胡'?`${h.winner||'玩家'}詐胡`:'流局'
+    const payments=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([p,v])=>`${escapeHtml(p)} ${Number(v)>0?'+':''}${Number(v).toLocaleString()}`).join('｜')
+    return `<div class="v186-hand-item"><b>第 ${i+1} 把｜${escapeHtml(h.round||'')}</b><div>${escapeHtml(title)}${h.result==='流局'?'':`・${Number(h.tai||0)} 台`}</div><div class="muted">${payments||'本把無金額變動'}</div></div>`
+  }).join('')||'<div class="muted">尚無逐把紀錄</div>'}</div>`
+}
 function v32RenderViewerDashboard(){
   const game=document.getElementById('game'); if(!game) return
   // V91：觀看者進入投影後，4 秒一次的直播同步不能把 projection-mode 拔掉。
@@ -11095,6 +11113,7 @@ function v32RenderViewerDashboard(){
     if(btn) btn.textContent='📺 全螢幕投影'
   }
   v56RenderTicker()
+  v186RenderLiveHands()
 }
 async function v32LoadLiveSession(sessionId,first=false){
   const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
@@ -11139,7 +11158,7 @@ async function openLiveSession(sessionId){
   try{v32StopLivePoll();await v32LoadLiveSession(sessionId,true);v32LivePollTimer=setInterval(()=>v32LoadLiveSession(sessionId,false).catch(()=>{}),4000)}catch(e){alert('目前無法開啟直播：'+(e.message||'請稍後再試'))}
 }
 function exitLiveViewer(){
-  v32StopLivePoll();if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}liveViewerMode=false;liveCashflowSnapshot=null;v32ViewingSessionId=''
+  v32StopLivePoll();if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}liveViewerMode=false;liveCashflowSnapshot=null;v32ViewingSessionId='';document.getElementById('v186LiveHands')?.remove()
   const game=document.getElementById('game');if(game){game.classList.remove('live-viewer-mode','projection-mode');const b=document.getElementById('liveViewerBackBtn');if(b)b.remove()}
   document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn,#projectionBottom').forEach(el=>el.style.display='')
   const pbtn=document.querySelector('#projectionBottom button');if(pbtn)pbtn.textContent='📺 投影'
@@ -13760,8 +13779,11 @@ function v132OpenSeries(ids){
     '<div class="career-note" style="margin-top:12px">⚠️ 逐把加總與最終結算不一致：以下逐把統計與走勢僅供核對，合計金額仍以各將正式結算為準。</div>':''
   const aggregateStats=combinedHands.length?sessionDetailStatsHtml(aggregate):
     '<div class="career-note" style="margin-top:12px">沒有逐把計分資料，僅顯示整次連打的結算金額。</div>'
+  const settlementDifferences=Object.fromEntries(players.map(p=>[p,Number(totals[p]||0)-Number(running[p]||0)]))
+  const needsSettlementPoint=combinedHands.length>0 && players.some(p=>settlementDifferences[p]!==0)
+  const chartHands=needsSettlementPoint?[...combinedHands,{result:'結算校正',round:'正式結算',changes:settlementDifferences}]:combinedHands
   const aggregateChart=combinedHands.length?
-    `<div style="margin-top:16px"><h3>連打累積輸贏走勢</h3><div class="trend-chart">${trendChartHtml(combinedHands,players)}</div></div>`:''
+    `<div style="margin-top:16px"><h3>連打累積輸贏走勢</h3><div class="trend-chart">${trendChartHtml(chartHands,players)}</div>${needsSettlementPoint?'<div class="career-note" style="margin-top:8px">最後一點為正式結算校正（非實際牌局）；逐把紀錄與原始金流未修改。</div>':''}</div>`:''
   const detailHtml=sessions.map((ss,i)=>`<button class="secondary" style="margin-top:7px;text-align:left;width:100%;font-size:13px" onclick="document.getElementById('v132SeriesModal')?.remove();showSessionDetail('${ss.id}')">第 ${i+1} 將・${escapeHtml(ss.stake||'')}・查看／修改 ›</button>`).join('')
   div.innerHTML=`<div class="modal-box" style="max-width:620px;margin:0 auto;min-width:0"><div class="toprow" style="position:sticky;top:0;z-index:10;background:#fffaf7;padding:8px 0 12px;border-bottom:1px solid var(--line);gap:8px"><h2 style="margin:0;font-size:20px">連打 ${sessions.length} 將・合計</h2><button type="button" class="secondary" style="margin-left:auto;white-space:nowrap;padding:9px 12px" onclick="document.getElementById('v132SeriesModal')?.remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><div class="career-note" style="margin:10px 0 12px">${sameStake?escapeHtml(stake)+'・':''}合併顯示一次打牌的總輸贏</div><div style="padding:2px 12px 10px;background:var(--card,#fff);border-radius:14px">${totalsHtml}</div>${totalSum!==0?`<div class="career-note" style="margin-top:8px">⚠️ 合計不平衡：${money(totalSum)}，請檢查原始牌局</div>`:''}${handCheckNote}${aggregateStats}${aggregateChart}<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:800;padding:10px 0">原始資料維護（${sessions.length} 將）</summary><div class="career-note">僅供修正個別原始牌局；一般查看以合計結果為準。</div>${detailHtml}</details></div>`
   document.body.appendChild(div)
