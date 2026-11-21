@@ -6350,6 +6350,8 @@ function buildTrendSeries(sessionHands, players){
   const ledger=buildCashflowMatrix(sessionHands,players)
   const current=Object.fromEntries(players.map(p=>[p,players.reduce((sum,other)=>sum+Number(ledger[other]?.[p]||0)-Number(ledger[p]?.[other]||0),0)]))
   const handTotals=Object.fromEntries(players.map(p=>[p,(sessionHands||[]).reduce((sum,h)=>sum+Number(h?.changes?.[p]||0),0)]))
+  // 正式結算校正點只用於歷史圖表：從零開始依逐把及校正差額畫到正式結算。
+  if((sessionHands||[]).some(h=>h?.result==='結算校正')) players.forEach(p=>{current[p]=handTotals[p]})
   const running=Object.fromEntries(players.map(p=>[p,current[p]-handTotals[p]]))
   const points=[{label:'本將起點',round:'',values:{...running}}]
   ;(sessionHands||[]).forEach((h,i)=>{
