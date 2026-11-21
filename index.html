@@ -6344,14 +6344,14 @@ function gamePlayerColors(players=P){
   ;(players||[]).forEach((p,i)=>{if(!map[p])map[p]=palette[i%palette.length]})
   return map
 }
-function buildTrendSeries(sessionHands, players){
+function buildTrendSeries(sessionHands, players, historical=false){
   // V185-2：與提款機使用同一份完整金流帳本。折線圖起點為本將開始前的累積金額，
   // 再逐把加上 changes，讓線尾代表目前連打累積金額，而不是每將重新從零開始。
   const ledger=buildCashflowMatrix(sessionHands,players)
   const current=Object.fromEntries(players.map(p=>[p,players.reduce((sum,other)=>sum+Number(ledger[other]?.[p]||0)-Number(ledger[p]?.[other]||0),0)]))
   const handTotals=Object.fromEntries(players.map(p=>[p,(sessionHands||[]).reduce((sum,h)=>sum+Number(h?.changes?.[p]||0),0)]))
   // 正式結算校正點只用於歷史圖表：從零開始依逐把及校正差額畫到正式結算。
-  if((sessionHands||[]).some(h=>h?.result==='結算校正')) players.forEach(p=>{current[p]=handTotals[p]})
+  if(historical || (sessionHands||[]).some(h=>h?.result==='結算校正')) players.forEach(p=>{current[p]=handTotals[p]})
   const running=Object.fromEntries(players.map(p=>[p,current[p]-handTotals[p]]))
   const points=[{label:'本將起點',round:'',values:{...running}}]
   ;(sessionHands||[]).forEach((h,i)=>{
@@ -6360,9 +6360,9 @@ function buildTrendSeries(sessionHands, players){
   })
   return points
 }
-function trendChartHtml(sessionHands, players){
+function trendChartHtml(sessionHands, players, historical=false){
   if(!players||!players.length) return '<div class="muted">尚無資料</div>'
-  const pts=buildTrendSeries(sessionHands||[],players)
+  const pts=buildTrendSeries(sessionHands||[],players,historical)
   const W=760,H=285,pad={l:48,r:155,t:25,b:42}
   const vals=pts.flatMap(pt=>players.map(p=>Number(pt.values[p]||0)))
   let maxAbs=Math.max(100,...vals.map(v=>Math.abs(v))); maxAbs=Math.ceil(maxAbs/100)*100
@@ -10837,7 +10837,13 @@ function showSessionDetail(id){
   const totalHtml=`<div class="session-head" style="margin-top:8px;padding-top:10px;border-top:2px solid var(--line)"><b>單場加總</b><b style="color:${sessionTotal===0?'#6caa8b':'#cf7f91'}">${sessionTotal===0?'0':money(sessionTotal)}</b></div><div class="muted" style="text-align:right;margin-top:4px">${sessionTotal===0?'✓ 本場收支吻合':'⚠️ 本場收支不為 0，請檢查紀錄'}</div>`
   const statsHtml=sessionDetailStatsHtml(ss)
   const perHandHtml=v1852SessionHandsHtml(ss)
-  const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(ss.hands,ss.players||Object.keys(sessionNets(ss)))}</div></div>`:''
+  const chartPlayers=[...new Set([...(ss.players||[]),...Object.keys(sessionNets(ss))])]
+  const settledNets=sessionNets(ss)
+  const handRunning=Object.fromEntries(chartPlayers.map(p=>[p,(ss.hands||[]).reduce((sum,h)=>sum+Number(h?.changes?.[p]||0),0)]))
+  const correction=Object.fromEntries(chartPlayers.map(p=>[p,Number(settledNets[p]||0)-Number(handRunning[p]||0)]))
+  const chartNeedsCorrection=chartPlayers.some(p=>Object.prototype.hasOwnProperty.call(settledNets,p)&&correction[p]!==0)
+  const chartHands=chartNeedsCorrection?[...(ss.hands||[]),{result:'結算校正',round:'正式結算',changes:correction}]:ss.hands||[]
+  const handsHtml=(ss.hands||[]).length?`<div style="margin-top:16px"><h3>本場輸贏折線圖</h3><div class="trend-chart">${trendChartHtml(chartHands,chartPlayers,true)}</div>${chartNeedsCorrection?'<div class="career-note" style="margin-top:8px">最後一點為正式結算校正（不是新增牌局）；逐把資料與正式結算均未修改。</div>':''}</div>`:''
   const div=document.createElement('div'); div.id='sessionDetailModal'; div.className='modal';
   div.innerHTML=`<div class="modal-box session-detail-box" style="max-width:720px"><div class="toprow session-detail-sticky"><div><div class="muted">${escapeHtml(ti.range)}</div><h2 style="margin:3px 0">${ss.roomName||'牌局'}</h2><div class="session-duration-chip">⏱️ 本場耗時 ${escapeHtml(ti.duration)}</div></div><div class="modal-nav-actions"><button class="session-back-btn" onclick="document.getElementById('sessionDetailModal').remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="document.getElementById('sessionDetailModal').remove()" aria-label="關閉">×</button></div></div><div class="career-note">${ss.stake||''}${ss.place?'・'+ss.place:''}</div><div style="margin-top:14px">${rows}${missingScoreHtml}${totalHtml}</div>${statsHtml}${handsHtml}${perHandHtml}<button class="secondary danger-soft session-delete-btn" onclick="deleteSessionById('${ss.id}')">刪除這一將</button></div>`
   document.body.appendChild(div)
@@ -13807,7 +13813,7 @@ function v132OpenSeries(ids){
   const needsSettlementPoint=combinedHands.length>0 && players.some(p=>settlementDifferences[p]!==0)
   const chartHands=needsSettlementPoint?[...combinedHands,{result:'結算校正',round:'正式結算',changes:settlementDifferences}]:combinedHands
   const aggregateChart=combinedHands.length?
-    `<div style="margin-top:16px"><h3>連打累積輸贏走勢</h3><div class="trend-chart">${trendChartHtml(chartHands,players)}</div>${needsSettlementPoint?'<div class="career-note" style="margin-top:8px">最後一點為正式結算校正（非實際牌局）；逐把紀錄與原始金流未修改。</div>':''}</div>`:''
+    `<div style="margin-top:16px"><h3>連打累積輸贏走勢</h3><div class="trend-chart">${trendChartHtml(chartHands,players,true)}</div>${needsSettlementPoint?'<div class="career-note" style="margin-top:8px">最後一點為正式結算校正（非實際牌局）；逐把紀錄與原始金流未修改。</div>':''}</div>`:''
   const detailHtml=sessions.map((ss,i)=>`<button class="secondary" style="margin-top:7px;text-align:left;width:100%;font-size:13px" onclick="document.getElementById('v132SeriesModal')?.remove();showSessionDetail('${ss.id}')">第 ${i+1} 將・${escapeHtml(ss.stake||'')}・查看／修改 ›</button>`).join('')
   div.innerHTML=`<div class="modal-box" style="max-width:620px;margin:0 auto;min-width:0"><div class="toprow" style="position:sticky;top:0;z-index:10;background:#fffaf7;padding:8px 0 12px;border-bottom:1px solid var(--line);gap:8px"><h2 style="margin:0;font-size:20px">連打 ${sessions.length} 將・合計</h2><button type="button" class="secondary" style="margin-left:auto;white-space:nowrap;padding:9px 12px" onclick="document.getElementById('v132SeriesModal')?.remove();returnToCurrentRoom()">← 返回房間</button><button class="modal-close-round" onclick="this.closest('.modal').remove()">×</button></div><div class="career-note" style="margin:10px 0 12px">${sameStake?escapeHtml(stake)+'・':''}合併顯示一次打牌的總輸贏</div><div style="padding:2px 12px 10px;background:var(--card,#fff);border-radius:14px">${totalsHtml}</div>${totalSum!==0?`<div class="career-note" style="margin-top:8px">⚠️ 合計不平衡：${money(totalSum)}，請檢查原始牌局</div>`:''}${handCheckNote}${aggregateStats}${aggregateChart}<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:800;padding:10px 0">原始資料維護（${sessions.length} 將）</summary><div class="career-note">僅供修正個別原始牌局；一般查看以合計結果為準。</div>${detailHtml}</details></div>`
   document.body.appendChild(div)
