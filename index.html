@@ -11041,6 +11041,8 @@ function v33StopGameClock(endAt){
 let v32LivePollTimer=null
 let v32HeartbeatTimer=null
 let v32ViewingSessionId=''
+let v186PreviousSeriesHands=[]
+let v186PreviousSeriesKey=''
 function v32StopLivePoll(){ if(v32LivePollTimer){clearInterval(v32LivePollTimer);v32LivePollTimer=null} }
 function v32StartRecorderHeartbeat(){
   if(v32HeartbeatTimer) clearInterval(v32HeartbeatTimer)
@@ -11087,14 +11089,33 @@ function v32ViewerStatsHtml(){
     return `<div class="viewer-player-card pos-${pos} ${p===dealer?'dealer':''}"><div class="viewer-player-top"><span class="viewer-player-name">${escapeHtml(wind)}家・${escapeHtml(p)} ${p===dealer?'<span class="viewer-dealer-tag">莊</span>':''}</span><span class="viewer-player-money" style="color:${n>=0?'#6caa8b':'#cf7f91'}">${n>=0?'+':''}$${n.toLocaleString()}</span></div><div class="viewer-player-meta">胡 ${c.win}・自摸 ${c.self}・放槍 ${c.discard}</div></div>`
   }).join('')
 }
+async function v186LoadPreviousSeries(ss,byId,roomPlayers){
+  const seriesId=ss.seat_map?._series_id||''
+  const key=ss.room+':'+seriesId
+  if(v186PreviousSeriesKey===key)return
+  v186PreviousSeriesKey=key;v186PreviousSeriesHands=[]
+  if(!seriesId)return
+  try{
+    const filter=encodeURIComponent(`room="${pbFilterValue(ss.room)}" && status="completed"`)
+    const response=await pbRequest(`/api/collections/game_sessions/records?perPage=100&sort=started_at&filter=${filter}`)
+    const previous=(response.items||[]).filter(x=>x.seat_map?._series_id===seriesId&&x.id!==ss.id).sort((a,b)=>Number(a.seat_map?._series_index||0)-Number(b.seat_map?._series_index||0))
+    for(const [i,old] of previous.entries()){
+      const hf=encodeURIComponent(`session="${pbFilterValue(old.id)}"`)
+      const hd=await pbRequest(`/api/collections/game_hands/records?perPage=500&sort=hand_number&filter=${hf}`)
+      ;(hd.items||[]).forEach((h,j)=>v186PreviousSeriesHands.push({gameNumber:Number(old.seat_map?._series_index||i+1),i:j,h:{round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),changes:h.payments||{}}}))
+    }
+  }catch(e){console.warn('V186: previous series history unavailable',e)}
+}
 function v186RenderLiveHands(){
   const game=document.getElementById('game');if(!game)return
   let box=document.getElementById('v186LiveHands')
   if(!box){box=document.createElement('section');box.id='v186LiveHands';box.className='card';game.appendChild(box)}
-  box.innerHTML=`<h2>🀄 即時逐把紀錄</h2><div class="muted">本將共 ${hands.length} 把・最新在上</div><div class="v186-hand-scroll">${hands.map((h,i)=>({h,i})).reverse().map(({h,i})=>{
+  const currentGameNumber=v186PreviousSeriesHands.length?Math.max(...v186PreviousSeriesHands.map(x=>x.gameNumber))+1:1
+  const all=[...v186PreviousSeriesHands,...hands.map((h,i)=>({h,i,gameNumber:currentGameNumber}))]
+  box.innerHTML=`<h2>🀄 即時逐把紀錄</h2><div class="muted">連打共 ${all.length} 把・最新在上</div><div class="v186-hand-scroll">${all.slice().reverse().map(({h,i,gameNumber})=>{
     const title=h.result==='自摸'?`${h.winner||'玩家'}自摸`:h.result==='胡牌'?`${h.winner||'玩家'}胡${h.discarder||'玩家'}`:h.result==='詐胡'?`${h.winner||'玩家'}詐胡`:'流局'
     const payments=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([p,v])=>`${escapeHtml(p)} ${Number(v)>0?'+':''}${Number(v).toLocaleString()}`).join('｜')
-    return `<div class="v186-hand-item"><b>第 ${i+1} 把｜${escapeHtml(h.round||'')}</b><div>${escapeHtml(title)}${h.result==='流局'?'':`・${Number(h.tai||0)} 台`}</div><div class="muted">${payments||'本把無金額變動'}</div></div>`
+    return `<div class="v186-hand-item"><b>第 ${gameNumber} 將・第 ${i+1} 把｜${escapeHtml(h.round||'')}</b><div>${escapeHtml(title)}${h.result==='流局'?'':`・${Number(h.tai||0)} 台`}</div><div class="muted">${payments||'本把無金額變動'}</div></div>`
   }).join('')||'<div class="muted">尚無逐把紀錄</div>'}</div>`
 }
 function v32RenderViewerDashboard(){
@@ -11148,6 +11169,7 @@ async function v32LoadLiveSession(sessionId,first=false){
   })
 
 
+  await v186LoadPreviousSeries(ss,byId,roomPlayers)
   const last=(hd.items||[]).slice(-1)[0]
   balances=last?.balances_after||{...sessionOpeningBalances}
   currentRule=stakeRules[selectedStake]||stakeRules['100/20']
@@ -11158,7 +11180,7 @@ async function openLiveSession(sessionId){
   try{v32StopLivePoll();await v32LoadLiveSession(sessionId,true);v32LivePollTimer=setInterval(()=>v32LoadLiveSession(sessionId,false).catch(()=>{}),4000)}catch(e){alert('目前無法開啟直播：'+(e.message||'請稍後再試'))}
 }
 function exitLiveViewer(){
-  v32StopLivePoll();if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}liveViewerMode=false;liveCashflowSnapshot=null;v32ViewingSessionId='';document.getElementById('v186LiveHands')?.remove()
+  v32StopLivePoll();if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}liveViewerMode=false;liveCashflowSnapshot=null;v32ViewingSessionId='';v186PreviousSeriesHands=[];v186PreviousSeriesKey='';document.getElementById('v186LiveHands')?.remove()
   const game=document.getElementById('game');if(game){game.classList.remove('live-viewer-mode','projection-mode');const b=document.getElementById('liveViewerBackBtn');if(b)b.remove()}
   document.querySelectorAll('.game-entry-card,.game-history-card,.game-finish-btn,#projectionBottom').forEach(el=>el.style.display='')
   const pbtn=document.querySelector('#projectionBottom button');if(pbtn)pbtn.textContent='📺 投影'
