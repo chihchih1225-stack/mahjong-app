@@ -11091,7 +11091,7 @@ function v32ViewerStatsHtml(){
 }
 async function v186LoadPreviousSeries(ss,byId,roomPlayers){
   const seriesId=ss.seat_map?._series_id||''
-  const key=ss.room+':'+seriesId
+  const key=ss.room+':'+seriesId+':'+ss.id
   if(v186PreviousSeriesKey===key)return
   v186PreviousSeriesKey=key;v186PreviousSeriesHands=[]
   if(!seriesId)return
