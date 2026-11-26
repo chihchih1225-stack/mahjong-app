@@ -3,6 +3,7 @@
 const { chromium, webkit, devices } = require('playwright');
 const { readFileSync, existsSync } = require('node:fs');
 const assert = require('node:assert/strict');
+if(process.env.CI)assert(existsSync(webkit.executablePath()),'CI must run the iPhone WebKit cases');
 const html = readFileSync(process.argv[2] || 'index.html','utf8');
 const url = 'http://mahjong.test/';
 
@@ -62,7 +63,8 @@ async function check(browser,viewport,iphone) {
     await click('#projectionTaiRow button[onclick="addTai(3)"]');
     await readTai(3);
     const dealerWinner=await readAmounts();
-    assert.match(dealerWinner['飛帆'],/^\+480/);
+    assert.match(dealerWinner['飛帆'],/^\+480（24）$/);
+    assert.match(dealerWinner['阿浩'],/^-160（8）$/);
     assert.equal(await page.evaluate(()=>calculateHandPayments()['阿浩']),-160);
 
     const placement=await page.evaluate(()=>{
@@ -72,7 +74,7 @@ async function check(browser,viewport,iphone) {
         latest:last.textContent, saveInside:save.getBoundingClientRect().bottom<=panel.getBoundingClientRect().bottom+1};
     });
     assert.ok(placement.underMatrix && placement.saveInside,JSON.stringify(placement));
-    assert.match(placement.latest,/最新一筆：飛帆 自摸 7台/);
+    assert.match(placement.latest,/最新一筆：飛帆 自摸 7台.*（12）/);
 
     await click('#projectionScorePanel [data-proj-result="流局"]');
     assert.equal(await page.locator('#projectionTaiRow').isVisible(),false);

@@ -1,8 +1,7 @@
-// Run with Playwright installed: node .github/tests/projection-check.cjs [index.html or preview URL]
-// Test players and balances are synthetic. No PocketBase requests are allowed.
 const { readFileSync, existsSync } = require('node:fs');
 const assert = require('node:assert/strict');
 const { chromium, webkit, devices } = require('playwright');
+if(process.env.CI)assert(existsSync(webkit.executablePath()),'CI must run the iPhone WebKit cases');
 const fixtures = {
   players: [
     {id:'east',display_name:'阿東',user:'owner'},
@@ -11,7 +10,7 @@ const fixtures = {
     {id:'north',display_name:'阿北'},
     {id:'sub',display_name:'新上桌的長名字'},
   ],
-  session:{id:'testgame',room:'testroom',status:'active',updated:new Date().toISOString(),recorder:'owner',players:['west','north','east','south'],dealer:'east',round:'東1',dealer_repeats:0,stake:'100/20',
+  session:{id:'testgame',room:'testroom',status:'active',updated:new Date().toISOString(),recorder:'owner',players:['west','north','east','south'],dealer:'east',round:'東1',hand_number:1,dealer_repeats:0,stake:'100/20',
     seat_map:{東:{player_id:'east'},南:{player_id:'south'},西:{player_id:'west'},北:{player_id:'north'},_recorder_wind:'南'},
     final_balances:{east:1200,south:-900,west:-250,north:-50}},
   hands:[]
@@ -92,9 +91,17 @@ async function check(page,url,html){
     window.projectionFixture=mock;
     loadRoomPlayersList=async()=>window.projectionFixture.players;
     v57ResolveCheerForRoomPlayers=async()=>{};
-    pbRequest=async path=>path.includes('/game_sessions/records/testgame')?window.projectionFixture.session:{items:window.projectionFixture.hands};
+    window.liveAuditRequests=[];
+    pbRequest=async path=>{
+      window.liveAuditRequests.push(path);
+      if(path.includes('/game_sessions/records/testgame'))return window.projectionFixture.session;
+      return {page:1,totalPages:1,items:window.projectionFixture.hands};
+    };
     await v32LoadLiveSession('testgame',true);
+    window.liveAuditRequests.length=0;
+    await v32LoadLiveSession('testgame',false);
   },fixtures);
+  assert.equal((await page.evaluate(()=>window.liveAuditRequests)).length,1,'unchanged live match only fetches metadata');
   seatsOk(await state(page),['阿西','阿北','阿南','阿東'],false);
   await project(page);
   const vm=seatsOk(await state(page),['阿北','阿東','阿西','阿南']);
@@ -104,7 +111,7 @@ async function check(page,url,html){
     const {session}=window.projectionFixture;
     session.players=['east','west','north','sub'];
     session.seat_map={東:{player_id:'west'},南:{player_id:'sub'},西:{player_id:'east'},北:{player_id:'north'},_recorder_wind:'北'};
-    session.dealer='west';session.dealer_repeats=2;
+    session.dealer='west';session.dealer_repeats=2;session.hand_number=2;
     window.projectionFixture.hands=[{result:'selfdraw',winner:'west',payments:{阿北:-100,阿西:500,新上桌的長名字:-200,阿東:-200},balances_after:{阿北:300,阿西:1600,新上桌的長名字:-1000,阿東:-900}}];
     await v32LoadLiveSession('testgame',false);
   });
