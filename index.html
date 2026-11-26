@@ -3296,7 +3296,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
       <button type="button" data-proj-result="流局" onclick="projectionPickResult('流局')">流局</button>
     </div>
     <div id="projectionTaiRow" class="projection-tai-row">
-      <button type="button" onclick="addTai(-1)">−1</button><b id="projectionTaiValue">0 台</b>
+      <button type="button" onclick="addTai(-1)">−1</button><button type="button" id="projectionTaiValue" onclick="resetTai()" aria-label="台數歸零" title="台數歸零">0 台</button>
       <button type="button" onclick="addTai(1)">+1</button><button type="button" onclick="addTai(2)">+2</button><button type="button" onclick="addTai(3)">+3</button>
     </div>
     <div class="projection-pattern-row"><button type="button" onclick="togglePatterns()">＋ 特殊牌型</button><span id="projectionPatternSummary">未選</span></div>
@@ -6891,7 +6891,6 @@ function renderGame(){
 
 
   renderPaymentPreview()
-  syncProjectionScorePanel()
 
 
 }
@@ -10827,6 +10826,13 @@ function toggleProjectionMode(){
   const entering=!game.classList.contains('projection-mode')
   const viewerProjection=!!liveViewerMode
   game.classList.toggle('projection-mode',entering)
+  const latestHand=document.getElementById('projectionLatestHand')
+  if(latestHand){
+    const destination=entering&&!viewerProjection
+      ?document.querySelector('#cashflowMatrix')
+      :document.querySelector('#projectionScorePanel .projection-save-hand')
+    if(destination) destination.after(latestHand)
+  }
   if(entering) syncProjectionScorePanel()
   if(viewerProjection){
     const stats=document.getElementById('playerStats')
@@ -11073,17 +11079,23 @@ completeRemoteSession=async function(reason='normal'){v33StopGameClock();const r
 // 台數 + 金額核對：直接顯示本場台數，以及目前莊家的連莊實際台數。
 function renderPaymentPreview(){
   const box=document.getElementById('calculationPreview');if(!box)return
-  if(result==='流局'){box.innerHTML='流局不產生金額變動，原莊連莊。';return}
-  if(!winner){box.innerHTML=result==='詐胡'?'請先選擇誰詐胡。':'請先選擇胡牌的人。';return}
-  if(result==='胡牌'&&!discarder){box.innerHTML='請選擇放槍的人。';return}
+  box.innerHTML=buildPaymentPreviewHtml()
+  // 台數和詐胡按鈕不會重新 renderGame，也要同步投影標籤及金額。
+  syncProjectionScorePanel()
+}
+
+function buildPaymentPreviewHtml(){
+  if(result==='流局') return '流局不產生金額變動，原莊連莊。'
+  if(!winner) return result==='詐胡'?'請先選擇誰詐胡。':'請先選擇胡牌的人。'
+  if(result==='胡牌'&&!discarder) return '請選擇放槍的人。'
   const changes=calculateHandPayments()
   const dealerTai=getDealerBonusTai();const dealerText=repeats>0?`連${repeats}拉${repeats}・莊家 ${dealerTai} 台`:`莊家 ${dealerTai} 台`
   const baseTaiText=result==='詐胡'?'詐胡各家依設定台數':`本場 ${tai} 台`
   // 核對數字只附在本把胡牌／自摸的金額旁，不影響實際金流或詐胡計算。
   const stakeRule=stakeRules[selectedStake]
   const confirmationForPlayer=(player)=>{if((result!=='胡牌'&&result!=='自摸')||!stakeRule||!(Number(stakeRule.tai)>0))return '';const dealerExtra=result==='自摸'&&(winner===dealer||player===dealer)?getDealerBonusTai():0;return `（${Number(stakeRule.base)/Number(stakeRule.tai)+Number(tai)+dealerExtra}）`}
-  const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;const dealerBadge=p===dealer?`<span class="v38-dealer-tai">${dealerText}</span>`:'';return `<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:16px"><span style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><b>${escapeHtml(p)}</b>${t?`<span class="v32-preview-sub">${t}</span>`:''}${dealerBadge}</span><b style="font-size:17px;color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}${a.toLocaleString()}${confirmationForPlayer(p)}</b></div>`}).join('')
-  box.innerHTML=`<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一將目前沒有金額變動。'}`
+  const lines=P.filter(p=>changes[p]!==0).map(p=>{const a=changes[p];let t='';if(result==='詐胡'&&p!==winner)t=`${fraudTai[p]??0} 台`;else if(result!=='詐胡')t=`${tai} 台`;const dealerBadge=p===dealer?`<span class="v38-dealer-tai">${dealerText}</span>`:'';return `<div class="payment-preview-row" style="display:flex;justify-content:space-between;align-items:center;margin:9px 0;font-size:16px"><span class="payment-preview-player" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><b>${escapeHtml(p)}</b>${t?`<span class="v32-preview-sub">${t}</span>`:''}${dealerBadge}</span><b class="payment-preview-amount" style="font-size:17px;color:${a>0?'#6caa8b':'#cf7f91'}">${a>0?'+':''}${a.toLocaleString()}${confirmationForPlayer(p)}</b></div>`}).join('')
+  return `<div class="v32-preview-head">${baseTaiText}</div>${lines||'這一將目前沒有金額變動。'}`
 }
 
 
@@ -12455,7 +12467,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V186-1'
+  const APP_VERSION='V186-2'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -14067,6 +14079,59 @@ html body #game.projection-mode:not(.hidden) #v181LiveLatestPoint{position:stati
   white-space:nowrap;
 }
 #game.projection-mode #playerStats .leader-crown{font-size:1em}
+</style>
+
+<style id="v186-2-recorder-projection">
+/* Tighten only the recorder's middle panel. The payment stays independent of the player's badges. */
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionTaiRow.hidden{
+  display:none!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionTaiRow button{
+  min-width:0!important;min-height:0!important;height:clamp(30px,8vh,55px)!important;
+  touch-action:manipulation!important;font-size:clamp(11px,1.35vw,20px)!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionTaiValue{
+  background:#f5e9fb!important;border:1px solid #dfc6ec!important;color:#713c8b!important;
+  font-weight:900!important;white-space:nowrap!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview{
+  flex:1 1 0!important;min-height:32px!important;overflow:auto!important;
+  overscroll-behavior:contain;padding:4px 6px!important;
+  font-size:clamp(10px,1.18vw,18px)!important;line-height:1.22!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview .v32-preview-head{
+  font-size:inherit!important;margin:0 0 3px!important;padding:0 0 3px!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview .payment-preview-row{
+  display:grid!important;grid-template-columns:minmax(0,1fr) max-content!important;
+  align-items:center!important;gap:2px 5px!important;
+  margin:0!important;padding:3px 0!important;font-size:inherit!important;line-height:1.18!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview .payment-preview-player{
+  min-width:0;overflow-wrap:anywhere;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview .payment-preview-amount{
+  justify-self:end;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview :is(.v32-preview-sub,.v38-dealer-tai){
+  font-size:.82em;line-height:1.15;margin-left:2px;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview .v38-dealer-tai{
+  max-width:100%;padding:1px 4px;white-space:normal;
+}
+/* Latest hand lives directly beneath the matrix, outside the scoring controls. */
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card{
+  overflow:auto!important;overscroll-behavior:contain;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashflow-card #projectionLatestHand{
+  max-height:none!important;overflow:visible!important;margin-top:8px!important;
+  white-space:normal;overflow-wrap:anywhere;
+}
+@media(max-height:420px){
+  html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview .payment-preview-row{
+    padding:2px 0!important;
+  }
+}
 </style>
 </body>
 </html>

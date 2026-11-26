@@ -1,5 +1,5 @@
-/* 誰與爭鋒 V186-1 Service Worker - projection seats 20261126 */
-const CACHE_NAME='mahjong-pwa-V186-1-20261126';
+/* 誰與爭鋒 V186-2 Service Worker - recorder projection controls 20261126 */
+const CACHE_NAME='mahjong-pwa-V186-2-20261126';
 const APP_SHELL=['/','/manifest.webmanifest'];
 
 
