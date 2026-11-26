@@ -18,6 +18,7 @@ jobs:
       - name: Check recorder sync, settlement and history
         run: |
           node .github/tests/v186-3-data-regression.cjs
+          node .github/tests/v187-continuity.cjs
           node tests/v185-next-match-simulation.cjs
       - name: Install Chromium and WebKit
         run: |

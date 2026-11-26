@@ -3202,7 +3202,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
   </div>
 
 
-  <div id="liveTickerWrap" class="live-ticker-wrap" aria-live="polite">
+  <div id="liveTickerWrap" class="live-ticker-wrap">
     <div id="liveTickerTrack" class="live-ticker-track">🀄 牌局進行中　・　🍀 摸起來！摸起來！　・　💰 結帳才是大事</div>
   </div>
 
@@ -3303,7 +3303,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
     </div>
     <div class="projection-pattern-row"><button type="button" onclick="togglePatterns()">＋ 特殊牌型</button><span id="projectionPatternSummary">未選</span></div>
     <div id="projectionCalcPreview" class="projection-calc-preview">選好結果與玩家後會顯示金額</div>
-    <button type="button" class="projection-save-hand" onclick="saveHand()">記錄這一把</button><div id="projectionLatestHand" aria-live="polite">最新一筆：尚未記錄</div>
+    <button type="button" class="projection-save-hand" onclick="saveHand()">記錄這一把</button>
   </div>
 
 
@@ -3357,11 +3357,13 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
     <div class="cashflow-title-row">
       <div>
         <h2 style="margin-bottom:3px">🏧 誰是提款機</h2>
-        <div class="muted">列＝付款的人・欄＝收到的人</div>
+        <div class="muted">列＝玩家・欄＝對手</div>
       </div>
-      <span class="muted">本場即時</span>
+      <span class="muted">連打累計</span>
     </div>
     <div id="cashflowMatrix"></div>
+    <div id="projectionLatestHand" aria-live="polite">最新一筆：尚未記錄</div>
+    <div id="v187LiveBetween" class="notice" role="status" hidden></div>
   </div>
 
 
@@ -5371,9 +5373,7 @@ function getRoundName(index){
 function startDrawSeats(){
 
 
-  drawPool=
-    [...winds]
-    .sort(()=>Math.random()-.5)
+  drawPool=v187ShuffleSeats(winds)
 
 
   drawTurn=0
@@ -5574,12 +5574,17 @@ function nextDrawer(){
 ========================= */
 
 
+function v187ShuffleSeats(values,random=Math.random){
+  // Fisher–Yates: each of the 24 four-seat permutations is equally likely.
+  const order=[...values]
+  for(let i=order.length-1;i>0;i--){
+    const j=Math.floor(random()*(i+1))
+    ;[order[i],order[j]]=[order[j],order[i]]
+  }
+  return order
+}
 function randomSeats(){
-
-
-  seats=
-    [...P]
-    .sort(()=>Math.random()-.5)
+  seats=v187ShuffleSeats(P)
 
 
   document
@@ -6375,14 +6380,10 @@ function gamePlayerColors(players=P){
   return map
 }
 function buildTrendSeries(sessionHands, players, historical=false){
-  // V185-2：與提款機使用同一份完整金流帳本。折線圖起點為本將開始前的累積金額，
-  // 再逐把加上 changes，讓線尾代表目前連打累積金額，而不是每將重新從零開始。
-  const ledger=buildCashflowMatrix(sessionHands,players)
-  const current=Object.fromEntries(players.map(p=>[p,players.reduce((sum,other)=>sum+Number(ledger[other]?.[p]||0)-Number(ledger[p]?.[other]||0),0)]))
-  const handTotals=Object.fromEntries(players.map(p=>[p,(sessionHands||[]).reduce((sum,h)=>sum+Number(h?.changes?.[p]||0),0)]))
-  // 正式結算校正點只用於歷史圖表：從零開始依逐把及校正差額畫到正式結算。
-  if(historical || (sessionHands||[]).some(h=>h?.result==='結算校正')) players.forEach(p=>{current[p]=handTotals[p]})
-  const running=Object.fromEntries(players.map(p=>[p,current[p]-handTotals[p]]))
+  const active=!historical && !(sessionHands||[]).some(h=>h?.result==='結算校正')
+  const handTotals=Object.fromEntries(players.map(p=>[p,(sessionHands||[]).reduce((n,h)=>n+Number(h?.changes?.[p]||0),0)]))
+  // Use the same authoritative cumulative balance as the seats and pie.
+  const running=Object.fromEntries(players.map(p=>[p,active?Number(balances?.[p]||0)-handTotals[p]:0]))
   const points=[{label:'本將起點',round:'',values:{...running}}]
   ;(sessionHands||[]).forEach((h,i)=>{
     players.forEach(p=>{running[p]+=Number(h?.changes?.[p]||0)})
@@ -6486,7 +6487,7 @@ function buildCashflowMatrix(sessionHands=hands,players=P){
 
   // V108：計分端以「權威帳本」為準，不再每次畫面重算上一場。
   // 舊進度第一次進來時，才用既有 base + hands 初始化一次，之後每把直接累加帳本。
-  if(seriesCashflowLedger && typeof seriesCashflowLedger==='object'){
+  if(!liveViewerMode && seriesCashflowLedger && typeof seriesCashflowLedger==='object'){
     const matrix=emptyCashflow(players)
     ;(players||[]).forEach(from=>{
       ;(players||[]).forEach(to=>{
@@ -6565,60 +6566,50 @@ function rollbackHandFromCashflowLedger(hand){
   seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))
 }
 
+function v187CashflowRows(order,sessionHands=hands){
+  const source=liveViewerMode?(liveCashflowSnapshot||seriesCashflowBase):seriesCashflowLedger||seriesCashflowBase
+  const names=[...new Set([...order,...Object.keys(source||{}),...Object.values(source||{}).flatMap(row=>Object.keys(row||{}))])]
+  const matrix=buildCashflowMatrix(sessionHands,names)
+  const offTable=names.filter(p=>!order.includes(p))
+  const net=(from,to)=>Number(matrix[to]?.[from]||0)-Number(matrix[from]?.[to]||0)
+  return order.map(from=>{
+    const against=order.map(to=>net(from,to))
+    const others=offTable.reduce((sum,to)=>sum+net(from,to),0)
+    const total=Number(balances?.[from]||0)
+    // Opening entries (or legacy records without a payment breakdown) cannot be assigned to an opponent.
+    const unexplained=total-others-against.reduce((sum,n)=>sum+n,0)
+    return {from,against,others,total,unexplained}
+  })
+}
 function renderCashflowMatrix(){
   const el=document.getElementById('cashflowMatrix')
-  if(!el) return
+  if(!el)return
   if(!P?.length){el.innerHTML='<div class="muted">尚無玩家資料</div>';return}
-
-
-  // V107：提款機就是完整的「每個人對每個人」累積流水。
-  // A→B 與 B→A 各自保留，絕不互抵；只在連打總結算後才歸零。
   const order=(Array.isArray(seats)&&seats.length===P.length&&seats.every(n=>P.includes(n)))?[...seats]:[...P]
-  const matrix=buildCashflowMatrix(hands,order)
-  // V183：提款機沿用完整帳本，但當將畫面只呈現目前四位玩家。
-  // 列為玩家視角；正值＝從對方淨贏，負值＝淨輸。
-  const net=Object.fromEntries(order.map(p=>[p,order.reduce((sum,other)=>sum+Number(matrix[other]?.[p]||0)-Number(matrix[p]?.[other]||0),0)]))
-
-
+  const rows=v187CashflowRows(order)
+  const hasOthers=rows.some(row=>row.others!==0)
+  const hasUnexplained=rows.some(row=>row.unexplained!==0)
+  const cell=(n,cls='')=>`<td class="${cls?cls+' ':''}${n>0?'pos':n<0?'neg':'cashflow-zero'}">${cls?(n===0?'$0':money(n)):(n>0?'+':'')+n.toLocaleString()}</td>`
   let html='<div class="cashflow-scroll"><table class="cashflow-table"><thead><tr><th>玩家 ↓ / 對手 →</th>'
   html+=order.map(p=>`<th>${escapeHtml(p)}</th>`).join('')
+  if(hasOthers)html+='<th>離場<br>對手</th>'
+  if(hasUnexplained)html+='<th>未分列<br>金額</th>'
   html+='<th>合計</th></tr></thead><tbody>'
-
-
-  order.forEach(from=>{
+  rows.forEach(({from,against,others,total,unexplained})=>{
     html+=`<tr><th class="cashflow-rowname">${escapeHtml(from)}</th>`
-    order.forEach(to=>{
-      if(from===to){html+='<td class="cashflow-zero">—</td>';return}
-      const v=Number(matrix[to]?.[from]||0)-Number(matrix[from]?.[to]||0)
-      html+=`<td class="${v>0?'pos':v<0?'neg':'cashflow-zero'}">${v>0?'+':''}${v.toLocaleString()}</td>`
-    })
-    const n=Number(net[from]||0)
-    html+=`<td class="cashflow-total ${n>0?'pos':n<0?'neg':''}">${n>0?'+':''}$${n.toLocaleString()}</td></tr>`
+    against.forEach((n,i)=>{html+=from===order[i]?'<td class="cashflow-zero">—</td>':cell(n)})
+    if(hasOthers)html+=cell(others)
+    if(hasUnexplained)html+=cell(unexplained)
+    html+=cell(total,'cashflow-total')+'</tr>'
   })
-
-
   html+='</tbody></table></div>'
-  html+='<div class="cashflow-note">提款機由每一把實際付款計算兩人之間的淨輸贏：綠色正數為列玩家贏對手，紅色負數為列玩家輸對手；最右側合計與計分水位對帳。按「繼續下一將」不歸零，完成「連打總結算」才重新開始。</div>'
-
-
-  const mismatch=order.filter(p=>Math.round(Number(net[p]||0))!==Math.round(Number(balances[p]||0)))
-  if(mismatch.length){
-    html+=`<div class="cashflow-note" style="color:#a35f6d;font-weight:900">⚠️ 對帳異常：${mismatch.map(escapeHtml).join('、')} 的提款機合計與計分水位不同</div>`
-  }
+  html+='<div class="cashflow-note">合計是連打累計輸贏。綠色為贏對手，紅色為輸對手。</div>'
+  if(hasUnexplained)html+='<div class="v187-cashflow-explain">未分列金額：已計入累計，但沒有對手明細，例如中途帶入的金額。</div>'
   el.innerHTML=html
-  if((hands||[]).length && mismatch.length) console.warn('V102：提款機合計與目前計分水位不一致',mismatch)
 }
 function cashflowReconciles(){
-  if(!P?.length) return true
-  const matrix=buildCashflowMatrix(hands,P)
-  return P.every(p=>{
-    const paid=P.reduce((s,b)=>s+Number(matrix[p]?.[b]||0),0)
-    const received=P.reduce((s,a)=>s+Number(matrix[a]?.[p]||0),0)
-    return Math.round(received-paid)===Math.round(Number(balances[p]||0))
-  })
+  return v187CashflowRows(P||[]).every(row=>row.unexplained===0)
 }
-
-
 
 
 /* =========================
@@ -6653,168 +6644,76 @@ function v57ResolveCheerFromCurrentMap(){
   v57CheerPlayerName=hit?.display_name||v57CheerPlayerName||''
   return v57CheerPlayerName
 }
-function v56TickerMessages(){
-  const cheer=v57ResolveCheerFromCurrentMap()
-  const msgs=[]
-  const add=(...xs)=>xs.filter(Boolean).forEach(x=>msgs.push(x))
-  const canon=x=>canonicalPlayerName(x||'')
-  const names=(P||[]).map(canon).filter(Boolean)
-  const money=Object.fromEntries(names.map(n=>[n,Number(balances?.[n]||0)]))
-  const sorted=[...names].sort((a,b)=>money[b]-money[a])
-  const leader=sorted[0]||'', trailer=sorted[sorted.length-1]||''
-  const lastHand=(hands||[]).length?hands[hands.length-1]:null
-
-
-  if(cheer) add(`📣📣 ${cheer} 加油！加油！第一名！ 📣📣`)
-
-
-  // 上一把真實事件：只講真的發生過的結果。
-  if(lastHand?.result==='胡牌' && lastHand?.winner && lastHand?.discarder){
-    const w=canon(lastHand.winner),d=canon(lastHand.discarder)
-    add(`🀄 剛剛 ${w} 胡了 ${d}！`,`💥 ${d} 一張牌送進 ${w} 的口袋`,`🎯 ${w} 抓到機會，${d} 這把買單`)
-  }else if(lastHand?.result==='自摸' && lastHand?.winner){
-    const w=canon(lastHand.winner)
-    add(`🎯 剛剛 ${w} 自摸！其他三家一起買單`,`✨ ${w} 自己摸到答案，三家一起掏錢`,`🀄 ${w} 自摸成功，這把全桌都有份`)
-  }else if(lastHand?.result==='流局'){
-    add('🌊 剛剛流局，下一把重新來過','🀄 四家都守住了，這把和平收場','👀 沒人胡？下一把火力再開')
-  }else if(lastHand?.result==='詐胡' && lastHand?.winner){
-    const w=canon(lastHand.winner)
-    add(`🚨 剛剛 ${w} 詐胡，牌桌瞬間安靜三秒`,`😳 ${w} 這聲胡喊得有點貴`,`🧾 ${w} 詐胡帳單已送達`)
+const v187TickerIdle=[
+  '🍀 好牌還在路上，先摸這一張','🎲 四個人一桌，下一張誰都猜不到',
+  '🀄 聽牌先別說，等胡了再大聲','✨ 牌桌沒有劇本，下一把就是新故事',
+  '👀 桌上越安靜，摸牌聲越清楚','🍵 喝口茶再摸，手氣慢慢熱起來',
+  '🎯 平常心出牌，驚喜留給下一摸','🌟 聽牌的距離，有時只差一張',
+  '🀄 有人等一張，有人還在等靈感','🍀 好運正在洗牌，不知道會發到哪家',
+  '🧋 宵夜可以先想，牌還有下一把','🎲 下一張翻開前，四家都有故事'
+]
+let v187TickerBoundEl=null,v187TickerScope='',v187TickerEventKey='',v187TickerPriority=[],v187TickerDeck=[],v187TickerLast=''
+function v187TickerEvents(last){
+  if(!last)return []
+  const w=last.winner,d=last.discarder
+  const events=[]
+  if(last.result==='自摸'&&w)events.push(`🀄 ${w} 自摸！這把三家一起付`)
+  else if(last.result==='胡牌'&&w&&d)events.push(`🎯 ${w} 胡牌！這把和 ${d} 結帳`)
+  else if(last.result==='流局')events.push('🌊 這把流局，下一把再見真章')
+  else if(last.result==='詐胡'&&w)events.push(`🧾 ${w} 這把記為詐胡，下一把重新來`)
+  if(repeats>0&&dealer&&dealer===last.dealer)events.push(`🔥 ${dealer} 連莊 ${repeats} 次，莊家椅先不換人`)
+  const uniqueLeader=values=>{
+    const ranking=P.map(p=>({p,n:values(p)})).sort((a,b)=>b.n-a.n)
+    return ranking.length>1&&ranking[0].n>ranking[1].n?ranking[0].p:''
   }
-
-
-  if(names.length===4){
-    const [a,b,c,d]=names
-    add(
-      `🎲 今晚牌桌：${names.join('・')}，四位都別想跑`,
-      `🔥 ${a} 摸好一點，${b} 小心放槍`,
-      `👀 ${c} 正在等機會，${d} 牌要拿穩`,
-      `🀄 ${a} 看起來很淡定，${c} 不一定相信`,
-      `😈 ${b} 今天的牌運，${d} 正在偷偷觀察`,
-      `🎲 ${c} 下一張摸什麼，另外三家都很關心`,
-      `💸 ${d} 先別算錢，牌還沒打完`,
-      `👀 ${a} 跟 ${b} 的眼神交流，看起來不太單純`,
-      `🔥 ${c} 還沒出手，不代表沒有在等大的`,
-      `🀄 ${d} 牌拿穩，旁邊三家都在等機會`
-    )
-  }
-
-
-  add(
-    '💸 今天誰要負責請宵夜？','😈 牌桌無朋友，結帳才有朋友','🍀 摸起來！摸起來！',
-    '💰 輸贏乃兵家常事，結帳才是大事','🀄 好牌慢慢摸，錢包顧好','🔥 一把翻身的機會永遠在下一把',
-    '🎲 骰子沒有感情，牌桌也沒有','👀 安靜不代表安全，可能只是在做大牌','💳 今日消費請以牌桌結算為準',
-    '🧧 贏錢先別急著笑，連打還沒結束','🀄 牌可以亂摸，帳不能亂算','😎 贏的先低調，輸的還有下一把',
-    '💸 錢沒有不見，只是換到別人的水位','🔥 牌局還沒結束，誰都可能翻盤','🎯 好牌要胡到才算數',
-    '👑 王座坐得穩不穩，下一把就知道','🍀 今天的運氣可能正在洗牌中','😈 牌桌最遠的距離，是聽牌到流局',
-    '🀄 摸牌前人人平等，摸牌後各憑本事','💰 水位只是暫時，結帳才是現實','👀 有人正在做大事，只是還沒被發現',
-    '🎲 下一把會發生什麼？錢包比你更想知道','🔥 連莊不可怕，可怕的是莊家越坐越舒服','💸 一張牌的距離，也可能是一頓宵夜的距離',
-    '🀄 先別問誰最強，先看最後誰收錢','😏 笑最大聲的不一定贏最多','🎯 胡牌靠實力，自摸有時也要一點命',
-    '💰 贏錢的人記得保持禮貌，等等可能要吐回去','👀 牌桌上的沉默，通常都在醞釀事情','🍀 好運正在路上，至於到誰家就不知道了',
-    '🧾 本桌不賒帳，感情可以下次再談','🔥 一把不夠就兩把，兩把不夠就連打','🀄 摸到好牌先藏好表情',
-    '😈 今天沒有永遠的贏家，只有暫時的債主','💸 牌局越晚，錢包越誠實','🎲 每一張牌都有自己的命運，尤其是放槍那張',
-    '👑 想坐王座？先問另外三家答不答應','💰 數字會說話，而且通常說得很直接','🀄 有聽就有希望，有胡才有收入',
-    '🔥 逆風不要怕，怕的是下一張又打錯','👀 這桌氣氛很好，直到有人開始算錢','😎 表情管理很重要，尤其拿到大牌的時候',
-    '💸 今日財富重新分配進行中','🎯 放槍是一瞬間，提款機紀錄是一整晚','🀄 牌桌沒有劇本，但每一把都有劇情',
-    '🍀 拜託下一張，來一張有用的','😈 想偷雞？另外三家都看著呢','💰 先贏不算贏，結帳拿錢才算',
-    '🔥 今晚的冠軍還沒有下班','👀 有人水位正在悄悄變化','🎲 摸牌三秒鐘，人生跑馬燈三分鐘',
-    '🀄 這不是運氣不好，只是好牌還在路上','💸 宵夜錢、計程車錢，今晚都可能在桌上流動','😏 嘴上說隨便打，手上每張都想很久',
-    '🎯 聽牌不說話，胡牌再大聲','🔥 下一把就是新的故事','💰 請珍惜目前的正數，它可能很短暫',
-    '🀄 四個人一桌，總有人覺得自己今天特別衰','👀 不要偷看別人的水位，先顧好自己的','🍀 摸到想要的那張，就是今晚最浪漫的事',
-    '😈 牌桌上的友情，經得起自摸嗎？','💸 今日提款額度由牌運決定','🎲 每一次出牌，都是一次小型財務決策'
-  )
-
-
-  if(dealer){
-    const dn=canon(dealer)
-    add(`👑 ${dn} 正在坐莊${repeats>0?`・連 ${repeats}`:''}`)
-    if(repeats>=1) add(`🔥 ${dn} 已經連莊 ${repeats}，三家準備拆台`,`👑 ${dn} 的莊還沒下班，其他三家加油`)
-    if(repeats>=2) add(`😈 ${dn} 這個莊坐得有點舒服了吧`,`💸 再讓 ${dn} 連下去，今晚宵夜可能有人包了`)
-  }
-
-
-  if(names.length){
-    if(leader && money[leader]>0){
-      add(`💰 ${leader} 目前領先 +$${money[leader].toLocaleString()}`,`👑 ${leader} 暫坐第一名，後面三家正在追`,`😎 ${leader} 現在水位最好，但還不能太早開香檳`)
-    }
-    if(trailer && money[trailer]<0){
-      add(`🔥 ${trailer} 目前 $${money[trailer].toLocaleString()}，逆轉劇本可以開始了`,`🍀 ${trailer} 別急，下一把可能就是轉折點`,`💸 ${trailer} 現在先蹲低一點，等等看能不能跳回來`)
-    }
-    if(leader && trailer && leader!==trailer){
-      const gap=money[leader]-money[trailer]
-      if(gap>0) add(`📊 ${leader} 和 ${trailer} 目前相差 $${gap.toLocaleString()}，牌局還有得追`)
-    }
-
-
-    const discards=Object.fromEntries(names.map(p=>[p,0]))
-    ;(hands||[]).forEach(h=>{const d=canon(h.discarder);if(h.result==='胡牌'&&d&&discards[d]!=null)discards[d]++})
-    const bomber=[...names].sort((a,b)=>discards[b]-discards[a])[0]
-    if(bomber && discards[bomber]>=2) add(`💣 ${bomber} 已經放槍 ${discards[bomber]} 次`,`🚨 ${bomber} 今日危險牌雷達可能需要校正`,`😈 ${bomber} 再放一槍，另外三家可能要頒感謝狀`)
-
-
-    const selfdraws=Object.fromEntries(names.map(p=>[p,0]))
-    const wins=Object.fromEntries(names.map(p=>[p,0]))
-    ;(hands||[]).forEach(h=>{const w=canon(h.winner);if(w&&wins[w]!=null&&(h.result==='胡牌'||h.result==='自摸'))wins[w]++;if(w&&selfdraws[w]!=null&&h.result==='自摸')selfdraws[w]++})
-    const hot=[...names].sort((a,b)=>wins[b]-wins[a])[0]
-    if(hot && wins[hot]>=2) add(`🔥 ${hot} 已經胡了 ${wins[hot]} 把，手感正在熱`,`🎯 ${hot} 今天胡牌雷達有開`)
-    const selfKing=[...names].sort((a,b)=>selfdraws[b]-selfdraws[a])[0]
-    if(selfKing && selfdraws[selfKing]>=2) add(`✨ ${selfKing} 已經自摸 ${selfdraws[selfKing]} 次，另外三家壓力不小`)
-
-
-    const matrix=buildCashflowMatrix(hands,P)
-    const paid=Object.fromEntries(names.map(a=>[a,names.reduce((s,b)=>s+Number(matrix[a]?.[b]||0),0)]))
-    const payer=[...names].sort((a,b)=>paid[b]-paid[a])[0]
-    if(payer && paid[payer]>0) add(`🏧 ${payer} 目前累積付出 $${paid[payer].toLocaleString()}`,`💳 ${payer} 的付款紀錄目前最忙`,`🧾 ${payer} 今日金流很活躍，提款機正在認真記帳`)
-  }
-
-
-  // 去除重複，避免同一句在同一輪跑馬燈出現兩次。
-  return [...new Set(msgs)]
+  const before=uniqueLeader(p=>Number(balances[p]||0)-Number(last.changes?.[p]||0))
+  const after=uniqueLeader(p=>Number(balances[p]||0))
+  if(before&&after&&before!==after)events.push(`👑 ${after} 反超登頂，第一名換人坐了`)
+  return events
 }
-// V110：跑馬燈改為真正的句庫輪播。每次只播 5 句；一輪內不重複，播完才重新洗牌。
-let v110TickerQueue=[]
-let v110TickerPoolKey=''
-let v110TickerBoundEl=null
-function v110Shuffle(xs){
-  const a=[...xs]
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]
+function v187PlayTicker(el,restart=false){
+  if(!v187TickerDeck.length){
+    v187TickerDeck=v187ShuffleSeats(v187TickerIdle)
+    if(v187TickerDeck[0]===v187TickerLast)v187TickerDeck.push(v187TickerDeck.shift())
   }
-  return a
-}
-function v110NextTickerBatch(el){
-  const pool=v56TickerMessages()
-  if(!pool.length) return
-  // 玩家／戰況改變時更新句庫；保留尚未播過且仍有效的句子，再補入新句。
-  const poolKey=pool.join('\u241E')
-  if(poolKey!==v110TickerPoolKey){
-    const valid=new Set(pool)
-    v110TickerQueue=v110TickerQueue.filter(x=>valid.has(x))
-    const queued=new Set(v110TickerQueue)
-    const additions=v110Shuffle(pool.filter(x=>!queued.has(x)))
-    v110TickerQueue.push(...additions)
-    v110TickerPoolKey=poolKey
+  const next=v187TickerPriority.shift()||v187TickerDeck.shift()
+  el.textContent=next
+  v187TickerLast=next
+  const width=el.parentElement?.clientWidth||0
+  el.style.animationDuration=`${Math.max(8,Math.min(16,Math.ceil(width/105+next.length*.14)))}s`
+  if(restart){
+    el.style.animationName='none'
+    void el.offsetWidth
+    el.style.animationName=''
   }
-  if(v110TickerQueue.length<5) v110TickerQueue.push(...v110Shuffle(pool))
-  const batch=v110TickerQueue.splice(0,5)
-  const nextText=batch.join('　◆　')
-  el.textContent=nextText
-  // 每組約 5 句，控制在看得到輪替、又不會跑太快的速度。
-  const seconds=Math.max(28,Math.min(48,Math.ceil(nextText.length*0.18)))
-  el.style.animationDuration=`${seconds}s`
 }
 function v56RenderTicker(){
   const el=document.getElementById('liveTickerTrack')
-  if(!el) return
-  if(v110TickerBoundEl!==el){
-    v110TickerBoundEl=el
-    v110TickerQueue=[]
-    v110TickerPoolKey=''
-    el.addEventListener('animationiteration',()=>v110NextTickerBatch(el))
-    v110NextTickerBatch(el)
-  }else if(!el.textContent.trim()){
-    v110NextTickerBatch(el)
+  if(!el)return
+  if(v187TickerBoundEl!==el){
+    v187TickerBoundEl=el
+    el.addEventListener('animationiteration',()=>v187PlayTicker(el))
+    // Keep a slower text rotation for readers who disable motion.
+    setInterval(()=>{
+      const wrap=el.parentElement
+      if(!document.hidden&&wrap?.getClientRects().length&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)v187PlayTicker(el)
+    },12000)
   }
+  const scope=(liveViewerMode?v32ViewingSessionId:gameStartedAt)||''
+  const scopeChanged=scope!==v187TickerScope
+  const last=hands?.at(-1)
+  const key=last?JSON.stringify([hands.length,last.id||last.syncId,last.result,last.winner,last.discarder,last.tai,last.changes]):''
+  if(scopeChanged){
+    v187TickerScope=scope;v187TickerEventKey='';v187TickerPriority=[];v187TickerDeck=[]
+  }
+  if(key!==v187TickerEventKey){
+    v187TickerEventKey=key
+    v187TickerPriority=v187TickerEvents(last)
+    v187PlayTicker(el,true)
+  }else if(scopeChanged||!el.dataset.v187Started){
+    v187PlayTicker(el,true)
+  }
+  el.dataset.v187Started='1'
 }
 
 
@@ -7566,174 +7465,25 @@ function renderLiveStats(){
 
 
 function renderMoneyPie(){
-
-
-  const colorMap=gamePlayerColors(P)
-  const colors=P.map(player=>colorMap[player])
-
-
-
-
-  const values=
-    P.map(player=>
-      Math.max(
-        balances[player],
-        0
-      )
-    )
-
-
-
-
-  const total=
-    values.reduce(
-      (a,b)=>a+b,
-      0
-    )
-
-
-
-
-  document
-    .getElementById('totalTableMoney')
-    .textContent=
-
-
-      `本場輸贏以 $0 起算`
-
-
-
-
-  if(total<=0){
-
-
-    document
-      .getElementById('moneyPie')
-      .style.background='#eee'
-    document
-      .getElementById('moneyLegend')
-      .innerHTML=P.map((player,index)=>`
-        <div class="legend-item">
-          <span class="legend-dot" style="background:${colors[index]}"></span>
-          <span><b>${escapeHtml(player)}</b>・$0</span>
-        </div>`).join('')
-
-
-    return
-
-
-  }
-
-
-
-
+  const colors=gamePlayerColors(P)
+  const entries=P.map(player=>({player,amount:Number(balances?.[player]||0)}))
+  const total=entries.reduce((sum,x)=>sum+Math.max(x.amount,0),0)
+  const pie=document.getElementById('moneyPie'), legend=document.getElementById('moneyLegend')
+  const label=document.getElementById('totalTableMoney')
+  if(!pie||!legend||!label)return
+  label.textContent=total?'連打累計・扇形只顯示正數':'連打累計・目前沒有正數可畫'
   let cursor=0
-
-
-  const pieces=[]
-
-
-
-
-  values.forEach(
-    (value,index)=>{
-
-
-      const start=
-        cursor
-
-
-      const percent=
-        value/total*100
-
-
-      cursor+=percent
-
-
-      pieces.push(
-        `${colors[index]}
-        ${start}% ${cursor}%`
-      )
-
-
-    }
-  )
-
-
-
-
-  document
-    .getElementById('moneyPie')
-    .style.background=
-
-
-      `conic-gradient(
-        ${pieces.join(',')}
-      )`
-
-
-
-
-  document
-    .getElementById('moneyLegend')
-    .innerHTML=
-
-
-      P.map((player,index)=>{
-
-
-        const percent=
-          values[index]/total*100
-
-
-
-
-        return `
-
-
-          <div class="legend-item">
-
-
-            <span
-              class="legend-dot"
-              style="
-                background:${colors[index]}
-              "
-            ></span>
-
-
-            <span>
-
-
-              <b>
-                ${player}
-              </b>
-
-
-              ・
-
-
-              ${(balances[player])>=0?'+':''}$${(balances[player]).toLocaleString()}
-
-
-              ${document.getElementById('game')?.classList.contains('projection-mode') ? '' : `・ ${percent.toFixed(1)}%`}
-
-
-            </span>
-
-
-          </div>
-
-
-        `
-
-
-      }).join('')
-
-
+  const pieces=entries.filter(x=>x.amount>0).map(({player,amount})=>{
+    const start=cursor
+    cursor+=amount/total*100
+    return `${colors[player]} ${start}% ${Math.min(100,cursor)}%`
+  })
+  pie.style.background=pieces.length?`conic-gradient(${pieces.join(',')})`:'#eee'
+  legend.innerHTML=entries.map(({player,amount})=>{
+    const share=total&&amount>0?`・${(amount/total*100).toFixed(1)}%`:''
+    return `<div class="legend-item"><span class="legend-dot" style="background:${colors[player]}"></span><span><b>${escapeHtml(player)}</b>・${money(amount)}${share}</span></div>`
+  }).join('')
 }
-
-
 
 
 /* =========================
@@ -8325,7 +8075,7 @@ function renderHistory(){
     [...hands]
     .reverse()
     .slice(0,8)
-    .map(hand=>{
+    .map((hand,offset)=>{
 
 
 
@@ -8335,7 +8085,7 @@ function renderHistory(){
 
         P
         .filter(p=>
-          hand.changes[p]!==0
+          Number(hand.changes?.[p]||0)!==0
         )
         .map(p=>{
 
@@ -8547,7 +8297,7 @@ function renderHistory(){
               >
 
 
-                ${changeLines}
+                本把輸贏・${escapeHtml(changeLines)}
 
 
               </div>
@@ -8561,6 +8311,10 @@ function renderHistory(){
 
 
 
+
+          <div class="v187-hand-total">連打累計・${v187DisplayHandBalances(
+            v187HandBalanceSnapshot(hand)||v187HandBalanceSnapshot({balancesAfter:hands[hands.length-offset]?.balancesBefore})||
+              (offset===0?balances:null),P)||'這把未保存累計金額'}</div>
 
           ${
             hand.patterns.length
@@ -11018,13 +10772,6 @@ function toggleProjectionMode(){
   const entering=!game.classList.contains('projection-mode')
   const viewerProjection=!!liveViewerMode
   game.classList.toggle('projection-mode',entering)
-  const latestHand=document.getElementById('projectionLatestHand')
-  if(latestHand){
-    const destination=entering&&!viewerProjection
-      ?document.querySelector('#cashflowMatrix')
-      :document.querySelector('#projectionScorePanel .projection-save-hand')
-    if(destination) destination.after(latestHand)
-  }
   if(entering) syncProjectionScorePanel()
   if(viewerProjection){
     const stats=document.getElementById('playerStats')
@@ -11170,20 +10917,50 @@ function v32ViewerStatsHtml(projected=document.getElementById('game')?.classList
     return `<div class="viewer-player-card pos-${pos} ${p===dealer?'dealer':''}">${water}<div class="viewer-player-top"><span class="viewer-player-name">${escapeHtml(wind)}家・${escapeHtml(p)} ${dealerTag}</span><span class="viewer-player-money" style="color:${n>=0?'#6caa8b':'#cf7f91'}">${n>=0?'+':''}$${n.toLocaleString()}</span></div><div class="viewer-player-meta">胡 ${c.win}・自摸 ${c.self}・放槍 ${c.discard}</div></div>`
   }).join('')
 }
+function v187HandBalanceSnapshot(hand){
+  const raw=hand?.balancesAfter||hand?.syncBalances||hand?.balances_after
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return null
+  const values=Object.create(null)
+  for(const [name,value] of Object.entries(raw)){
+    const key=canonicalPlayerName(name)
+    if(key&&value!==null&&value!==''&&Number.isFinite(Number(value)))values[key]=(values[key]||0)+Number(value)
+  }
+  return Object.keys(values).length?values:null
+}
+function v187DisplayHandBalances(snapshot,players=Object.keys(snapshot||{})){
+  if(!snapshot)return ''
+  return players.filter(p=>Object.hasOwn(snapshot,p)).map(p=>`${escapeHtml(p)} ${snapshot[p]===0?'$0':money(snapshot[p])}`).join('｜')
+}
+function v187LiveCurrentBalances(players,opening,items){
+  const out=Object.fromEntries(players.map(p=>[p,Number(opening[p]||0)]))
+  items.forEach(h=>{
+    const snapshot=v187HandBalanceSnapshot(h)
+    const delta=Object.create(null)
+    Object.entries(h.payments||{}).forEach(([p,n])=>{const key=canonicalPlayerName(p);delta[key]=(delta[key]||0)+Number(n||0)})
+    players.forEach(p=>{
+      out[p]=snapshot&&Object.hasOwn(snapshot,p)?snapshot[p]:out[p]+Number(delta[p]||0)
+    })
+  })
+  return out
+}
 async function v186LoadPreviousSeries(ss,byId,roomPlayers,generation=liveReadGeneration){
   const seriesId=ss.seat_map?._series_id||''
   const index=Number(ss.seat_map?._series_index||0)
   const key=ss.room+':'+seriesId+':'+ss.id
   if(v186PreviousSeriesKey===key)return
   if(!seriesId||index===1){v186PreviousSeriesKey=key;v186PreviousSeriesHands=[];return}
-  const filter=`room="${pbFilterValue(ss.room)}" && status="completed" && started_at <= "${pbFilterValue(ss.started_at||ss.created)}"`
+  const time=ss.started_at||ss.created
+  const seriesStart=ss.seat_map?._series_started_at
+  const filter=`room="${pbFilterValue(ss.room)}" && status="completed"`+
+    (time?` && started_at <= "${pbFilterValue(time)}"`:'')+
+    (seriesStart?` && started_at >= "${pbFilterValue(seriesStart)}"`:'')
   const candidates=await pbAllRecords('game_sessions',{filter,sort:'started_at,id'})
   if(generation!==liveReadGeneration)return
   const previous=candidates.filter(x=>x.seat_map?._series_id===seriesId&&x.id!==ss.id&&(!index||Number(x.seat_map?._series_index||0)<index)).sort((a,b)=>Number(a.seat_map?._series_index||0)-Number(b.seat_map?._series_index||0))
   const handsBySession=await pbHandsBySession(previous.map(x=>x.id))
   if(generation!==liveReadGeneration)return
   v186PreviousSeriesHands=previous.flatMap((old,i)=>(handsBySession.get(old.id)||[]).map((h,j)=>({
-    gameNumber:Number(old.seat_map?._series_index||i+1),i:j,h:{round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),changes:h.payments||{}}
+    gameNumber:Number(old.seat_map?._series_index||i+1),i:j,stake:old.stake,players:(old.players||[]).map(id=>canonicalRoomPlayerName(byId[id],roomPlayers)).filter(Boolean),h:{balancesAfter:v187HandBalanceSnapshot(h),round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),changes:h.payments||{}}
   })))
   v186PreviousSeriesKey=key
 }
@@ -11192,11 +10969,15 @@ function v186RenderLiveHands(){
   let box=document.getElementById('v186LiveHands')
   if(!box){box=document.createElement('section');box.id='v186LiveHands';box.className='card';game.appendChild(box)}
   const currentGameNumber=v186LiveGameNumber||1
-  const all=[...v186PreviousSeriesHands,...hands.map((h,i)=>({h,i,gameNumber:currentGameNumber}))]
-  box.innerHTML=`<h2>🀄 即時逐把紀錄</h2><div class="muted">連打共 ${all.length} 把・最新在上</div><div class="v186-hand-scroll">${all.slice().reverse().map(({h,i,gameNumber})=>{
+  const trend=buildTrendSeries(hands,P)
+  const seriesUnavailable=currentGameNumber>1&&v186PreviousSeriesKey!==liveReadCache?.seriesKey
+  const all=[...v186PreviousSeriesHands,...hands.map((h,i)=>({h,i,players:P,gameNumber:currentGameNumber,fallback:trend[i+1]?.values}))]
+  box.innerHTML=`<h2>🀄 即時逐把紀錄</h2><div class="muted">連打共 ${all.length} 把・最新在上</div>${seriesUnavailable?'<div class="muted">前幾將暫未讀取，會再試一次</div>':''}<div class="v186-hand-scroll">${all.slice().reverse().map(({h,i,gameNumber,players,fallback})=>{
     const title=h.result==='自摸'?`${h.winner||'玩家'}自摸`:h.result==='胡牌'?`${h.winner||'玩家'}胡${h.discarder||'玩家'}`:h.result==='詐胡'?`${h.winner||'玩家'}詐胡`:'流局'
-    const payments=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([p,v])=>`${escapeHtml(p)} ${Number(v)>0?'+':''}${Number(v).toLocaleString()}`).join('｜')
-    return `<div class="v186-hand-item"><b>第 ${gameNumber} 將・第 ${i+1} 把｜${escapeHtml(h.round||'')}</b><div>${escapeHtml(title)}${h.result==='流局'?'':`・${Number(h.tai||0)} 台`}</div><div class="muted">${payments||'本把無金額變動'}</div></div>`
+    const payments=Object.entries(h.changes||{}).filter(([,v])=>Number(v)!==0).map(([p,v])=>`${escapeHtml(p)} ${money(Number(v))}`).join('｜')
+    const snapshot=v187HandBalanceSnapshot(h)||fallback
+    const totals=v187DisplayHandBalances(snapshot,players?.length?players:undefined)
+    return `<div class="v186-hand-item"><b>第 ${gameNumber} 將・第 ${i+1} 把｜${escapeHtml(h.round||'')}</b><div>${escapeHtml(title)}${h.result==='流局'?'':`・${Number(h.tai||0)} 台`}</div><div class="muted">本把輸贏・${payments||'無金額變動'}</div><div class="v187-hand-total">連打累計・${totals||'這把未保存累計金額'}</div></div>`
   }).join('')||'<div class="muted">尚無逐把紀錄</div>'}</div>`
 }
 function v32RenderViewerDashboard(){
@@ -11415,6 +11196,8 @@ function v52StopAllLiveRuntime(){
   v186PreviousSeriesKey=''
   v186PreviousSeriesHands=[]
   v186LiveGameNumber=1
+  v187LiveEndedAt=0;v187ShowLiveBetween()
+  liveCashflowSnapshot=null
   document.getElementById('v186LiveHands')?.remove()
   v32StopLivePoll()
   if(gameClockTimer){clearInterval(gameClockTimer);gameClockTimer=null}
@@ -11458,11 +11241,38 @@ syncCurrentRoomLiveSession=async function(){
 }
 
 
+let v187LiveEndedAt=0
+function v187ShowLiveBetween(message=''){
+  const el=document.getElementById('v187LiveBetween')
+  if(el){el.textContent=message;el.hidden=!message}
+}
+async function v187FindNextLiveSession(previous){
+  const id=previous.seat_map?._series_id
+  const index=Number(previous.seat_map?._series_index||0)
+  if(!id||!index)return null
+  const filter=`room="${pbFilterValue(previous.room)}" && status="active"`
+  const list=await pbAllRecords('game_sessions',{filter,sort:'started_at,id'})
+  const matches=list.filter(s=>s.id!==previous.id&&s.room===previous.room&&s.status==='active'&&
+    s.seat_map?._series_id===id&&Number(s.seat_map?._series_index)===index+1&&
+    Array.isArray(s.players)&&s.players.length===4&&v32SessionIsFresh(s))
+  return matches.length===1?matches[0]:null
+}
 async function v32LoadLiveSession(sessionId,first=false){
   const generation=liveReadGeneration
   const ss=await pbRequest(`/api/collections/game_sessions/records/${encodeURIComponent(sessionId)}`)
   if(generation!==liveReadGeneration)return false
   if(ss.status!=='active' || !v32SessionIsFresh(ss)){
+    if(!first&&ss.status==='completed'&&ss.seat_map?._series_id){
+      const now=Date.now()
+      if(!v187LiveEndedAt)v187LiveEndedAt=now
+      const next=await v187FindNextLiveSession(ss)
+      if(generation!==liveReadGeneration)return false
+      if(next)return v32LoadLiveSession(next.id,false)
+      if(now-v187LiveEndedAt<90000){
+        v187ShowLiveBetween('本將已結束，等待是否繼續下一將…')
+        return true
+      }
+    }
     v32StopLivePoll()
     if(!first && v52LiveEndedNoticeFor!==sessionId){
       v52LiveEndedNoticeFor=sessionId
@@ -11472,6 +11282,7 @@ async function v32LoadLiveSession(sessionId,first=false){
     }
     return false
   }
+  v187LiveEndedAt=0;v187ShowLiveBetween()
   const prev=liveReadCache?.sessionId===sessionId?liveReadCache:null
   const rosterNeedsRefresh=!prev||Date.now()-prev.rosterAt>60000||
     !(ss.players||[]).every(id=>prev.byId[id])||(ss.dealer&&!prev.byId[ss.dealer])
@@ -11485,7 +11296,8 @@ async function v32LoadLiveSession(sessionId,first=false){
   const officialSeats=v52SeatNamesFromSession(ss,byId,relationNames).map(canonicalPlayerName)
   const handsSignature=JSON.stringify([ss.hand_number,ss.seat_map?._series_cashflow_snapshot])
   const signature=JSON.stringify([handsSignature,ss.room,ss.stake,ss.round,ss.recorder,ss.dealer,ss.dealer_repeats,ss.seat_map,ss.final_balances,relationNames,officialSeats])
-  const needSeries=v186PreviousSeriesKey!==ss.room+':'+(ss.seat_map?._series_id||'')+':'+ss.id
+  const seriesKey=ss.room+':'+(ss.seat_map?._series_id||'')+':'+ss.id
+  const needSeries=v186PreviousSeriesKey!==seriesKey
   if(prev?.signature===signature&&!needSeries){
     if(rosterNeedsRefresh)liveReadCache={...prev,players:roomPlayers,byId,rosterAt:Date.now()}
     return true
@@ -11496,8 +11308,9 @@ async function v32LoadLiveSession(sessionId,first=false){
     try{await v186LoadPreviousSeries(ss,byId,roomPlayers,generation)}catch(e){console.warn('之前各將的逐把紀錄暫時無法讀取',e)}
   }
   if(generation!==liveReadGeneration)return false
+  if(v186PreviousSeriesKey!==seriesKey)v186PreviousSeriesHands=[]
   v186LiveGameNumber=Number(ss.seat_map?._series_index)||1
-  liveReadCache={sessionId,players:roomPlayers,byId,rosterAt:rosterNeedsRefresh?Date.now():prev.rosterAt,handsSignature,signature,items}
+  liveReadCache={sessionId,seriesKey,players:roomPlayers,byId,rosterAt:rosterNeedsRefresh?Date.now():prev.rosterAt,handsSignature,signature,items}
   currentRoomId=ss.room
   P=[...relationNames]
   seats=[...officialSeats]
@@ -11510,7 +11323,7 @@ async function v32LoadLiveSession(sessionId,first=false){
     (officialSeats.includes(recorderName)?recorderName:officialSeats[0])
   roundIndex=Math.max(0,['東1','東2','東3','東4','南1','南2','南3','南4','西1','西2','西3','西4','北1','北2','北3','北4'].indexOf(ss.round))
   repeats=Number(ss.dealer_repeats||0)
-  hands=items.map(h=>({round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
+  hands=items.map(h=>({id:h.id,balancesAfter:v187HandBalanceSnapshot(h),round:h.round,result:({win:'胡牌',selfdraw:'自摸',draw:'流局',fraud:'詐胡'})[h.result]||h.result,winner:canonicalRoomPlayerName(byId[h.winner],roomPlayers),discarder:canonicalRoomPlayerName(byId[h.discarder],roomPlayers),tai:Number(h.tai||0),patterns:h.patterns||[],changes:h.payments||{},dealer:canonicalPlayerName(byId[h.dealer]?.display_name||dealer),repeats:Number(h.dealer_repeats||0)}))
 
 
   // V106：真正執行中的 V52 直播載入器也必須讀提款機資料。
@@ -11533,21 +11346,7 @@ async function v32LoadLiveSession(sessionId,first=false){
   })
 
 
-  const last=items.slice(-1)[0]
-  balances=Object.fromEntries(P.map(n=>[n,0]))
-  if(last?.balances_after && typeof last.balances_after==='object'){
-    // 已有逐把紀錄：balances_after 本來就是連打後的累積水位，直接同步。
-    Object.entries(last.balances_after).forEach(([name,value])=>{
-      const key=canonicalPlayerName(name)
-      if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
-    })
-  }else if(ss.status==='active' && ss.final_balances && typeof ss.final_balances==='object'){
-    // V99：新一場剛建立、第一把尚未記錄時，讀取 createRemoteGameSession 暫存的起始水位。
-    Object.entries(ss.final_balances).forEach(([playerId,value])=>{
-      const key=canonicalPlayerName(byId[playerId]?.display_name||'')
-      if(key && Object.prototype.hasOwnProperty.call(balances,key)) balances[key]+=Number(value||0)
-    })
-  }
+  balances=v187LiveCurrentBalances(P,sessionOpeningBalances,items)
   selectedStake=ss.stake||selectedStake||'100/20'
   currentRule=stakeRules[selectedStake]||stakeRules['100/20']
   gameStartedAt=ss.started_at||ss.created||gameStartedAt;gameEndedAt=ss.ended_at||''
@@ -11567,9 +11366,9 @@ async function openLiveSession(sessionId){
     if(generation!==liveReadGeneration)return
     if(!ok){returnToCurrentRoom();await uiAlert('這場牌局已經結束。','牌局已結束',{icon:'🏁'});return}
     const poll=async()=>{
-      if(generation!==liveReadGeneration||!liveViewerMode||v32ViewingSessionId!==sessionId)return
-      try{if(!document.hidden)await v32LoadLiveSession(sessionId,false)}catch(e){console.warn('直播未能更新，保留上一畫面',e)}
-      if(generation===liveReadGeneration&&liveViewerMode&&v32ViewingSessionId===sessionId)
+      if(generation!==liveReadGeneration||!liveViewerMode||!v32ViewingSessionId)return
+      try{if(!document.hidden)await v32LoadLiveSession(v32ViewingSessionId,false)}catch(e){console.warn('直播未能更新，保留上一畫面',e)}
+      if(generation===liveReadGeneration&&liveViewerMode&&v32ViewingSessionId)
         v32LivePollTimer=setTimeout(poll,4000)
     }
     v32LivePollTimer=setTimeout(poll,4000)
@@ -12657,7 +12456,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V186-3'
+  const APP_VERSION='V187'
   let refreshing=false
   let updatePromptOpen=false
 
@@ -13928,15 +13727,17 @@ function amountConfirmation(amount,rule){
   const count=Math.abs(value)/unit
   return Number.isInteger(count)?'（'+count+'）':''
 }
-function v181PointText(hand,payer){
+function v181PointText(hand,payer,stake=selectedStake){
   if(!hand||(hand.result!=='胡牌'&&hand.result!=='自摸'))return ''
   // Old entries without a per-payer amount omit the hint instead of guessing.
-  return amountConfirmation(hand.changes?.[payer],stakeRules[selectedStake])
+  return amountConfirmation(hand.changes?.[payer],stakeRules[stake])
 }
 function v181RefreshLatestPoint(){
-  const last=hands&&hands.length?hands[hands.length-1]:null;
-  const point=last&&last.result==='胡牌'?v181PointText(last,last.discarder):'';
-  const payerDetails=last&&last.result==='自摸'?P.filter(p=>p!==last.winner).map(p=>escapeHtml(p)+' '+v181PointText(last,p)).join('・'):'';
+  const previous=!hands?.length&&liveViewerMode?v186PreviousSeriesHands.at(-1):null
+  const last=hands?.at(-1)||previous?.h
+  const point=last&&last.result==='胡牌'?v181PointText(last,last.discarder,previous?.stake):'';
+  const payers=previous?Object.keys(last?.changes||{}):P
+  const payerDetails=last&&last.result==='自摸'?payers.filter(p=>p!==last.winner).map(p=>p+' '+v181PointText(last,p,previous?.stake)).join('・'):'';
   const label=last?('最新一筆：'+(last.winner||'')+' '+last.result+' '+Number(last.tai||0)+'台 '+(payerDetails||point)):'最新一筆：尚未記錄';
   const el=document.getElementById('projectionLatestHand');
   if(el) el.textContent=label;
@@ -14319,6 +14120,63 @@ html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .game-cashfl
 #recorderSyncStatus button{margin-left:6px;padding:7px;border-radius:8px;font-weight:700;background:white}
 #game.projection-mode:not(.live-viewer-mode) #recorderSyncStatus:not([hidden]){
  position:absolute;bottom:11px;right:12px;width:calc(33% - 23px);z-index:30;margin:0;box-shadow:0 2px 8px #0002;
+}
+</style>
+
+<style id="v187-display">
+#game:not(.projection-mode) #projectionLatestHand{display:none!important}
+#game #v187LiveBetween[hidden]{display:none!important}
+#game .v187-hand-total{font-size:.87em;color:#315d7b;font-weight:750;line-height:1.5;overflow-wrap:anywhere}
+#game .v187-cashflow-explain{font-size:clamp(9px,1vw,13px);color:#775422;margin-top:5px}
+html body #game.projection-mode:not(.hidden) #v181LiveLatestPoint{display:none!important}
+html body #game.projection-mode:not(.hidden) .game-cashflow-card{
+  justify-content:flex-start!important;overflow:auto!important;overscroll-behavior:contain
+}
+html body #game.projection-mode:not(.hidden) .game-cashflow-card #projectionLatestHand{
+  flex:0 0 auto!important;max-height:none!important;overflow:visible!important;margin-top:6px!important;
+}
+html body #game.projection-mode:not(.hidden) .game-cashflow-card #cashflowMatrix{flex:0 0 auto!important}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-panel{
+  background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;
+  bottom:auto!important;max-height:calc(100% - 65px)!important;overflow:auto!important;
+}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) .projection-score-title b{color:#fff8ff}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) :is(#projectionScoreHint,#projectionPatternSummary){color:#e5e9ff}
+html body #game.projection-mode:not(.hidden):not(.live-viewer-mode) #projectionCalcPreview{
+  flex:0 1 auto!important;min-height:30px!important;
+}
+html body #game.live-viewer-mode.projection-mode:not(.hidden) .projection-score-panel{display:none!important}
+html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-status-card{
+  left:8px!important;width:calc(53% - 12px)!important;
+}
+html body #game.live-viewer-mode.projection-mode:not(.hidden) .game-cashflow-card{
+  left:53%!important;right:8px!important;width:auto!important;
+}
+html body #game.projection-mode:not(.hidden) .live-ticker-wrap{
+  left:clamp(250px,31%,410px)!important;width:auto!important;padding:0 10px!important;
+}
+html body #game.projection-mode:not(.hidden) #gameTimeBar{
+  max-width:calc(clamp(250px,31%,410px) - 16px)!important;
+}
+html body #game:is(.projection-mode,.live-viewer-mode) .live-ticker-track{
+  width:max-content!important;min-width:0!important;max-width:none!important;
+  flex:0 0 auto!important;padding:0!important;
+  animation:v187Ticker 11s ease-in-out infinite;
+}
+@keyframes v187Ticker{
+  0%{transform:translateY(70%);opacity:.15}
+  8%,67%{transform:translateX(0);opacity:1}
+  100%{transform:translateX(-103%);opacity:.45}
+}
+@media (max-width:600px){
+  html body #game.projection-mode:not(.hidden) .live-ticker-wrap{left:8px!important;right:8px!important;top:43px!important;height:24px!important;min-height:24px!important}
+  html body #game.projection-mode:not(.hidden) #gameTimeBar{max-width:calc(100% - 112px)!important}
+  html body #game.projection-mode:not(.hidden) :is(.game-status-card,.projection-score-panel,.game-cashflow-card){top:74px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  html body #game:is(.projection-mode,.live-viewer-mode) .live-ticker-track{
+    animation:none!important;white-space:normal!important;width:100%!important;
+  }
 }
 </style>
 </body>

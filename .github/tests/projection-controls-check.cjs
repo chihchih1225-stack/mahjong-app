@@ -74,12 +74,18 @@ async function check(browser,viewport,iphone) {
         latest:last.textContent, saveInside:save.getBoundingClientRect().bottom<=panel.getBoundingClientRect().bottom+1};
     });
     assert.ok(placement.underMatrix && placement.saveInside,JSON.stringify(placement));
+    assert.equal(await page.locator('#v181LiveLatestPoint').isVisible(),false);
+    const shell=await page.locator('#projectionScorePanel').evaluate(el=>({border:getComputedStyle(el).borderWidth,shadow:getComputedStyle(el).boxShadow}));
+    assert.deepEqual(shell,{border:'0px',shadow:'none'});
+    const [clock,ticker]=await Promise.all([page.locator('#gameTimeBar').boundingBox(),page.locator('#liveTickerWrap').boundingBox()]);
+    assert.ok(clock.x+clock.width<=ticker.x||clock.y+clock.height<=ticker.y,JSON.stringify({clock,ticker}));
     assert.match(placement.latest,/最新一筆：飛帆 自摸 7台.*（12）/);
 
     await click('#projectionScorePanel [data-proj-result="流局"]');
     assert.equal(await page.locator('#projectionTaiRow').isVisible(),false);
     await page.evaluate(()=>toggleProjectionMode());
-    assert.equal(await page.locator('#projectionScorePanel #projectionLatestHand').count(),1);
+    assert.equal(await page.locator('.game-cashflow-card #projectionLatestHand').count(),1);
+    assert.equal(await page.locator('#projectionLatestHand').isVisible(),false);
     assert.deepEqual(errors,[]);
   } finally {await context.close();}
 }

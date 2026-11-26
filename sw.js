@@ -1,5 +1,5 @@
-/* 誰與爭鋒 V186-3 Service Worker - sync and history checks 20261126 */
-const CACHE_NAME='mahjong-pwa-V186-3-20261126';
+/* 誰與爭鋒 V187 Service Worker - cumulative display and projection 20261127 */
+const CACHE_NAME='mahjong-pwa-V187-20261127';
 const APP_SHELL=['/','/manifest.webmanifest'];
 
 

@@ -107,6 +107,8 @@ async function check(page,url,html){
   const vm=seatsOk(await state(page),['阿北','阿東','阿西','阿南']);
   assert.ok(vm.left.dealer && vm.left.money===' +$1,200'.trim() && vm.left.water==='92%');
   assert.equal(await page.locator('#playerStats [onclick]').count(),0);
+  assert.equal(await page.locator('#projectionScorePanel').isVisible(),false);
+  assert.equal(await page.locator('#cashflowMatrix + #projectionLatestHand').isVisible(),true);
   await page.evaluate(async()=>{
     const {session}=window.projectionFixture;
     session.players=['east','west','north','sub'];
