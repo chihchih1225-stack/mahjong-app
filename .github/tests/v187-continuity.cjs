@@ -1,3 +1,4 @@
+require('../../tests/v187-2-room-net.cjs')
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
 const src=fs.readFileSync('index.html','utf8');
 const fn=n=>{const m=new RegExp('(?:async )?function '+n+'\\(').exec(src);assert.ok(m,n);const j=src.indexOf('\n}',m.index);return src.slice(m.index,j+2)};

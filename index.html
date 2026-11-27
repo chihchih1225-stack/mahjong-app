@@ -1906,28 +1906,24 @@ main{padding-bottom:74px}
 .room-ranking-card.collapsed .room-ranking-body{display:none}
 .room-ranking-card:not(.collapsed) .room-ranking-arrow{transform:rotate(180deg)}
 .room-ranking-body{margin-top:12px}
-.room-cashflow-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;align-items:start}
-.room-cashflow-stat{padding:11px 10px;border-radius:14px;background:#fffaf3;border:1px solid var(--line)}
-.room-cashflow-stat .k{font-size:10px;color:var(--muted);font-weight:800}
-.room-cashflow-stat .v{font-size:18px;font-weight:950;margin-top:3px}
-.room-cashflow-top3-item{padding:7px 0 0}
-.room-cashflow-top3-item+.room-cashflow-top3-item{margin-top:7px;border-top:1px dashed var(--line)}
-.room-cashflow-top3-line{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:8px;align-items:start;font-size:12px;font-weight:800;line-height:1.35}
-.room-cashflow-top3-item:first-child .room-cashflow-top3-line{font-size:13px;font-weight:900}
-.room-cashflow-medal{display:block;text-align:center;line-height:1.35}
-.room-cashflow-top3-name{display:block;min-width:0}
-.room-cashflow-top3-amount{margin:3px 0 0 32px;font-size:11px}
-.room-cashflow-top3-item:first-child .room-cashflow-top3-amount{font-size:12px}
-
-
-.room-cashflow-picker{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
-.room-cashflow-picker label{margin:0 0 6px;font-size:11px;font-weight:900}
-.room-cashflow-picker select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:13px;background:#fffdfa;padding:9px 11px;font:inherit;font-size:14px;color:var(--ink)}
-.room-cashflow-relations{margin-top:10px;display:grid;gap:6px}
-.room-cashflow-relation{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:12px;background:#faf7f5;font-size:12px}
-.room-cashflow-relation b{font-size:13px}
-.room-cashflow-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}
-
+/* Room-only historical cashflow */
+.room-cashflow-picker{margin-top:14px}
+.room-cashflow-picker label{display:block;margin:0 0 6px;font-size:12px;font-weight:900}
+.room-cashflow-picker select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:13px;background:#fffdfa;padding:9px 11px;font:inherit;font-size:16px;color:var(--ink)}
+.room-cashflow-relations{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:6px}
+.room-cashflow-relation{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:#faf7f5;font-size:13px}
+.room-cashflow-relation-name{min-width:0;overflow-wrap:anywhere}
+.room-cashflow-relation-amount{flex-shrink:0;text-align:right;font-weight:900;font-variant-numeric:tabular-nums}
+.room-cashflow-win{color:#24634e}
+.room-cashflow-loss{color:#a03553}
+.room-cashflow-tie{color:#635b63}
+.room-cashflow-note{font-size:11px;color:var(--muted);line-height:1.55;margin:8px 0 0}
+.room-cashflow-estimate{display:block;font-size:10px;color:#69606a;font-weight:600;margin-top:2px}
+.room-cashflow-details{margin-top:12px;border-top:1px dashed var(--line)}
+.room-cashflow-details summary{min-height:44px;padding:12px 2px;cursor:pointer;font-size:13px;font-weight:800;color:var(--ink)}
+.room-cashflow-details h3{font-size:13px;margin:12px 0 0}
+.room-cashflow-stats{display:grid;gap:6px;margin-top:14px}
+.room-cashflow-stats .room-cashflow-note{margin-top:3px}
 
 /* ===== V149：房間統計統一呈現 ===== */
 .room-stat-help{font-size:10px;color:var(--muted);font-weight:700;line-height:1.4;margin-top:3px}
@@ -1938,15 +1934,6 @@ main{padding-bottom:74px}
 .v149-rank-extra{display:none}
 #roomRanking.v149-expanded .v149-rank-extra{display:grid}
 @media(max-width:560px){.v149-custom-range{grid-template-columns:1fr auto 1fr}.v149-custom-range .nav-action{grid-column:1/-1;width:100%}}
-
-
-/* ===== V156：提款機雙框等高 ===== */
-.room-cashflow-summary{align-items:stretch!important}
-.room-cashflow-stat{min-height:118px;height:100%}
-.room-cashflow-stat.room-cashflow-total{display:flex;flex-direction:column}
-.room-cashflow-stat.room-cashflow-total .v{
-  flex:1;display:flex;align-items:center;justify-content:flex-start;margin-top:0
-}
 
 
 /* ===== V157：自訂日期排版微調（僅視覺，不動功能） ===== */
@@ -2737,7 +2724,7 @@ html body #game.projection-mode:not(.live-viewer-mode) .game-chart-card .legend-
 
 
   <div class="card room-protected" id="roomCashflowCard">
-    <div class="toprow"><div><h2>🏧 房間提款機</h2><div class="room-stat-help">看看誰把誰當提款機，房間裡的錢都流去哪了</div></div></div>
+    <div class="toprow"><div><h2>🏧 房間提款機</h2><div class="room-stat-help">選一個人，直接看他跟每位對手打下來淨贏或淨輸多少</div></div></div>
     <div id="roomCashflow"><div class="muted">正在計算房間金流…</div></div>
   </div>
 
@@ -10222,15 +10209,17 @@ function v148AllocateResidual(residual,add){
     if(losers[li].remain===0) li++
   }
 }
+function roomCashflowPairKey(a,b){return JSON.stringify([a,b].sort())}
 function v147RoomCashflowData(sessions){
   const all=(sessions||[])
   let totalFlow=0, detailedSessions=0, allocatedSessions=0, partialSessions=0
-  const matrix={}, audit={}
+  const matrix={}, audit={}, estimatedPairs=new Set()
   const add=(from,to,amount,source='detail')=>{
     from=canonicalPlayerName(from);to=canonicalPlayerName(to);amount=Math.round(Number(amount||0))
     if(!from||!to||from===to||amount<=0) return
     matrix[from] ||= {}; matrix[from][to]=(matrix[from][to]||0)+amount
     audit[from]=(audit[from]||0)-amount; audit[to]=(audit[to]||0)+amount
+    if(source==='allocated') estimatedPairs.add(roomCashflowPairKey(from,to))
   }
   all.forEach(ss=>{
     const nets=v148CanonicalNets(ss)
@@ -10265,13 +10254,18 @@ function v147RoomCashflowData(sessions){
   const people=new Set([...Object.keys(actual),...Object.keys(audit)])
   const mismatch=[...people].filter(n=>Math.round(actual[n]||0)!==Math.round(audit[n]||0)).map(n=>({name:n,actual:actual[n]||0,cashflow:audit[n]||0}))
   if(mismatch.length) console.warn('V148 房間金流核對未通過',mismatch)
-  return {totalFlow,detailedSessions,allocatedSessions,partialSessions,matrix,mismatch}
+  return {totalFlow,detailedSessions,allocatedSessions,partialSessions,matrix,mismatch,estimatedPairs}
 }
-let v154CashflowTop3Expanded=false
-function v154ToggleCashflowTop3(selectedName=''){
-  try{selectedName=decodeURIComponent(selectedName||'')}catch(e){}
-  v154CashflowTop3Expanded=!v154CashflowTop3Expanded
-  v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),selectedName)
+function roomCashflowOpponentNets(data,selected){
+  if(!selected) return []
+  const outgoing=data.matrix[selected]||{}
+  const opponents=new Set([...Object.keys(outgoing),...Object.keys(data.matrix)])
+  return [...opponents].filter(name=>name!==selected).map(name=>{
+    const won=Number(data.matrix[name]?.[selected]||0)
+    const lost=Number(outgoing[name]||0)
+    return {name,won,lost,net:won-lost,estimated:data.estimatedPairs.has(roomCashflowPairKey(selected,name))}
+  }).filter(row=>row.won||row.lost)
+    .sort((a,b)=>Math.abs(b.net)-Math.abs(a.net)||a.name.localeCompare(b.name,'zh-Hant'))
 }
 function v147RenderRoomCashflow(sessions,selectedName=''){
   const el=document.getElementById('roomCashflow')
@@ -10279,27 +10273,50 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
   const data=v147RoomCashflowData(sessions)
   const names=aggregateSessions(sessions).map(x=>x.name).sort((a,b)=>a.localeCompare(b,'zh-Hant'))
   const selected=names.includes(selectedName)?selectedName:(names[0]||'')
-  const relations=[]
-  Object.entries(data.matrix).forEach(([from,row])=>Object.entries(row||{}).forEach(([to,amount])=>{
-    if(Number(amount)>0) relations.push({from,to,amount:Number(amount)})
-  }))
-  relations.sort((a,b)=>b.amount-a.amount)
-  const topRels=relations.slice(0,3)
-  // incoming：別人付給 selected＝selected 從對方提款；outgoing：selected 付給別人＝別人提款 selected。
-  const incoming=relations.filter(x=>x.to===selected).sort((a,b)=>b.amount-a.amount)
-  const outgoing=relations.filter(x=>x.from===selected).sort((a,b)=>b.amount-a.amount)
-  const rows=(arr,mode)=>arr.length?arr.slice(0,5).map(x=>{
-    const other=mode==='mine'?x.from:x.to
-    return `<div class="room-cashflow-relation"><span><b>${escapeHtml(other)}</b></span><b>$${Math.round(Number(x.amount)).toLocaleString()}</b></div>`
-  }).join(''):'<div class="room-cashflow-note">目前沒有提款紀錄。</div>'
-  el.innerHTML=`<div class="room-cashflow-summary">
-    <div class="room-cashflow-stat room-cashflow-total"><div class="k">${roomTimeFilter==='all'?'歷史總金流':'期間總金流'}</div><div class="v">$${Math.round(data.totalFlow).toLocaleString()}</div></div>
-    <div class="room-cashflow-stat"><div class="k">🏧 最大提款紀錄 TOP 3</div>${topRels.length?(v154CashflowTop3Expanded?topRels:topRels.slice(0,1)).map((r,i)=>`<div class="room-cashflow-top3-item"><div class="room-cashflow-top3-line"><span class="room-cashflow-medal">${['🥇','🥈','🥉'][i]}</span><span class="room-cashflow-top3-name">${escapeHtml(r.to)}從${escapeHtml(r.from)}提款</span></div><div class="muted room-cashflow-top3-amount">$${Math.round(r.amount).toLocaleString()}</div></div>`).join(''):'<div class="v" style="font-size:13px">—</div>'}${topRels.length>1?`<button type="button" class="link" style="margin-top:8px;padding:5px 9px;font-size:12px" onclick="v154ToggleCashflowTop3('${encodeURIComponent(selected)}')">${v154CashflowTop3Expanded?'收起':'查看 TOP 3'}</button>`:''}</div>
+  const detailsOpen=el.querySelector('.room-cashflow-details')?.open
+  const netRows=roomCashflowOpponentNets(data,selected)
+  const money=n=>'$'+Math.abs(n).toLocaleString('en-US')
+  const empty=label=>`<p class="room-cashflow-note">${label}</p>`
+  const list=items=>items.length?`<ul class="room-cashflow-relations">${items.join('')}</ul>`:''
+  const row=(label,value,style='')=>`<li class="room-cashflow-relation"><span class="room-cashflow-relation-name">${label}</span><span class="room-cashflow-relation-amount ${style}">${value}</span></li>`
+  const netList=list(netRows.map(x=>row(
+    `<b>${escapeHtml(x.name)}</b>${x.estimated?'<small class="room-cashflow-estimate">含推估金額</small>':''}`,
+    x.net>0?`淨贏 ${money(x.net)}`:x.net<0?`淨輸 ${money(x.net)}`:'打平 $0',
+    x.net>0?'room-cashflow-win':x.net<0?'room-cashflow-loss':'room-cashflow-tie'
+  )))
+  const directions=key=>list(netRows.filter(x=>x[key]>0).sort((a,b)=>b[key]-a[key])
+    .map(x=>row(escapeHtml(x.name),money(x[key]))))||empty('沒有紀錄')
+  const allTransfers=Object.entries(data.matrix).flatMap(([from,recipients])=>
+    Object.entries(recipients).map(([to,amount])=>({from,to,amount})))
+  const topTransfers=list(allTransfers.sort((a,b)=>b.amount-a.amount).slice(0,3)
+    .map(x=>row(`${escapeHtml(x.to)} 從 ${escapeHtml(x.from)} 贏到`,money(x.amount))))||empty('沒有紀錄')
+  const warn=data.mismatch.length?'<p class="room-cashflow-note" role="status"><b>這段期間有金流與結算對不上，請先以牌局結算為準。</b></p>':''
+  const restorePickerFocus=document.activeElement?.id==='roomCashflowPlayer'
+  el.innerHTML=selected?`
+  <div class="room-cashflow-picker">
+    <label for="roomCashflowPlayer">選擇要看的玩家</label>
+    <select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select>
   </div>
-  <div class="room-cashflow-picker"><label for="roomCashflowPlayer">🔍 看看誰是我的提款機</label><select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
-  ${selected?`<div style="margin-top:9px"><div class="muted" style="font-weight:900">🏧 ${escapeHtml(selected)}的提款機</div>${rows(incoming,'mine')}</div>`:''}
-  ${selected?`<div style="margin-top:9px"><div class="muted" style="font-weight:900">💸 誰最愛提款${escapeHtml(selected)}</div>${rows(outgoing,'others')}</div>`:''}
-  <div class="room-cashflow-note">💡 有逐把計分紀錄的牌局依實際紀錄計算；只有最終輸贏的歷史牌局，依該將實際最終輸贏分配。若逐把資料不完整，會先保留已確認金流，再以最終結算補齊。所有金流皆會與每位玩家的實際累積輸贏核對一致。${data.mismatch.length?' <b>⚠️ 目前核對異常，請勿以此區金流判讀。</b>':''}</div>`
+  <p class="room-cashflow-note">以下從 <b>${escapeHtml(selected)}</b> 的角度看。淨輸贏＝贏到的金額減掉輸掉的金額。</p>
+  ${warn}
+  ${netList||empty('這段期間沒有可比較的對手金流。')}
+  ${netRows.some(x=>x.estimated)?empty('有些牌局缺少逐把紀錄，無法確定誰付給誰。標記的金額有一部分是依結算推估。'):''}
+  <details class="room-cashflow-details"${detailsOpen?' open':''}>
+    <summary>查看雙向明細與房間統計</summary>
+    <h3>${escapeHtml(selected)} 從誰贏到（未互抵）</h3>
+    ${directions('won')}
+    <h3>${escapeHtml(selected)} 輸給誰（未互抵）</h3>
+    ${directions('lost')}
+    <div class="room-cashflow-stats">
+      <h3>${roomTimeFilter==='all'?'歷史':'期間'}結算總額 <b>${money(data.totalFlow)}</b></h3>
+      ${empty('每將結算時，贏家金額的加總，不是逐把金流加總。')}
+      <h3>房間累計流水 TOP 3（單方向，未互抵）</h3>
+      ${topTransfers}
+      ${data.estimatedPairs.size?empty('房間排行榜可能包含依結算推估的金額。'):''}
+    </div>
+  </details>`:empty('這段期間沒有房間金流紀錄。')
+  // Re-rendering replaces the native picker, so retain keyboard/focus position.
+  if(restorePickerFocus) el.querySelector('#roomCashflowPlayer')?.focus()
 }
 
 
@@ -12467,7 +12484,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V187-1'
+  const APP_VERSION='V187-2'
   let refreshing=false
   let updatePromptOpen=false
 
