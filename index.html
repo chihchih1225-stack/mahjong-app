@@ -1919,10 +1919,8 @@ main{padding-bottom:74px}
 .room-cashflow-tie{color:#635b63}
 .room-cashflow-note{font-size:11px;color:var(--muted);line-height:1.55;margin:8px 0 0}
 .room-cashflow-estimate{display:block;font-size:10px;color:#69606a;font-weight:600;margin-top:2px}
-.room-cashflow-details{margin-top:12px;border-top:1px dashed var(--line)}
-.room-cashflow-details summary{min-height:44px;padding:12px 2px;cursor:pointer;font-size:13px;font-weight:800;color:var(--ink)}
-.room-cashflow-details h3{font-size:13px;margin:12px 0 0}
-.room-cashflow-stats{display:grid;gap:6px;margin-top:14px}
+.room-cashflow-stats{display:grid;gap:6px;margin:14px 0 0;padding:0 0 14px;border-bottom:1px dashed var(--line)}
+.room-cashflow-stats h3{font-size:13px;margin:6px 0 0}
 .room-cashflow-stats .room-cashflow-note{margin-top:3px}
 
 /* ===== V149：房間統計統一呈現 ===== */
@@ -10273,7 +10271,6 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
   const data=v147RoomCashflowData(sessions)
   const names=aggregateSessions(sessions).map(x=>x.name).sort((a,b)=>a.localeCompare(b,'zh-Hant'))
   const selected=names.includes(selectedName)?selectedName:(names[0]||'')
-  const detailsOpen=el.querySelector('.room-cashflow-details')?.open
   const netRows=roomCashflowOpponentNets(data,selected)
   const money=n=>'$'+Math.abs(n).toLocaleString('en-US')
   const empty=label=>`<p class="room-cashflow-note">${label}</p>`
@@ -10284,8 +10281,6 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
     x.net>0?`淨贏 ${money(x.net)}`:x.net<0?`淨輸 ${money(x.net)}`:'打平 $0',
     x.net>0?'room-cashflow-win':x.net<0?'room-cashflow-loss':'room-cashflow-tie'
   )))
-  const directions=key=>list(netRows.filter(x=>x[key]>0).sort((a,b)=>b[key]-a[key])
-    .map(x=>row(escapeHtml(x.name),money(x[key]))))||empty('沒有紀錄')
   const allTransfers=Object.entries(data.matrix).flatMap(([from,recipients])=>
     Object.entries(recipients).map(([to,amount])=>({from,to,amount})))
   const topTransfers=list(allTransfers.sort((a,b)=>b.amount-a.amount).slice(0,3)
@@ -10293,6 +10288,13 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
   const warn=data.mismatch.length?'<p class="room-cashflow-note" role="status"><b>這段期間有金流與結算對不上，請先以牌局結算為準。</b></p>':''
   const restorePickerFocus=document.activeElement?.id==='roomCashflowPlayer'
   el.innerHTML=selected?`
+  <div class="room-cashflow-stats">
+    <h3>${roomTimeFilter==='all'?'歷史':'期間'}結算總額 <b>${money(data.totalFlow)}</b></h3>
+    ${empty('每將結算時，贏家金額的加總，不是逐把金流加總。')}
+    <h3>房間累計流水 TOP 3（單方向，未互抵）</h3>
+    ${topTransfers}
+    ${data.estimatedPairs.size?empty('房間排行榜可能包含依結算推估的金額。'):''}
+  </div>
   <div class="room-cashflow-picker">
     <label for="roomCashflowPlayer">選擇要看的玩家</label>
     <select id="roomCashflowPlayer" onchange="v147RenderRoomCashflow(filterSessionsByTime(roomSessions(currentRoomId),roomTimeFilter),this.value)">${names.map(n=>`<option value="${escapeHtml(n)}" ${n===selected?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select>
@@ -10301,20 +10303,7 @@ function v147RenderRoomCashflow(sessions,selectedName=''){
   ${warn}
   ${netList||empty('這段期間沒有可比較的對手金流。')}
   ${netRows.some(x=>x.estimated)?empty('有些牌局缺少逐把紀錄，無法確定誰付給誰。標記的金額有一部分是依結算推估。'):''}
-  <details class="room-cashflow-details"${detailsOpen?' open':''}>
-    <summary>查看雙向明細與房間統計</summary>
-    <h3>${escapeHtml(selected)} 從誰贏到（未互抵）</h3>
-    ${directions('won')}
-    <h3>${escapeHtml(selected)} 輸給誰（未互抵）</h3>
-    ${directions('lost')}
-    <div class="room-cashflow-stats">
-      <h3>${roomTimeFilter==='all'?'歷史':'期間'}結算總額 <b>${money(data.totalFlow)}</b></h3>
-      ${empty('每將結算時，贏家金額的加總，不是逐把金流加總。')}
-      <h3>房間累計流水 TOP 3（單方向，未互抵）</h3>
-      ${topTransfers}
-      ${data.estimatedPairs.size?empty('房間排行榜可能包含依結算推估的金額。'):''}
-    </div>
-  </details>`:empty('這段期間沒有房間金流紀錄。')
+`:empty('這段期間沒有房間金流紀錄。')
   // Re-rendering replaces the native picker, so retain keyboard/focus position.
   if(restorePickerFocus) el.querySelector('#roomCashflowPlayer')?.focus()
 }
@@ -12484,7 +12473,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V187-2'
+  const APP_VERSION='V187-3'
   let refreshing=false
   let updatePromptOpen=false
 

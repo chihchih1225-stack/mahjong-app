@@ -1,5 +1,5 @@
-/* 誰與爭鋒 V187-2 Service Worker - room opponent net display 20261127 */
-const CACHE_NAME='mahjong-pwa-V187-2-20261127';
+/* 誰與爭鋒 V187-3 Service Worker - room cashflow summary order 20261127 */
+const CACHE_NAME='mahjong-pwa-V187-3-20261127';
 const APP_SHELL=['/','/manifest.webmanifest'];
 
 
