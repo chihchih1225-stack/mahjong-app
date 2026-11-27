@@ -5025,7 +5025,8 @@ async function flushRecorderSync(){
         assertRecorderScope(s)
         const length=hands.length, latest=hands[length-1]
         const syncedSeatMap=buildSeatMap(map)
-        syncedSeatMap._series_cashflow_snapshot=JSON.parse(JSON.stringify(buildCashflowMatrix(hands,P)||{}))
+        // Keep participants from earlier legs in the snapshot sent to live viewers.
+        syncedSeatMap._series_cashflow_snapshot=buildCashflowMatrix(hands,cashflowParticipantNames(P,seriesCashflowLedger||seriesCashflowBase))
         await pbRequest('/api/collections/game_sessions/records/'+encodeURIComponent(s.sessionId),{
           method:'PATCH',body:JSON.stringify({dealer:map[dealer]?.id||'',round:getRoundName(roundIndex),
             dealer_repeats:repeats,hand_number:length+1,seat_map:syncedSeatMap})
@@ -6566,9 +6567,21 @@ function rollbackHandFromCashflowLedger(hand){
   seriesCashflowBase=JSON.parse(JSON.stringify(seriesCashflowLedger))
 }
 
+function cashflowParticipantNames(order,source){
+  return [...new Set([...order,...Object.keys(source||{}),...Object.values(source||{}).flatMap(row=>Object.keys(row||{}))])]
+}
+
+function mergeLiveCashflowSnapshot(base,snapshot){
+  if(!snapshot || typeof snapshot!=='object')return null
+  // V187 clients may send only the four seated players. Restore omitted entries
+  // from the stored full ledger without replacing authoritative snapshot values (including zero).
+  return Object.fromEntries([...new Set([...Object.keys(base||{}),...Object.keys(snapshot)])]
+    .map(name=>[name,{...base?.[name],...snapshot[name]}]))
+}
+
 function v187CashflowRows(order,sessionHands=hands){
   const source=liveViewerMode?(liveCashflowSnapshot||seriesCashflowBase):seriesCashflowLedger||seriesCashflowBase
-  const names=[...new Set([...order,...Object.keys(source||{}),...Object.values(source||{}).flatMap(row=>Object.keys(row||{}))])]
+  const names=cashflowParticipantNames(order,source)
   const matrix=buildCashflowMatrix(sessionHands,names)
   const offTable=names.filter(p=>!order.includes(p))
   const net=(from,to)=>Number(matrix[to]?.[from]||0)-Number(matrix[from]?.[to]||0)
@@ -11331,9 +11344,7 @@ async function v32LoadLiveSession(sessionId,first=false){
   seriesCashflowBase=(ss.seat_map && typeof ss.seat_map._series_cashflow_base==='object')
     ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_base))
     :{}
-  liveCashflowSnapshot=(ss.seat_map && typeof ss.seat_map._series_cashflow_snapshot==='object')
-    ?JSON.parse(JSON.stringify(ss.seat_map._series_cashflow_snapshot))
-    :null
+  liveCashflowSnapshot=mergeLiveCashflowSnapshot(seriesCashflowBase,ss.seat_map?._series_cashflow_snapshot)
 
 
   sessionOpeningBalances=Object.fromEntries(P.map(n=>[n,0]))
@@ -12456,7 +12467,7 @@ html body #game.projection-mode .cashflow-table td{
 <script>
 /* ===== V116：PWA 自動更新（主畫面圖示不需刪除重裝） ===== */
 (function(){
-  const APP_VERSION='V187'
+  const APP_VERSION='V187-1'
   let refreshing=false
   let updatePromptOpen=false
 

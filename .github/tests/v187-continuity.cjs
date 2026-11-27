@@ -1,7 +1,7 @@
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
 const src=fs.readFileSync('index.html','utf8');
 const fn=n=>{const m=new RegExp('(?:async )?function '+n+'\\(').exec(src);assert.ok(m,n);const j=src.indexOf('\n}',m.index);return src.slice(m.index,j+2)};
-const names=['v187ShuffleSeats','gamePlayerColors','emptyCashflow','handCashflowTransfers','buildCashflowMatrix','v187CashflowRows','renderCashflowMatrix','buildTrendSeries','renderMoneyPie','v187TickerEvents','v187HandBalanceSnapshot','v187DisplayHandBalances','v187LiveCurrentBalances','v186RenderLiveHands','v186LoadPreviousSeries','v187FindNextLiveSession','v32LoadLiveSession'];
+const names=['v187ShuffleSeats','gamePlayerColors','emptyCashflow','handCashflowTransfers','buildCashflowMatrix','v187CashflowRows','cashflowParticipantNames','mergeLiveCashflowSnapshot','renderCashflowMatrix','buildTrendSeries','renderMoneyPie','v187TickerEvents','v187HandBalanceSnapshot','v187DisplayHandBalances','v187LiveCurrentBalances','v186RenderLiveHands','v186LoadPreviousSeries','v187FindNextLiveSession','v32LoadLiveSession','buildSeatMap','flushRecorderSync','commitHandToCashflowLedger','rollbackHandFromCashflowLedger'];
 const context={assert,console,canonicalPlayerName:s=>s||'',canonicalRoomPlayerName:p=>p?.display_name||'',escapeHtml:s=>String(s),money:n=>(n<0?'-$':'+$')+Math.abs(n),pbFilterValue:s=>s,v32SessionIsFresh:()=>true,fixtureDate:'2026-11-26 12:00:00.000Z'};
 vm.createContext(context);
 const run=s=>vm.runInContext(s,context);
@@ -57,7 +57,21 @@ console.log('PASS ticker reports a real self-draw, streak and lead change');
 const old={id:'old',room:'r',status:'completed',players:['A','B','C','D'],recorder:'u',seat_map:{_series_id:'series1',_series_index:1},started_at:fixtureDate};
 const next={id:'next',room:'r',status:'active',players:['A','E','C','D'],recorder:'u',dealer:'A',round:'東1',hand_number:1,seat_map:{_series_id:'series1',_series_index:2,_series_cashflow_snapshot:funds},started_at:fixtureDate,final_balances:{A:800,E:0,C:-300,D:0}};
 let found=[],nextHands=[],lookups=0;
-const pbRequest=async path=>path.endsWith('/old')?old:next;
+let seriesId='series1',seriesGameCount=1,seriesStartedAt=fixtureDate,recorderSync,remoteRoomPlayerMap=Object.fromEntries(roster.map(p=>[p.id,p]));
+const assertRecorderScope=s=>assert.equal(s,recorderSync),persistActiveGame=()=>true,recorderSyncNotice=()=>{},getRoundName=()=>'東1';
+const syncRemoteConfirmedHand=async(s,hand,n)=>{
+  s.known[n]=hand.syncId;
+  nextHands.push({id:hand.syncId,result:'win',winner:hand.winner,discarder:hand.discarder,payments:hand.changes,balances_after:{...balances}});
+};
+const pbRequest=async (path,options={})=>{
+  if(path.includes('/game_hands/')){
+    const id=path.split('/').at(-1);
+    if(options.method==='DELETE'){nextHands=nextHands.filter(h=>h.id!==id);return}
+    return {session:'next',hand_number:1};
+  }
+  if(options.method==='PATCH')Object.assign(next,JSON.parse(options.body));
+  return path.endsWith('/old')?old:next;
+};
 const pbAllRecords=async (name,opt)=>{lookups++;return opt.filter.includes('status="active"')?found:[old]};
 const pbHandsBySession=async ()=>new Map([['old',[{result:'win',winner:'A',discarder:'B',payments:{A:500,B:-500},balances_after:{A:800,B:-500,C:-300,D:0}}]]]);
 const cloudHands=async()=>nextHands;
@@ -74,12 +88,41 @@ const cloudHands=async()=>nextHands;
    assert.equal(await v32LoadLiveSession('old'),true);
    assert.equal(v32ViewingSessionId,'next');assert.equal(between,'');assert.equal(balances.A,800);
    assert.match(nodes.v186LiveHands.innerHTML,/第 1 將/);assert.match(nodes.v186LiveHands.innerHTML,/B -\$500/);
-   next.hand_number=2;nextHands=[{id:'hand2',result:'win',winner:'A',discarder:'C',payments:{A:100,C:-100},balances_after:{A:900,C:-400,E:0,D:0}}];
-   assert.equal(await v32LoadLiveSession('next'),true);assert.equal(balances.A,900);
+   const asRecorder=()=>{
+     liveViewerMode=false;liveCashflowSnapshot=null;
+     recorderSync={sessionId:'next',sessionChecked:true,known:{},undo:[]};
+   };
+   asRecorder();seriesCashflowLedger=JSON.parse(JSON.stringify(funds));seriesCashflowBase=funds;
+   assert.equal(await flushRecorderSync(),true);
+   assert.equal(next.seat_map._series_cashflow_snapshot.B.A,500);
+   const h={syncId:'hand2',result:'胡牌',winner:'A',discarder:'C',changes:{A:100,C:-100}};
+   hands=[h];balances={A:900,C:-400,E:0,D:0};
+   commitHandToCashflowLedger(h);
+   assert.equal(await flushRecorderSync(),true);
+   const snapshot=next.seat_map._series_cashflow_snapshot;
+   assert.equal(snapshot.B.A,500);assert.equal(snapshot.C.A,400);
+   const recorderRow=v187CashflowRows(P)[0];
+   const restartViewer=()=>{liveReadCache=null;v186PreviousSeriesKey='';liveCashflowSnapshot=null};
+   restartViewer();
+   assert.equal(await v32LoadLiveSession('next',true),true);assert.equal(balances.A,900);
+   assert.deepEqual(v187CashflowRows(P)[0],recorderRow);
+   renderCashflowMatrix();assert.match(nodes.cashflowMatrix.innerHTML,/離場<br>對手/);assert.doesNotMatch(nodes.cashflowMatrix.innerHTML,/未分列/);
    const list=nodes.v186LiveHands.innerHTML;
    assert.ok(list.indexOf('第 2 將')<list.indexOf('第 1 將'));
    assert.match(list,/本把輸贏・A \+\$100/);assert.match(list,/連打累計.*A \+\$900/);
    const last=shown;await v32LoadLiveSession('next');assert.equal(shown,last);
+   next.seat_map._series_cashflow_snapshot=Object.fromEntries(P.map(from=>[from,Object.fromEntries(P.map(to=>[to,snapshot[from]?.[to]||0]))]));
+   restartViewer();assert.equal(await v32LoadLiveSession('next',true),true);
+   assert.deepEqual(v187CashflowRows(P)[0],recorderRow);
+   assert.equal(mergeLiveCashflowSnapshot({B:{A:500}},{B:{A:0}}).B.A,0);
+   liveViewerMode=false;hands=[];balances={...next.final_balances};
+   rollbackHandFromCashflowLedger(h);recorderSync.undo.push({id:h.syncId,n:1});
+   assert.equal(await flushRecorderSync(),true);assert.equal(next.seat_map._series_cashflow_snapshot.C.A,300);
+   assert.equal(await v32LoadLiveSession('next'),true);
+   assert.equal(v187CashflowRows(P)[0].total,800);
+   assert.equal(v187CashflowRows(P)[0].others,500);
+   assert.equal(v187CashflowRows(P)[0].unexplained,0);
+   console.log('PASS recorder sync, next hand, fresh live reload, legacy snapshot compatibility and undo');
    assert.equal(v187LiveCurrentBalances(['A'],{A:800},[{payments:{A:100}}]).A,900);
    console.log('PASS live waits, ignores unrelated/ambiguous sessions, carries the opening, and shows both sets of hand amounts');
  })()`);

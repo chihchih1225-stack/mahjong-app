@@ -53,9 +53,11 @@ async function syncTests(){
  const currentRoomId='r', gameStartedAt='2026-11-26T00:00:00Z';
  let remoteSessionId='', currentTableNumber=0, remoteSessionCreatePromise=null,liveViewerMode=false;
  let P=['A','B','C','D'],dealer='A',roundIndex=0,repeats=0,balances={A:0,B:0,C:0,D:0},hands=[];
+ let seriesCashflowLedger=null,seriesCashflowBase={};
  const players=Object.fromEntries(P.map(name=>[name,{id:name}]));
  let remoteRoomPlayerMap=players;
  const pbFilterValue=x=>x, getRoundName=()=> '東1',buildSeatMap=()=>({}),buildCashflowMatrix=()=>({});
+ const cashflowParticipantNames=order=>order;
  const loadRoomPlayerMap=async()=>players, v32StartRecorderHeartbeat=()=>{};
  let checkpoint, saveAllowed=true;
  function persistActiveGame(){
